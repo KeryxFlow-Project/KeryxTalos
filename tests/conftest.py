@@ -1,6 +1,47 @@
 """Shared pytest fixtures."""
 
+import asyncio
+import os
+
 import pytest
+import pytest_asyncio
+
+
+@pytest.fixture(autouse=True)
+def setup_test_database(tmp_path):
+    """Set up a fresh test database for each test."""
+    # Create a unique temp database for this test
+    db_path = tmp_path / "test_keryxflow.db"
+    # KERYXFLOW_DB_ prefix + url field
+    os.environ["KERYXFLOW_DB_URL"] = f"sqlite+aiosqlite:///{db_path}"
+
+    # Reset global instances before each test
+    import keryxflow.config as config_module
+    import keryxflow.core.database as db_module
+    import keryxflow.core.events as events_module
+    import keryxflow.exchange.paper as paper_module
+
+    config_module._settings = None
+    db_module._engine = None
+    db_module._async_session_factory = None
+    events_module._event_bus = None
+    paper_module._paper_engine = None
+
+    yield
+
+    # Cleanup
+    if db_path.exists():
+        try:
+            db_path.unlink()
+        except PermissionError:
+            pass  # May be locked on Windows
+
+
+@pytest_asyncio.fixture
+async def init_db():
+    """Initialize the database tables."""
+    from keryxflow.core.database import init_db as _init_db
+    await _init_db()
 
 
 @pytest.fixture

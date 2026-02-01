@@ -1,9 +1,14 @@
 """Database models using SQLModel."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from sqlmodel import Field, SQLModel
+
+
+def utc_now() -> datetime:
+    """Get current UTC time (timezone-aware)."""
+    return datetime.now(UTC)
 
 
 class TradeStatus(str, Enum):
@@ -62,8 +67,8 @@ class UserProfile(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     experience_level: ExperienceLevel = Field(default=ExperienceLevel.BEGINNER)
     risk_profile: RiskProfile = Field(default=RiskProfile.CONSERVATIVE)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
     # Paper trading balance
     initial_balance: float = Field(default=10000.0)
@@ -88,7 +93,7 @@ class Trade(SQLModel, table=True):
     signal_id: int | None = Field(default=None, foreign_key="signals.id")
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     opened_at: datetime | None = None
     closed_at: datetime | None = None
 
@@ -122,7 +127,7 @@ class Signal(SQLModel, table=True):
     rejection_reason: str | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
 
 
 class Position(SQLModel, table=True):
@@ -143,8 +148,8 @@ class Position(SQLModel, table=True):
     trade_id: int = Field(foreign_key="trades.id")
 
     # Timestamps
-    opened_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    opened_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class MarketContext(SQLModel, table=True):
@@ -169,7 +174,7 @@ class MarketContext(SQLModel, table=True):
     confidence: float = Field(default=0.5, ge=0.0, le=1.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
     expires_at: datetime | None = None  # Context validity period
 
 
@@ -200,8 +205,8 @@ class DailyStats(SQLModel, table=True):
     circuit_breaker_triggered: bool = False
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 class PaperBalance(SQLModel, table=True):
@@ -214,4 +219,4 @@ class PaperBalance(SQLModel, table=True):
     total: float = 0.0
     free: float = 0.0
     used: float = 0.0
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=utc_now)

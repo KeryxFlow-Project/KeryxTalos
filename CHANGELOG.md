@@ -1,0 +1,96 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added
+- Project foundation and structure
+- Documentation (README, CONTRIBUTING, LICENSE)
+
+---
+
+## [0.1.0] - 2026-02-01
+
+### Added
+
+#### Project Structure
+- Modular architecture with `keryxflow` package
+- Poetry configuration with Python 3.12+ requirement
+- Development tools: ruff, pytest, pytest-asyncio, pytest-cov
+
+#### Core Modules (`keryxflow/core/`)
+- `config.py` - Pydantic Settings for configuration management
+- `logging.py` - Structured logging with structlog (simple + technical levels)
+- `glossary.py` - 25+ trading terms with beginner-friendly explanations
+- `database.py` - Async SQLite database with SQLModel
+- `models.py` - Data models: Trade, Signal, Position, UserProfile, MarketContext, DailyStats
+- `events.py` - Async event bus for pub/sub communication between modules
+
+#### Aegis Module (`keryxflow/aegis/`)
+- `profiles.py` - Risk profiles (conservative, balanced, aggressive)
+
+#### Main Application
+- `main.py` - Async entrypoint with graceful shutdown and signal handling
+
+#### Documentation
+- `README.md` - Complete documentation with:
+  - Project philosophy and manifesto
+  - Beginner-friendly explanations
+  - Architecture overview
+  - Installation and usage guides
+  - FAQ section
+- `CONTRIBUTING.md` - Contribution guidelines
+- `LICENSE` - MIT License
+- `.env.example` - Environment variables template
+- `settings.toml` - Default configuration
+
+#### Infrastructure
+- `.gitignore` - Python/Poetry ignores
+- `tests/conftest.py` - Shared pytest fixtures
+- Virtual environment configured in-project (`.venv/`)
+
+### Technical Details
+- Python 3.12+ required (pandas-ta dependency)
+- Async-first architecture with asyncio
+- Event-driven communication between modules
+- Structured logging with beginner and technical verbosity levels
+
+---
+
+## Version History
+
+| Version | Date | Description |
+|---------|------|-------------|
+| 0.1.0 | 2026-02-01 | Project foundation - Phase 0 complete |
+
+---
+
+## Upcoming
+
+### [0.2.0] - Planned
+- Exchange client (CCXT wrapper)
+- Paper trading engine
+- Basic price feed
+
+### [0.3.0] - Planned
+- Aegis quant engine (position sizing, Kelly criterion)
+- Risk manager (order approval)
+- Circuit breaker
+
+### [0.4.0] - Planned
+- Oracle technical analysis (pandas-ta indicators)
+- News feeds (RSS, CryptoPanic)
+- LLM brain (Claude integration)
+
+### [0.5.0] - Planned
+- Hermes TUI (Textual interface)
+- Onboarding wizard
+- Help modal with glossary
+
+### [1.0.0] - Planned
+- Full integration
+- Backtesting engine
+- Production ready

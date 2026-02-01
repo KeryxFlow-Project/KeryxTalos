@@ -81,7 +81,7 @@ Want full control? **Advanced Mode** gives you:
 
 ### What you'll need
 
-1. **A computer** with Python 3.11+ installed
+1. **A computer** with Python 3.12+ installed
 2. **A Binance account** ([create one here](https://www.binance.com))
 3. **An Anthropic API key** for Claude AI ([get one here](https://console.anthropic.com))
 4. **15 minutes** to set everything up
@@ -298,7 +298,7 @@ Mathematical risk management. Every order requires Aegis approval.
 
 | Component | Technology |
 |-----------|------------|
-| Language | Python 3.11+ |
+| Language | Python 3.12+ |
 | Package Manager | Poetry |
 | Exchange | ccxt (Binance) |
 | Database | SQLModel + aiosqlite |

@@ -2,7 +2,7 @@
 
 ### *Your keys, your trades, your code.*
 
-A hybrid AI & quantitative trading engine for cryptocurrency markets.
+An AI-powered trading assistant that helps you accumulate Bitcoin.
 
 ```
 ┌─ KERYXFLOW v0.1.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
@@ -37,40 +37,224 @@ A hybrid AI & quantitative trading engine for cryptocurrency markets.
 
 ---
 
+## What is KeryxFlow?
+
+**In simple terms:** KeryxFlow is like having a smart assistant that watches the crypto market 24/7 and trades for you, following strict rules to protect your money.
+
+**What it does:**
+- 📊 Watches cryptocurrency prices in real-time
+- 🤖 Uses AI (Claude) to understand market news and sentiment
+- 📈 Finds trading opportunities using math, not emotions
+- 🛡️ Protects your capital with strict risk rules
+- 💻 Shows everything in a beautiful terminal interface
+
+**What it doesn't do:**
+- ❌ Guarantee profits (no one can)
+- ❌ Require you to understand complex trading
+- ❌ Take custody of your funds (your keys stay yours)
+
+---
+
+## Who is this for?
+
+### 🌱 Beginners
+
+Never traded before? That's fine.
+
+KeryxFlow has a **Simple Mode** that:
+- Asks a few questions about your goals
+- Configures everything automatically
+- Uses conservative settings to protect you while you learn
+- Explains what it's doing in plain language
+
+### 🎯 Experienced Traders
+
+Want full control? **Advanced Mode** gives you:
+- Custom technical indicators
+- Fine-tuned risk parameters
+- Strategy customization
+- Raw market data access
+
+---
+
+## Quick Start
+
+### What you'll need
+
+1. **A computer** with Python 3.11+ installed
+2. **A Binance account** ([create one here](https://www.binance.com))
+3. **An Anthropic API key** for Claude AI ([get one here](https://console.anthropic.com))
+4. **15 minutes** to set everything up
+
+### Installation
+
+```bash
+# Download KeryxFlow
+git clone https://github.com/yourusername/keryxflow.git
+cd keryxflow
+
+# Install it
+poetry install
+
+# Set up your configuration
+cp .env.example .env
+```
+
+### First Run
+
+```bash
+poetry run keryxflow
+```
+
+On first launch, KeryxFlow will guide you through setup:
+
+```
+┌─ Welcome to KeryxFlow ─────────────────────────────────────┐
+│                                                            │
+│  Let's set up your trading assistant.                      │
+│                                                            │
+│  How much trading experience do you have?                  │
+│                                                            │
+│  [1] 🌱 I'm completely new to trading                      │
+│  [2] 📊 I know the basics (buy low, sell high)             │
+│  [3] 🎯 I'm an experienced trader                          │
+│                                                            │
+└────────────────────────────────────────────────────────────┘
+```
+
+Based on your answers, KeryxFlow configures itself appropriately.
+
+---
+
+## How it Works (Simple Explanation)
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   ORACLE    │────▶│    AEGIS    │────▶│   EXECUTE   │
+│ "Should we  │     │ "Is it safe │     │  "Do the    │
+│   trade?"   │     │  to trade?" │     │   trade"    │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+  Analyzes news      Checks your risk     Places order
+  and price data     limits and rules     (or simulates)
+```
+
+1. **Oracle watches the market** — It reads news, analyzes price patterns, and looks for opportunities
+2. **Aegis checks if it's safe** — Before any trade, it verifies the risk is within your limits
+3. **Execute (or simulate)** — In paper mode, it simulates. In live mode, it trades for real.
+
+**You're always in control.** Press `P` for panic mode to close everything instantly.
+
+---
+
+## Concepts Explained
+
+New to trading? Here are the terms you'll see:
+
+| Term | What it means | Why it matters |
+|------|---------------|----------------|
+| **Paper Trading** | Simulated trading with fake money | Practice without risk |
+| **Position** | An open trade you currently have | Shows what you own |
+| **PnL** | Profit and Loss | Are you winning or losing? |
+| **Stop-Loss** | Automatic sell if price drops too much | Limits your losses |
+| **Drawdown** | How much you've lost from your peak | Measures bad periods |
+
+Press `?` on any term in the interface to see its explanation.
+
+---
+
 ## Why KeryxFlow Exists
 
-The fiat monetary system is broken by design. Infinite money printing, controlled inflation, and centralized monetary policy extract wealth from those at the bottom of the pyramid and transfer it upward. Your savings lose purchasing power while you sleep.
+The fiat monetary system is broken by design. Inflation erodes your savings while you sleep. Banks can freeze your accounts. Governments print money endlessly.
 
 **Bitcoin fixes this.** But holding isn't enough for everyone. Some of us want to actively grow our stack.
 
 KeryxFlow is a tool for sovereign individuals who want to:
 
-- **Accumulate Bitcoin** using algorithmic trading as the vehicle
-- **Trade on their own terms** with code they can audit and modify
+- **Accumulate Bitcoin** using algorithmic trading
+- **Trade on their own terms** with code they can audit
 - **Leverage AI** to read market context humans might miss
 - **Manage risk mathematically** because emotions destroy traders
 
-This is not a get-rich-quick scheme. This is infrastructure for disciplined, systematic wealth building.
+This is not a get-rich-quick scheme. This is infrastructure for disciplined wealth building.
 
 **Open source because trust requires transparency.**
 
 ---
 
-## Philosophy
+## Safety First
 
-```
-Math protects capital     →  AEGIS   →  No trade without risk approval
-AI finds opportunity      →  ORACLE  →  LLM validates market context
-Terminal shows truth      →  HERMES  →  Real-time visibility, zero bullshit
-```
+KeryxFlow is built with safety as the top priority:
 
-The goal is simple: **Stack sats.**
+### 🛡️ Multiple Protection Layers
 
-Everything else—altcoins, futures, leverage, stablecoins—is just a means to acquire more Bitcoin.
+| Protection | What it does |
+|------------|--------------|
+| **Paper Mode Default** | Starts with simulated money, not real |
+| **Daily Loss Limit** | Stops trading if you lose too much in a day |
+| **Position Limits** | Never puts too much in one trade |
+| **Panic Button** | One key to close everything immediately |
+| **AI Validation** | Claude checks if news makes trading risky |
+
+### ⚠️ Warnings
+
+- **Start with paper trading.** Practice until you're comfortable.
+- **Never invest more than you can afford to lose.**
+- **Understand the risks before going live.**
 
 ---
 
-## Architecture
+## Configuration
+
+### Simple Mode
+
+Answer a few questions and KeryxFlow configures itself:
+
+```
+What's your goal?
+[1] 🐢 Safety first — slow and steady (Conservative)
+[2] ⚖️ Balanced — moderate risk and reward (Balanced)
+[3] 🚀 Growth focused — higher risk tolerance (Aggressive)
+```
+
+### Advanced Mode
+
+Full control via `settings.toml`:
+
+```toml
+[risk]
+risk_per_trade = 0.01       # Risk 1% per trade
+max_daily_drawdown = 0.05   # Stop if down 5% today
+max_open_positions = 3      # Max 3 trades at once
+
+[oracle]
+llm_enabled = true
+llm_model = "claude-sonnet-4-20250514"
+
+[system]
+mode = "paper"              # "paper" or "live"
+symbols = ["BTC/USDT", "ETH/USDT"]
+```
+
+---
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `q` | Quit |
+| `p` | **Panic** — close all positions immediately |
+| `Space` | Pause/Resume trading |
+| `l` | Toggle logs panel |
+| `s` | Cycle through symbols |
+| `?` | Help / explain highlighted term |
+
+---
+
+## Architecture (Technical)
+
+For developers and curious minds:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -92,118 +276,35 @@ Everything else—altcoins, futures, leverage, stablecoins—is just a means to 
 
 Terminal UI built with [Textual](https://textual.textualize.io/). Inspired by `btop` and `htop`.
 
-- ASCII charts with real-time price action
-- Color-coded logs and system events
-- Position tracking with live PnL
-- Panic button for emergency exits
-- Keyboard-driven workflow
-
 ### Oracle — The Intelligence
 
 Hybrid signal generation: quantitative math + cognitive AI.
 
-- **Technical Engine**: RSI, MACD, Bollinger Bands, OBV, ATR via pandas-ta
-- **News Aggregator**: RSS feeds + news APIs for market context
-- **LLM Brain**: Claude analyzes sentiment and validates trading signals
-
-The AI doesn't make decisions alone. It validates or vetoes signals generated by math.
+- **Technical Engine**: RSI, MACD, Bollinger Bands, OBV, ATR
+- **News Aggregator**: RSS feeds + news APIs
+- **LLM Brain**: Claude validates trading signals against news context
 
 ### Aegis — The Guardian
 
-Mathematical risk management. **Every order requires Aegis approval.**
+Mathematical risk management. Every order requires Aegis approval.
 
 - **Position Sizing**: Kelly criterion + fixed fractional
 - **Volatility Adaptation**: ATR-based dynamic stops
 - **Circuit Breaker**: Automatic shutdown on drawdown limits
-- **Exposure Control**: Max positions, correlation checks
-
-Aegis exists because the market doesn't care about your feelings.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
+| Component | Technology |
+|-----------|------------|
 | Language | Python 3.11+ |
 | Package Manager | Poetry |
-| Exchange | ccxt (Binance Spot, Futures, Margin) |
+| Exchange | ccxt (Binance) |
 | Database | SQLModel + aiosqlite |
 | Analysis | numpy, pandas, pandas-ta |
 | AI | LangChain + Anthropic Claude |
 | Interface | Textual |
-| Logging | structlog |
-
----
-
-## Requirements
-
-- Python 3.11+
-- Binance account with API access
-- Anthropic API key (Claude)
-- Terminal with Unicode support
-
----
-
-## Installation
-
-```bash
-# Clone
-git clone https://github.com/yourusername/keryxflow.git
-cd keryxflow
-
-# Install dependencies
-poetry install
-
-# Configure
-cp .env.example .env
-# Edit .env with your API keys
-
-# Run
-poetry run keryxflow
-```
-
----
-
-## Configuration
-
-### Environment Variables (`.env`)
-
-```bash
-BINANCE_API_KEY=your_key
-BINANCE_API_SECRET=your_secret
-ANTHROPIC_API_KEY=your_claude_key
-```
-
-### Trading Rules (`settings.toml`)
-
-```toml
-[risk]
-risk_per_trade = 0.01       # 1% per trade
-max_daily_drawdown = 0.05   # 5% daily loss = kill switch
-max_open_positions = 3
-
-[oracle]
-llm_enabled = true
-llm_model = "claude-sonnet-4-20250514"
-
-[system]
-mode = "paper"              # Start with paper trading
-symbols = ["BTC/USDT", "ETH/USDT"]
-```
-
----
-
-## Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `q` | Quit |
-| `p` | Panic — close all positions immediately |
-| `Space` | Pause/Resume trading |
-| `l` | Toggle logs panel |
-| `s` | Cycle through symbols |
-| `?` | Help |
 
 ---
 
@@ -213,35 +314,12 @@ symbols = ["BTC/USDT", "ETH/USDT"]
 keryxflow/
 ├── keryxflow/
 │   ├── main.py              # Entrypoint
-│   ├── config.py            # Configuration management
-│   │
+│   ├── config.py            # Configuration
 │   ├── core/                # Infrastructure
-│   │   ├── database.py
-│   │   ├── events.py
-│   │   ├── models.py
-│   │   └── logging.py
-│   │
 │   ├── hermes/              # Terminal UI
-│   │   ├── app.py
-│   │   ├── widgets/
-│   │   └── theme.tcss
-│   │
 │   ├── oracle/              # Intelligence
-│   │   ├── technical.py
-│   │   ├── feeds.py
-│   │   ├── brain.py
-│   │   └── signals.py
-│   │
 │   ├── aegis/               # Risk Management
-│   │   ├── quant.py
-│   │   ├── risk.py
-│   │   └── circuit.py
-│   │
 │   └── exchange/            # Binance Integration
-│       ├── client.py
-│       ├── paper.py
-│       └── orders.py
-│
 ├── tests/
 ├── settings.toml
 └── pyproject.toml
@@ -249,78 +327,57 @@ keryxflow/
 
 ---
 
-## How It Works
-
-```
-Price Feed → Technical Analysis → Signal Generated
-                                        ↓
-                          News Fetch → LLM Analysis
-                                        ↓
-                          Signal Validated or Vetoed
-                                        ↓
-                          Aegis Risk Approval
-                                        ↓
-                          Order Execution
-                                        ↓
-                          Position Tracking → TUI Update
-```
-
-1. Exchange streams real-time market data
-2. Oracle calculates technical indicators
-3. When conditions align, a signal is generated
-4. LLM analyzes recent news to validate context
-5. Aegis checks risk parameters and approves/rejects
-6. Order executes (paper or live)
-7. Hermes displays everything in real-time
-
----
-
 ## Development
 
 ```bash
-# Tests
+# Run tests
 poetry run pytest
 
-# Coverage
-poetry run pytest --cov=keryxflow
-
-# Lint
+# Lint and format
 poetry run ruff check .
-
-# Format
 poetry run ruff format .
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ---
 
 ## Roadmap
 
 - [x] Project structure and documentation
-- [ ] Core infrastructure (config, events, database)
-- [ ] Exchange client with paper trading
-- [ ] Aegis risk engine
-- [ ] Oracle technical analysis
-- [ ] News feeds integration
-- [ ] Claude LLM brain
-- [ ] Hermes TUI dashboard
-- [ ] Backtesting engine
-- [ ] Live trading mode
-- [ ] Multi-exchange support
+- [ ] Core infrastructure
+- [ ] Exchange connectivity
+- [ ] Risk engine (Aegis)
+- [ ] Technical analysis (Oracle)
+- [ ] LLM integration
+- [ ] Terminal UI (Hermes)
+- [ ] Guided onboarding
+- [ ] Backtesting
+- [ ] Live trading
 
 ---
 
-## Contributing
+## FAQ
 
-KeryxFlow is open source because **trust requires transparency**.
+### Is this safe to use?
 
-If you believe in financial sovereignty and want to contribute:
+KeryxFlow starts in **paper trading mode** by default. No real money is used until you explicitly enable live trading.
 
-1. Fork the repository
-2. Create a feature branch
-3. Write clean, tested code
-4. Submit a pull request
+### Do I need trading experience?
 
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+No. Simple Mode guides you through everything. But understanding what you're doing is always recommended.
+
+### How much money do I need?
+
+For paper trading: $0. For live trading: whatever you're comfortable potentially losing. Start small.
+
+### Can I lose money?
+
+**Yes.** Trading involves risk. KeryxFlow has safety features, but losses are always possible. Never trade with money you can't afford to lose.
+
+### Is this legal?
+
+Using trading bots is legal in most jurisdictions. Check your local laws and Binance's terms of service.
 
 ---
 

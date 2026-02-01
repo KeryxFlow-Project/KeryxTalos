@@ -1,0 +1,56 @@
+# KeryxFlow Configuration
+# Trading rules and system parameters
+
+[system]
+exchange = "binance"
+mode = "paper"                      # "paper" or "live"
+symbols = ["BTC/USDT", "ETH/USDT"]
+base_currency = "USDT"
+log_level = "INFO"
+
+[risk]
+model = "fixed_fractional"          # Position sizing model
+risk_per_trade = 0.01               # 1% of balance per trade
+max_daily_drawdown = 0.05           # 5% daily loss triggers kill switch
+max_open_positions = 3              # Maximum concurrent positions
+min_risk_reward = 1.5               # Minimum risk/reward ratio
+stop_loss_type = "atr"              # "atr" or "fixed"
+atr_multiplier = 2.0                # ATR multiplier for dynamic stops
+
+[oracle]
+# Technical Analysis
+indicators = ["rsi", "macd", "bbands", "obv", "atr", "ema"]
+rsi_period = 14
+rsi_overbought = 70
+rsi_oversold = 30
+macd_fast = 12
+macd_slow = 26
+macd_signal = 9
+bbands_period = 20
+bbands_std = 2.0
+ema_periods = [9, 21, 50, 200]
+
+# LLM Integration
+llm_enabled = true
+llm_model = "claude-sonnet-4-20250514"
+analysis_interval = 300             # Seconds between LLM analyses
+max_tokens = 1024
+
+# News Sources
+news_enabled = true
+news_sources = ["cryptopanic", "rss"]
+rss_feeds = [
+    "https://cointelegraph.com/rss",
+    "https://decrypt.co/feed",
+]
+news_lookback_hours = 4             # How far back to fetch news
+
+[database]
+url = "sqlite+aiosqlite:///data/keryxflow.db"
+
+[hermes]
+refresh_rate = 1.0                  # TUI refresh rate in seconds
+chart_width = 60                    # Chart width in characters
+chart_height = 15                   # Chart height in characters
+max_log_lines = 100                 # Maximum log lines to display
+theme = "cyberpunk"                 # "cyberpunk" or "minimal"

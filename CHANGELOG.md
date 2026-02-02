@@ -8,6 +8,124 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.12.0] - 2026-02-02
+
+### Added
+
+#### Memory System - Trade Episodes, Rules, and Patterns (`keryxflow/memory/`)
+
+- **`episodic.py`** - Episodic memory for trade episodes
+  - `EpisodicMemory` - Records and recalls trade episodes
+  - `EpisodeContext` - Entry context for new trade episodes
+  - `SimilarityMatch` - Similar past trade with relevance score
+  - `record_entry()` - Record trade entry with full context
+  - `record_exit()` - Record trade exit with outcome
+  - `record_lessons()` - Record lessons learned
+  - `recall_similar()` - Find similar past trades by technical/sentiment context
+  - RSI zone classification for similarity matching
+
+- **`semantic.py`** - Semantic memory for rules and patterns
+  - `SemanticMemory` - Manages trading rules and market patterns
+  - `TradingRule` - Rules learned from experience or user-defined
+  - `MarketPattern` - Identified market patterns with statistics
+  - `RuleMatch` / `PatternMatch` - Matching results with relevance
+  - `create_rule()` / `create_pattern()` - Create new rules/patterns
+  - `get_active_rules()` - Get rules for current context
+  - `update_rule_performance()` - Track rule success rate
+  - `find_matching_patterns()` - Detect patterns in current context
+
+- **`manager.py`** - Unified memory interface
+  - `MemoryManager` - Coordinates episodic and semantic memory
+  - `MemoryContext` - Complete memory context for decisions
+  - `build_context_for_decision()` - Build context with similar trades, rules, patterns
+  - `record_trade_entry()` / `record_trade_exit()` - Full trade lifecycle
+  - `to_prompt_context()` - Format memory for LLM prompts
+  - Confidence adjustment based on past performance
+
+#### New Data Models (`keryxflow/core/models.py`)
+
+- **`TradeEpisode`** - Complete trade with reasoning and lessons learned
+  - Entry/exit context with timestamps
+  - Technical and market context (JSON)
+  - Outcome classification (WIN, LOSS, STOPPED_OUT, etc.)
+  - Lessons learned and reflection fields
+
+- **`TradingRule`** - Trading rules with performance tracking
+  - Source (learned, user, backtest, system)
+  - Status (active, inactive, testing, deprecated)
+  - Success rate and application count
+  - Applicability filters (symbols, timeframes, conditions)
+
+- **`MarketPattern`** - Market patterns with statistics
+  - Pattern type (price_action, indicator, volume, sentiment)
+  - Win rate and average return
+  - Validation status based on occurrences
+
+#### Engine Integration (`keryxflow/core/engine.py`)
+
+- `TradingEngine` now includes `MemoryManager`
+- Trade episodes recorded automatically on order execution
+- Memory context built for each trading decision
+- `record_trade_exit()` method for position close tracking
+
+#### Oracle Integration (`keryxflow/oracle/brain.py`)
+
+- `analyze()` now accepts `memory_context` parameter
+- Memory context included in LLM prompts
+- Similar past trades and rules inform analysis
+
+#### Tests (`tests/test_memory/`)
+
+- `test_episodic.py` - 22 tests for episodic memory
+- `test_semantic.py` - 27 tests for semantic memory
+- `test_manager.py` - 21 tests for memory manager
+- **Total: 70 new tests** (638 total passing)
+
+### Technical Details
+
+- Memory stored in SQLite via SQLModel (same as other models)
+- Similarity calculation based on RSI zone, trend, MACD signal
+- Pattern matching uses detection criteria with range/equals checks
+- Confidence adjustment: +/-30% max based on memory context
+- Rules track success rate and average PnL when applied
+
+### Example Usage
+
+```python
+from keryxflow.memory import get_memory_manager
+
+memory = get_memory_manager()
+
+# Build context for decision
+context = await memory.build_context_for_decision(
+    symbol="BTC/USDT",
+    technical_context={"rsi": 28, "trend": "bullish"},
+    market_sentiment="bullish",
+)
+
+# Record trade entry
+episode_id = await memory.record_trade_entry(
+    trade_id=1,
+    symbol="BTC/USDT",
+    entry_price=50000.0,
+    entry_reasoning="RSI oversold with bullish divergence",
+    entry_confidence=0.8,
+    memory_context=context,
+)
+
+# Record trade exit
+await memory.record_trade_exit(
+    episode_id=episode_id,
+    exit_price=52000.0,
+    exit_reasoning="Take profit reached",
+    outcome=TradeOutcome.WIN,
+    pnl=200.0,
+    pnl_percentage=4.0,
+)
+```
+
+---
+
 ## [0.11.0] - 2026-02-02
 
 ### Added
@@ -763,6 +881,7 @@ poetry run keryxflow
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.12.0 | 2026-02-02 | Memory System - trade episodes, rules, patterns |
 | 0.11.0 | 2026-02-02 | Guardrails layer - immutable safety limits (fixes Issue #9) |
 | 0.10.0 | 2026-02-02 | Multi-timeframe analysis |
 | 0.9.0 | 2026-02-02 | Parameter optimization (grid search) |
@@ -778,12 +897,6 @@ poetry run keryxflow
 ---
 
 ## Upcoming
-
-### [0.12.0] - Planned: Memory System
-- Trade episode memory with reasoning and lessons learned
-- Trading rules learned from experience
-- Market pattern recognition
-- Memory context in LLM prompts
 
 ### [0.13.0] - Planned: Agent Tools
 - Tool framework for Claude (perception, analysis, execution)
@@ -811,7 +924,7 @@ poetry run keryxflow
 ## RFC & Architecture
 
 ### RFC #11: AI-First Trading Architecture
-**Status**: Phase 1 Complete | **Document**: `docs/ai-trading-architecture.md`
+**Status**: Phase 2 Complete | **Document**: `docs/ai-trading-architecture.md`
 
 Proposes evolution from "AI validates" to "AI operates":
 - Current: Technical indicators (60%) + Claude validates (40%)
@@ -821,7 +934,7 @@ Proposes evolution from "AI validates" to "AI operates":
 
 **Phases**:
 1. ✅ Guardrails Layer - **COMPLETE** (v0.11.0) - Issue #9 fixed
-2. Memory System (2-3 weeks) - 3-layer memory (Episodic, Semantic, Procedural)
+2. ✅ Memory System - **COMPLETE** (v0.12.0) - Episodic, Semantic memory
 3. Agent Tools (2-3 weeks) - Tools for Claude to query data and execute
 4. Cognitive Agent (3-4 weeks) - Claude as primary decision maker
 5. Learning & Reflection (2-3 weeks) - Continuous improvement

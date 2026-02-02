@@ -15,10 +15,11 @@ from keryxflow.aegis.risk import (
 from keryxflow.config import get_settings
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
-from keryxflow.core.models import RiskProfile
+from keryxflow.core.models import RiskProfile, TradeOutcome
 from keryxflow.core.safeguards import LiveTradingSafeguards
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
+from keryxflow.memory.manager import MemoryManager, get_memory_manager
 from keryxflow.oracle.mtf_signals import get_mtf_signal_generator
 from keryxflow.oracle.signals import (
     SignalGenerator,
@@ -166,6 +167,7 @@ class TradingEngine:
         signal_generator: SignalGenerator | None = None,
         risk_manager: RiskManager | None = None,
         notification_manager: "NotificationManager | None" = None,
+        memory_manager: MemoryManager | None = None,
     ):
         """Initialize the trading engine."""
         self.settings = get_settings()
@@ -177,6 +179,10 @@ class TradingEngine:
             initial_balance=10000.0,
         )
         self.notifications = notification_manager
+        self.memory = memory_manager or get_memory_manager()
+
+        # Track episode IDs by trade/order for later update
+        self._episode_by_order: dict[str, int] = {}
 
         # Safeguards for live trading
         self._safeguards = LiveTradingSafeguards(self.settings)
@@ -553,7 +559,7 @@ class TradingEngine:
     async def _execute_order(
         self,
         order: OrderRequest,
-        _signal: TradingSignal,
+        signal: TradingSignal,
         approval: ApprovalResult,
     ) -> None:
         """Execute an approved order."""
@@ -585,6 +591,7 @@ class TradingEngine:
 
             if result:
                 fill_price = result.get("price", order.entry_price)
+                order_id = result.get("id", f"{order.symbol}_{datetime.now(UTC).timestamp()}")
 
                 # Publish fill event
                 await self.event_bus.publish(
@@ -595,11 +602,14 @@ class TradingEngine:
                             "side": order.side,
                             "quantity": order.quantity,
                             "price": fill_price,
-                            "order_id": result.get("id"),
+                            "order_id": order_id,
                             "is_live": self._is_live_mode,
                         },
                     )
                 )
+
+                # Record trade episode in memory
+                await self._record_trade_episode(order, signal, fill_price, order_id)
 
                 # Update risk manager state
                 if self._is_live_mode:
@@ -627,6 +637,108 @@ class TradingEngine:
                     error=str(e),
                     component="OrderExecution",
                 )
+
+    async def _record_trade_episode(
+        self,
+        order: OrderRequest,
+        signal: TradingSignal,
+        fill_price: float,
+        order_id: str,
+    ) -> None:
+        """Record a new trade episode in memory."""
+        try:
+            # Build technical context from signal
+            technical_context = {
+                "confidence": signal.confidence,
+                "strength": signal.strength.value if signal.strength else None,
+                "entry_price": signal.entry_price,
+                "stop_loss": signal.stop_loss,
+                "take_profit": signal.take_profit,
+            }
+
+            # Build market context
+            market_context = {
+                "signal_type": signal.signal_type.value,
+                "reasoning": signal.reasoning,
+            }
+
+            # Get memory context for decision
+            memory_context = await self.memory.build_context_for_decision(
+                symbol=order.symbol,
+                technical_context=technical_context,
+            )
+
+            # Generate trade_id (use hash of order_id as int)
+            trade_id = hash(order_id) % (10**9)
+
+            # Record the episode
+            episode_id = await self.memory.record_trade_entry(
+                trade_id=trade_id,
+                symbol=order.symbol,
+                entry_price=fill_price,
+                entry_reasoning=signal.reasoning or f"{signal.signal_type.value} signal",
+                entry_confidence=signal.confidence,
+                technical_context=technical_context,
+                market_context=market_context,
+                memory_context=memory_context,
+                tags=[order.side, signal.signal_type.value],
+            )
+
+            if episode_id:
+                self._episode_by_order[order_id] = episode_id
+                logger.debug(
+                    "trade_episode_recorded",
+                    episode_id=episode_id,
+                    order_id=order_id,
+                    symbol=order.symbol,
+                )
+
+        except Exception as e:
+            logger.warning("failed_to_record_episode", error=str(e))
+
+    async def record_trade_exit(
+        self,
+        order_id: str,
+        exit_price: float,
+        exit_reasoning: str,
+        pnl: float,
+        pnl_percentage: float,
+    ) -> None:
+        """Record a trade exit in memory."""
+        episode_id = self._episode_by_order.get(order_id)
+        if not episode_id:
+            return
+
+        try:
+            # Determine outcome
+            if pnl_percentage > 0:
+                outcome = TradeOutcome.WIN
+            elif pnl_percentage < -1.5:  # Assume stop loss hit
+                outcome = TradeOutcome.STOPPED_OUT
+            else:
+                outcome = TradeOutcome.LOSS
+
+            await self.memory.record_trade_exit(
+                episode_id=episode_id,
+                exit_price=exit_price,
+                exit_reasoning=exit_reasoning,
+                outcome=outcome,
+                pnl=pnl,
+                pnl_percentage=pnl_percentage,
+            )
+
+            # Clean up tracking
+            del self._episode_by_order[order_id]
+
+            logger.debug(
+                "trade_exit_recorded",
+                episode_id=episode_id,
+                outcome=outcome.value,
+                pnl_percentage=pnl_percentage,
+            )
+
+        except Exception as e:
+            logger.warning("failed_to_record_exit", error=str(e))
 
     async def _execute_live_order(self, order: OrderRequest) -> dict[str, Any] | None:
         """Execute an order on the live exchange.

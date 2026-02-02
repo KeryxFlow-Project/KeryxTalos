@@ -6,6 +6,7 @@ from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
 from keryxflow.hermes.widgets.oracle import OracleWidget
 from keryxflow.hermes.widgets.positions import PositionsWidget
+from keryxflow.hermes.widgets.splash import SplashScreen
 from keryxflow.hermes.widgets.stats import StatsWidget
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "StatsWidget",
     "LogsWidget",
     "HelpModal",
+    "SplashScreen",
 ]

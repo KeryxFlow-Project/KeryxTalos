@@ -130,8 +130,7 @@ class StatsWidget(Static):
         avg_win = self._stats["avg_win"]
         avg_loss = self._stats["avg_loss"]
         avg_line.update(
-            f"Avg Win:    [green]${avg_win:+,.2f}[/]\n"
-            f"Avg Loss:   [red]${-avg_loss:,.2f}[/]"
+            f"Avg Win:    [green]${avg_win:+,.2f}[/]\n" f"Avg Loss:   [red]${-avg_loss:,.2f}[/]"
         )
 
         # Expectancy line

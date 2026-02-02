@@ -56,7 +56,7 @@ class LogsWidget(Static):
 
         # Trim old entries
         if len(self._entries) > self.MAX_ENTRIES:
-            self._entries = self._entries[-self.MAX_ENTRIES:]
+            self._entries = self._entries[-self.MAX_ENTRIES :]
 
         # Format and write to log
         log_output = self.query_one("#log-output", RichLog)

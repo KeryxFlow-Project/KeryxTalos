@@ -8,12 +8,22 @@ from textual.containers import Container, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Static
 
+from keryxflow import __version__
 from keryxflow.core.glossary import (
     GlossaryEntry,
     get_term,
     get_terms_by_category,
     search_glossary,
 )
+
+BANNER_SMALL = """\
+[bold #F7931A]██╗  ██╗███████╗██████╗ ██╗   ██╗██╗  ██╗
+██║ ██╔╝██╔════╝██╔══██╗╚██╗ ██╔╝╚██╗██╔╝
+█████╔╝ █████╗  ██████╔╝ ╚████╔╝  ╚███╔╝
+██╔═██╗ ██╔══╝  ██╔══██╗  ╚██╔╝   ██╔██╗
+██║  ██╗███████╗██║  ██║   ██║   ██╔╝ ██╗
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝[/bold #F7931A]
+[#F7931A]FLOW[/#F7931A]"""
 
 
 class HelpModal(ModalScreen[None]):
@@ -25,7 +35,7 @@ class HelpModal(ModalScreen[None]):
     }
 
     HelpModal > Container {
-        width: 70;
+        width: 60;
         height: auto;
         max-height: 80%;
         background: $surface;
@@ -34,9 +44,8 @@ class HelpModal(ModalScreen[None]):
     }
 
     HelpModal .title {
-        text-style: bold;
-        color: $primary-lighten-2;
-        text-align: center;
+        width: 100%;
+        content-align: center middle;
         margin-bottom: 1;
     }
 
@@ -166,8 +175,8 @@ class HelpModal(ModalScreen[None]):
 
     def _compose_help_view(self) -> ComposeResult:
         """Compose general help view."""
-        yield Static("KERYXFLOW HELP", classes="title")
-        yield Static("Your trading assistant", classes="subtitle")
+        yield Static(BANNER_SMALL, classes="title")
+        yield Static(f"v{__version__} — Your keys, your trades, your code.", classes="subtitle")
 
         # Keybindings section
         yield Static("Keyboard Shortcuts", classes="category-header")
@@ -201,19 +210,13 @@ class HelpModal(ModalScreen[None]):
         self._search_results = results
 
         if not results:
-            results_container.mount(
-                Static("[dim]No terms found[/]", classes="simple")
-            )
+            results_container.mount(Static("[dim]No terms found[/]", classes="simple"))
             return
 
         # Show results (limit to 5)
         for entry in results[:5]:
-            results_container.mount(
-                Static(f"[bold]{entry.name}[/]", classes="term-name")
-            )
-            results_container.mount(
-                Static(f"  {entry.simple}", classes="simple")
-            )
+            results_container.mount(Static(f"[bold]{entry.name}[/]", classes="term-name"))
+            results_container.mount(Static(f"  {entry.simple}", classes="simple"))
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button press."""
@@ -368,15 +371,9 @@ class GlossaryBrowser(ModalScreen[None]):
 
         for entry in entries:
             with Vertical(classes="term-entry"):
-                terms_list.mount(
-                    Static(f"[bold]{entry.name}[/]", classes="term-name")
-                )
-                terms_list.mount(
-                    Static(f"📖 {entry.simple}", classes="simple")
-                )
-                terms_list.mount(
-                    Static(f"🔬 {entry.technical}", classes="technical")
-                )
+                terms_list.mount(Static(f"[bold]{entry.name}[/]", classes="term-name"))
+                terms_list.mount(Static(f"📖 {entry.simple}", classes="simple"))
+                terms_list.mount(Static(f"🔬 {entry.technical}", classes="technical"))
 
     def action_close(self) -> None:
         """Close the browser."""

@@ -24,7 +24,7 @@
 An AI-powered trading assistant that helps you accumulate Bitcoin.
 
 ```
-┌─ KERYXFLOW v0.6.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
+┌─ KERYXFLOW v0.7.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
 │                                                                              │
 │  ┌─ BTC/USDT ─────────────────────────┐  ┌─ POSITIONS ────────────────────┐ │
 │  │     ▁▂▃▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆       │  │  BTC   0.052  +$234.50  +3.2%  │ │
@@ -274,6 +274,57 @@ symbols = ["BTC/USDT", "ETH/USDT"]
 
 ---
 
+## Backtesting
+
+Test your strategy with historical data before risking real money.
+
+```bash
+# Backtest BTC/USDT for 6 months
+poetry run keryxflow-backtest \
+    --symbol BTC/USDT \
+    --start 2024-01-01 \
+    --end 2024-06-30 \
+    --timeframe 1h \
+    --balance 10000 \
+    --profile balanced
+```
+
+**Output:**
+```
+==================================================
+             BACKTEST REPORT
+==================================================
+
+PERFORMANCE
+--------------------------------------------------
+  Initial Balance:    $10,000.00
+  Final Balance:      $12,450.00
+  Total Return:       +24.50%
+
+TRADES
+--------------------------------------------------
+  Total Trades:       45
+  Win Rate:           62.2% (28/45)
+  Avg Win:            $234.50
+  Avg Loss:           $98.20
+  Profit Factor:      2.15
+  Expectancy:         $54.44/trade
+
+RISK
+--------------------------------------------------
+  Max Drawdown:       -8.3%
+  Sharpe Ratio:       1.84
+==================================================
+```
+
+**Options:**
+- `--chart` — Show ASCII equity curve
+- `--trades N` — Show last N trades
+- `--output ./reports` — Save CSV files (trades + equity)
+- `--data ./csv/` — Load from local CSV instead of Binance
+
+---
+
 ## Architecture (Technical)
 
 For developers and curious minds:
@@ -396,7 +447,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Splash screen with Bitcoin orange branding
 - [x] TUI integrated with main entrypoint (`poetry run keryxflow`)
 - [x] **Full integration loop** - TradingEngine orchestrator (Price → Oracle → Aegis → Order)
-- [ ] Backtesting engine
+- [x] **Backtesting engine** - `poetry run keryxflow-backtest`
 - [ ] Live trading mode
 
 ---

@@ -5,6 +5,8 @@ from typing import Any
 from textual.app import ComposeResult
 from textual.widgets import Static
 
+from keryxflow.aegis.risk import RiskManager
+
 
 class AegisWidget(Static):
     """Widget displaying Aegis risk management status."""
@@ -47,6 +49,11 @@ class AegisWidget(Static):
         self._status: dict[str, Any] = {}
         self._is_tripped = False
         self._trip_reason = ""
+        self._risk_manager: RiskManager | None = None
+
+    def set_risk_manager(self, risk_manager: RiskManager) -> None:
+        """Set the risk manager reference."""
+        self._risk_manager = risk_manager
 
     def compose(self) -> ComposeResult:
         """Create child widgets."""
@@ -62,7 +69,9 @@ class AegisWidget(Static):
 
     async def refresh_data(self) -> None:
         """Refresh data from risk manager."""
-        # This will be connected to the risk manager
+        if self._risk_manager:
+            self._status = self._risk_manager.get_status()
+            self._is_tripped = self._status.get("circuit_breaker_active", False)
         self._update_display()
 
     def set_status(self, status: dict[str, Any]) -> None:

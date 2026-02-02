@@ -31,12 +31,15 @@ poetry run ruff format .
 
 ## Architecture
 
-KeryxFlow is an AI-powered cryptocurrency trading engine with a 4-layer architecture:
+KeryxFlow is an AI-powered cryptocurrency trading engine with a 5-layer architecture:
 
 ```
 ┌─ HERMES (keryxflow/hermes/) ────────────────┐
 │  Terminal UI - Textual framework             │
 │  Real-time dashboards, onboarding wizard     │
+├─ ENGINE (keryxflow/core/engine.py) ─────────┤
+│  TradingEngine - Central orchestrator        │
+│  OHLCV buffer, signal flow, order loop       │
 ├─ ORACLE (keryxflow/oracle/) ────────────────┤
 │  Intelligence - Technical analysis + LLM     │
 │  RSI, MACD, Bollinger, signal generation     │
@@ -50,12 +53,17 @@ KeryxFlow is an AI-powered cryptocurrency trading engine with a 4-layer architec
    Event bus, SQLite/SQLModel, logging, models
 ```
 
+**Trading Loop (TradingEngine):**
+```
+Price Update → OHLCV Buffer → Oracle (Signal) → Aegis (Approval) → Paper Engine (Order)
+```
+
 **Modules communicate via async event bus, not direct calls:**
 ```python
 await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 ```
 
-**Key event types:** PRICE_UPDATE, SIGNAL_GENERATED, ORDER_*, POSITION_*, RISK_ALERT, CIRCUIT_BREAKER_TRIGGERED
+**Key event types:** PRICE_UPDATE, SIGNAL_GENERATED, ORDER_APPROVED, ORDER_REJECTED, ORDER_FILLED, POSITION_OPENED, POSITION_CLOSED, CIRCUIT_BREAKER_TRIGGERED, PANIC_TRIGGERED
 
 ## Code Patterns
 

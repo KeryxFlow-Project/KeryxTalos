@@ -24,7 +24,7 @@
 An AI-powered trading assistant that helps you accumulate Bitcoin.
 
 ```
-┌─ KERYXFLOW v0.1.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
+┌─ KERYXFLOW v0.6.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
 │                                                                              │
 │  ┌─ BTC/USDT ─────────────────────────┐  ┌─ POSITIONS ────────────────────┐ │
 │  │     ▁▂▃▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆       │  │  BTC   0.052  +$234.50  +3.2%  │ │
@@ -148,20 +148,23 @@ Based on your answers, KeryxFlow configures itself appropriately.
 ## How it Works (Simple Explanation)
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   ORACLE    │────▶│    AEGIS    │────▶│   EXECUTE   │
-│ "Should we  │     │ "Is it safe │     │  "Do the    │
-│   trade?"   │     │  to trade?" │     │   trade"    │
-└─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │
-       ▼                   ▼                   ▼
-  Analyzes news      Checks your risk     Places order
-  and price data     limits and rules     (or simulates)
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   PRICES    │────▶│   ORACLE    │────▶│    AEGIS    │────▶│   EXECUTE   │
+│ Real-time   │     │ "Should we  │     │ "Is it safe │     │  "Do the    │
+│   updates   │     │   trade?"   │     │  to trade?" │     │   trade"    │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+       │                   │                   │                   │
+       ▼                   ▼                   ▼                   ▼
+  From Binance       Analyzes with       Checks your risk     Places order
+  via WebSocket      TA + AI context     limits and rules     (or simulates)
 ```
 
-1. **Oracle watches the market** — It reads news, analyzes price patterns, and looks for opportunities
-2. **Aegis checks if it's safe** — Before any trade, it verifies the risk is within your limits
-3. **Execute (or simulate)** — In paper mode, it simulates. In live mode, it trades for real.
+The **TradingEngine** orchestrates this entire flow automatically:
+
+1. **Price updates arrive** — Real-time prices from Binance are collected into OHLCV candles
+2. **Oracle analyzes** — Every 60 seconds, Oracle generates signals using technical indicators
+3. **Aegis validates** — Before any trade, risk limits are checked (position size, drawdown, max positions)
+4. **Execute** — Approved orders execute via Paper Engine (or live in the future)
 
 **You're always in control.** Press `P` for panic mode to close everything instantly.
 
@@ -280,6 +283,9 @@ For developers and curious minds:
 │                      HERMES (Interface)                      │
 │         Terminal UI • Real-time Charts • System Status       │
 ├─────────────────────────────────────────────────────────────┤
+│                   TRADING ENGINE (Orchestrator)              │
+│      OHLCV Buffer • Signal Flow • Order Execution Loop       │
+├─────────────────────────────────────────────────────────────┤
 │                      ORACLE (Intelligence)                   │
 │    Technical Analysis • News Feeds • Claude LLM Brain        │
 ├─────────────────────────────────────────────────────────────┤
@@ -294,6 +300,14 @@ For developers and curious minds:
 ### Hermes — The Interface
 
 Terminal UI built with [Textual](https://textual.textualize.io/). Inspired by `btop` and `htop`.
+
+### Trading Engine — The Orchestrator
+
+Central coordinator connecting all modules in a continuous loop:
+
+- **OHLCV Buffer**: Aggregates price updates into 1-minute candles
+- **Signal Flow**: Triggers Oracle analysis at configurable intervals
+- **Order Loop**: Routes signals through Aegis approval to execution
 
 ### Oracle — The Intelligence
 
@@ -334,11 +348,15 @@ keryxflow/
 ├── keryxflow/
 │   ├── main.py              # Entrypoint
 │   ├── config.py            # Configuration
-│   ├── core/                # Infrastructure
-│   ├── hermes/              # Terminal UI
-│   ├── oracle/              # Intelligence
+│   ├── core/
+│   │   ├── engine.py        # TradingEngine orchestrator
+│   │   ├── events.py        # Event bus (pub/sub)
+│   │   ├── database.py      # SQLite persistence
+│   │   └── models.py        # Data models
+│   ├── hermes/              # Terminal UI (Textual)
+│   ├── oracle/              # Intelligence (TA + LLM)
 │   ├── aegis/               # Risk Management
-│   └── exchange/            # Binance Integration
+│   └── exchange/            # Binance + Paper Trading
 ├── tests/
 ├── settings.toml
 └── pyproject.toml
@@ -377,7 +395,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Help modal with glossary integration
 - [x] Splash screen with Bitcoin orange branding
 - [x] TUI integrated with main entrypoint (`poetry run keryxflow`)
-- [ ] Full integration loop
+- [x] **Full integration loop** - TradingEngine orchestrator (Price → Oracle → Aegis → Order)
 - [ ] Backtesting engine
 - [ ] Live trading mode
 

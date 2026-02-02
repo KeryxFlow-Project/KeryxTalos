@@ -372,10 +372,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Technical analysis (Oracle) - RSI, MACD, Bollinger, OBV, ATR, EMA
 - [x] News feeds - RSS, CryptoPanic integration
 - [x] LLM integration (Claude) - market context analysis
-- [ ] Terminal UI (Hermes)
-- [ ] Guided onboarding
-- [ ] Backtesting
-- [ ] Live trading
+- [x] Terminal UI (Hermes) - Textual-based TUI
+- [x] Guided onboarding - experience & risk profile wizard
+- [x] Help modal with glossary integration
+- [ ] Full integration loop
+- [ ] Backtesting engine
+- [ ] Live trading mode
 
 ---
 

@@ -24,7 +24,7 @@
 An AI-powered trading assistant that helps you accumulate Bitcoin.
 
 ```
-┌─ KERYXFLOW v0.7.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
+┌─ KERYXFLOW v0.8.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
 │                                                                              │
 │  ┌─ BTC/USDT ─────────────────────────┐  ┌─ POSITIONS ────────────────────┐ │
 │  │     ▁▂▃▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆       │  │  BTC   0.052  +$234.50  +3.2%  │ │
@@ -164,7 +164,7 @@ The **TradingEngine** orchestrates this entire flow automatically:
 1. **Price updates arrive** — Real-time prices from Binance are collected into OHLCV candles
 2. **Oracle analyzes** — Every 60 seconds, Oracle generates signals using technical indicators
 3. **Aegis validates** — Before any trade, risk limits are checked (position size, drawdown, max positions)
-4. **Execute** — Approved orders execute via Paper Engine (or live in the future)
+4. **Execute** — Approved orders execute via Paper Engine or Live Exchange
 
 **You're always in control.** Press `P` for panic mode to close everything instantly.
 
@@ -274,6 +274,61 @@ symbols = ["BTC/USDT", "ETH/USDT"]
 
 ---
 
+## Live Trading
+
+When you're ready to trade with real money, KeryxFlow has multiple safety layers.
+
+### Enabling Live Mode
+
+1. **Complete at least 30 paper trades** — Practice makes perfect
+2. **Configure your API keys** in `.env`:
+   ```bash
+   BINANCE_API_KEY=your_api_key
+   BINANCE_API_SECRET=your_api_secret
+   ```
+3. **Set mode to live** in `settings.toml`:
+   ```toml
+   [system]
+   mode = "live"
+   ```
+
+### Safeguards
+
+Before enabling live trading, KeryxFlow verifies:
+
+| Check | Requirement |
+|-------|-------------|
+| API Credentials | Binance API key and secret configured |
+| Minimum Balance | At least 100 USDT on exchange |
+| Paper History | 30+ paper trades completed |
+| Risk Settings | Conservative parameters |
+| Circuit Breaker | Not currently tripped |
+
+If any check fails, live trading is blocked with a clear explanation.
+
+### Notifications
+
+Get alerts on your phone when trades execute:
+
+**Telegram** — Create a bot via [@BotFather](https://t.me/botfather):
+```toml
+[notifications]
+telegram_enabled = true
+telegram_token = "your_bot_token"
+telegram_chat_id = "your_chat_id"
+```
+
+**Discord** — Create a webhook in Server Settings > Integrations:
+```toml
+[notifications]
+discord_enabled = true
+discord_webhook = "https://discord.com/api/webhooks/..."
+```
+
+Notifications include: order fills, circuit breaker triggers, daily summaries, and system errors.
+
+---
+
 ## Backtesting
 
 Test your strategy with historical data before risking real money.
@@ -344,7 +399,13 @@ For developers and curious minds:
 │    Position Sizing • Risk Manager • Circuit Breaker          │
 ├─────────────────────────────────────────────────────────────┤
 │                      EXCHANGE (Connectivity)                 │
-│         Binance API • Spot • Futures • Paper Trading         │
+│     Binance API • Paper Trading • Live Safeguards            │
+├─────────────────────────────────────────────────────────────┤
+│                    NOTIFICATIONS (Alerts)                    │
+│           Telegram • Discord • Event Subscriptions           │
+├─────────────────────────────────────────────────────────────┤
+│                     BACKTESTER (Validation)                  │
+│     Historical Replay • Performance Metrics • Reports        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -403,11 +464,15 @@ keryxflow/
 │   │   ├── engine.py        # TradingEngine orchestrator
 │   │   ├── events.py        # Event bus (pub/sub)
 │   │   ├── database.py      # SQLite persistence
-│   │   └── models.py        # Data models
+│   │   ├── models.py        # Data models
+│   │   ├── repository.py    # Trade persistence
+│   │   └── safeguards.py    # Live trading safety checks
 │   ├── hermes/              # Terminal UI (Textual)
 │   ├── oracle/              # Intelligence (TA + LLM)
 │   ├── aegis/               # Risk Management
-│   └── exchange/            # Binance + Paper Trading
+│   ├── exchange/            # Binance + Paper Trading
+│   ├── backtester/          # Historical testing
+│   └── notifications/       # Telegram + Discord alerts
 ├── tests/
 ├── settings.toml
 └── pyproject.toml
@@ -448,7 +513,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] TUI integrated with main entrypoint (`poetry run keryxflow`)
 - [x] **Full integration loop** - TradingEngine orchestrator (Price → Oracle → Aegis → Order)
 - [x] **Backtesting engine** - `poetry run keryxflow-backtest`
-- [ ] Live trading mode
+- [x] **Live trading mode** - Real orders on Binance with safeguards
+- [x] **Notifications** - Telegram and Discord alerts
+- [ ] Parameter optimization (grid search)
+- [ ] Multi-timeframe analysis
 
 ---
 

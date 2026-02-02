@@ -54,3 +54,26 @@ chart_width = 60                    # Chart width in characters
 chart_height = 15                   # Chart height in characters
 max_log_lines = 100                 # Maximum log lines to display
 theme = "cyberpunk"                 # "cyberpunk" or "minimal"
+
+[live]
+require_confirmation = true         # Require explicit confirmation for live mode
+min_paper_trades = 30               # Minimum paper trades before live allowed
+min_balance = 100.0                 # Minimum USDT balance for live trading
+max_position_value = 1000.0         # Maximum value per position in USDT
+sync_interval = 60                  # Seconds between balance syncs
+
+[notifications]
+# Telegram Bot (create via @BotFather)
+telegram_enabled = false
+telegram_token = ""                 # Bot token from @BotFather
+telegram_chat_id = ""               # Your chat ID from @userinfobot
+
+# Discord Webhook
+discord_enabled = false
+discord_webhook = ""                # Webhook URL from Discord server settings
+
+# Notification preferences
+notify_on_trade = true              # Notify on order fills
+notify_on_circuit_breaker = true    # Notify on circuit breaker triggers
+notify_daily_summary = true         # Send daily trading summary
+notify_on_error = true              # Notify on system errors

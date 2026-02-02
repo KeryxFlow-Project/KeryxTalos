@@ -44,6 +44,7 @@ class KeryxFlowApp(App):
         event_bus: EventBus | None = None,
         exchange_client: ExchangeClient | None = None,
         paper_engine: PaperTradingEngine | None = None,
+        trading_engine: TradingEngine | None = None,
     ) -> None:
         """Initialize the app."""
         super().__init__()
@@ -51,7 +52,7 @@ class KeryxFlowApp(App):
         self.event_bus = event_bus or get_event_bus()
         self.exchange_client = exchange_client
         self.paper_engine = paper_engine
-        self.trading_engine: TradingEngine | None = None
+        self.trading_engine = trading_engine
         self._paused = False
         self._current_symbol_index = 0
         self._symbols = self.settings.system.symbols
@@ -103,18 +104,9 @@ class KeryxFlowApp(App):
         try:
             self._log_msg("Starting initialization...")
 
-            # Start trading engine
-            if self.exchange_client and self.paper_engine:
-                self._log_msg("Creating trading engine...")
-
-                self.trading_engine = TradingEngine(
-                    exchange_client=self.exchange_client,
-                    paper_engine=self.paper_engine,
-                    event_bus=self.event_bus,
-                )
-                await self.trading_engine.start()
-
-                self._log_msg("Trading engine started!")
+            # Connect widgets
+            self._log_msg("Connecting widgets...")
+            if self.paper_engine:
                 self._connect_widgets()
             else:
                 self._log_msg(
@@ -126,7 +118,9 @@ class KeryxFlowApp(App):
             self._start_price_feed()
 
         except Exception as e:
+            import traceback
             self._log_msg(f"ERROR: {e}")
+            self._log_msg(traceback.format_exc()[:200])
 
     def _log_msg(self, msg: str) -> None:
         """Log a message to the activity widget."""
@@ -137,56 +131,59 @@ class KeryxFlowApp(App):
             pass
 
     def _connect_widgets(self) -> None:
-        """Connect widgets to engines (called from main thread)."""
+        """Connect widgets to engines."""
         if self.trading_engine:
             # Connect aegis widget to risk manager
             aegis = self.query_one("#aegis", AegisWidget)
             aegis.set_risk_manager(self.trading_engine.risk)
+            self._log_msg("Connected AEGIS to risk manager")
 
         if self.paper_engine:
             # Connect positions widget to paper engine
             positions = self.query_one("#positions", PositionsWidget)
             positions.set_paper_engine(self.paper_engine)
 
-        # Log engine started
-        logs = self.query_one("#logs", LogsWidget)
-        logs.add_entry("Trading engine started", level="success")
+        self._log_msg("Widgets connected")
 
     def _start_price_feed(self) -> None:
         """Start the price feed timer (called from main thread)."""
         self._log_msg("Starting price feed...")
         if self.exchange_client:
-            # Use set_interval with a sync wrapper that schedules the async work
-            self._price_timer = self.set_interval(
-                self.settings.hermes.refresh_rate,
-                self._schedule_price_fetch,
-            )
-            self._log_msg(f"Price timer started (every {self.settings.hermes.refresh_rate}s)")
-            # Fetch initial prices immediately
-            self._schedule_price_fetch()
+            # Start the price loop as a worker
+            self._log_msg("Starting price loop worker...")
+            self.run_worker(self._price_loop, exclusive=True)
         else:
             self._log_msg("No exchange client for price feed!")
 
-    def _schedule_price_fetch(self) -> None:
-        """Schedule async price fetch (sync wrapper for set_interval)."""
-        if self._paused or not self.exchange_client:
-            return
-        # Use asyncio.create_task to run the async function
+    async def _price_loop(self) -> None:
+        """Background worker for fetching prices."""
         import asyncio
-        asyncio.create_task(self._fetch_prices_async())
 
-    async def _fetch_prices_async(self) -> None:
-        """Fetch prices and update widgets directly (async worker)."""
-        if self._paused or not self.exchange_client:
-            self._log_msg("Fetch skipped: paused or no client")
-            return
+        self._log_msg("Price loop started!")
+
+        while True:
+            if self._paused:
+                await asyncio.sleep(1)
+                continue
+
+            await self._fetch_prices_once()
+            await asyncio.sleep(self.settings.hermes.refresh_rate)
+
+    async def _fetch_prices_once(self) -> None:
+        """Fetch prices once and update widgets."""
+        import asyncio
+        import ccxt
 
         for symbol in self._symbols:
             try:
-                self._log_msg(f"Fetching {symbol}...")
-                ticker = await self.exchange_client.get_ticker(symbol)
+                # Use sync ccxt in thread to avoid event loop conflicts
+                def fetch_sync():
+                    client = ccxt.binance({"enableRateLimit": True})
+                    return client.fetch_ticker(symbol)
+
+                ticker = await asyncio.to_thread(fetch_sync)
                 price = ticker["last"]
-                self._log_msg(f"Got {symbol}: ${price:,.2f}")
+                self._log_msg(f"{symbol}: ${price:,.2f}")
 
                 # Update paper engine
                 if self.paper_engine:
@@ -200,9 +197,6 @@ class KeryxFlowApp(App):
                     except Exception as chart_err:
                         logger.warning("chart_update_error", error=str(chart_err))
 
-                # Log price update
-                self._log_msg(f"{symbol}: ${price:,.2f}")
-
                 # Publish to event bus for trading engine
                 await self.event_bus.publish(
                     Event(
@@ -212,7 +206,7 @@ class KeryxFlowApp(App):
                             "price": price,
                             "bid": ticker.get("bid"),
                             "ask": ticker.get("ask"),
-                            "volume": ticker.get("volume", 0),
+                            "volume": ticker.get("baseVolume", 0),
                         },
                     )
                 )
@@ -255,24 +249,30 @@ class KeryxFlowApp(App):
 
     async def _on_signal(self, event: Event) -> None:
         """Handle signal generated events."""
-        if self._paused:
-            return
-
         data = event.data
-        oracle = self.query_one("#oracle", OracleWidget)
-        oracle.update_signal(data)
-
-        logs = self.query_one("#logs", LogsWidget)
         signal_type = data.get("signal_type", "unknown").upper()
         symbol = data.get("symbol", "")
         confidence = data.get("confidence", 0)
 
+        # Always log signal received
+        self._log_msg(f"Signal received: {signal_type} {symbol} ({confidence:.0%})")
+
+        if self._paused:
+            return
+
+        # Update oracle widget
+        try:
+            oracle = self.query_one("#oracle", OracleWidget)
+            oracle.update_signal(data)
+        except Exception as e:
+            self._log_msg(f"Oracle update error: {e}")
+
+        # Log to activity
         if signal_type in ("LONG", "SHORT"):
+            logs = self.query_one("#logs", LogsWidget)
             logs.add_entry(
                 f"Signal: {signal_type} {symbol} (conf: {confidence:.0%})", level="signal"
             )
-        else:
-            logs.add_entry(f"Signal: {signal_type} {symbol}", level="info")
 
     async def _on_circuit_trip(self, event: Event) -> None:
         """Handle circuit breaker trip events."""

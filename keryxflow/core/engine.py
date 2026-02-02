@@ -185,7 +185,7 @@ class TradingEngine:
         self._running = False
         self._ohlcv_buffer = OHLCVBuffer(max_candles=100)
         self._last_analysis: dict[str, datetime] = {}
-        self._analysis_interval = 60  # Seconds between analyses
+        self._analysis_interval = 10  # Seconds between analyses (reduced for testing)
         self._min_candles = 20  # Minimum candles for analysis
         self._auto_trade = True  # Execute orders automatically
         self._paused = False
@@ -249,6 +249,9 @@ class TradingEngine:
 
     async def _preload_ohlcv(self) -> None:
         """Pre-load historical OHLCV data for all symbols."""
+        import asyncio
+        import ccxt
+
         symbols = self.settings.system.symbols
         candles_to_load = self._min_candles + 10  # Extra buffer
 
@@ -256,12 +259,12 @@ class TradingEngine:
             try:
                 logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
 
-                # Fetch historical OHLCV from exchange
-                ohlcv = await self.exchange.get_ohlcv(
-                    symbol=symbol,
-                    timeframe="1m",
-                    limit=candles_to_load,
-                )
+                # Use sync ccxt in thread to avoid event loop conflicts with Textual
+                def fetch_ohlcv_sync():
+                    client = ccxt.binance({"enableRateLimit": True})
+                    return client.fetch_ohlcv(symbol, "1m", limit=candles_to_load)
+
+                ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
 
                 if ohlcv:
                     # Add historical candles to buffer
@@ -337,7 +340,9 @@ class TradingEngine:
     def _should_analyze(self, symbol: str, new_candle: bool) -> bool:
         """Check if we should run analysis for a symbol."""
         # Need minimum candles
-        if self._ohlcv_buffer.candle_count(symbol) < self._min_candles:
+        candle_count = self._ohlcv_buffer.candle_count(symbol)
+        if candle_count < self._min_candles:
+            logger.debug("skip_analysis_low_candles", symbol=symbol, candles=candle_count, min=self._min_candles)
             return False
 
         # Check time since last analysis
@@ -345,6 +350,7 @@ class TradingEngine:
         last = self._last_analysis.get(symbol)
 
         if last is None:
+            logger.debug("should_analyze_first_time", symbol=symbol)
             return True
 
         elapsed = (now - last).total_seconds()

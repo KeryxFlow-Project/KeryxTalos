@@ -1,0 +1,31 @@
+# Serena Project Configuration for KeryxFlow
+# https://oraios.github.io/serena/
+
+name: KeryxFlow
+description: AI-powered cryptocurrency trading engine
+
+# Project paths
+project_root: .
+source_directories:
+  - keryxflow
+  - tests
+
+# Language settings
+languages:
+  - python
+
+# Python-specific settings (using pyright as language server)
+ls_specific_settings:
+  python:
+    # Use pyright for better type checking
+    ls_path: pyright
+
+# Ignore patterns
+ignore_patterns:
+  - "**/__pycache__/**"
+  - "**/.venv/**"
+  - "**/node_modules/**"
+  - "**/.git/**"
+  - "**/*.pyc"
+  - "**/data/**"
+  - "**/logs/**"

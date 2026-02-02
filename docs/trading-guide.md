@@ -198,11 +198,10 @@ Position Size = (Balance × Risk%) / (Entry - Stop Loss)
 - Stop Loss: $66,000 (1.5% away)
 - Position Size: $100 / $1,000 = 0.001 BTC
 
-> **Known Limitation:** The current position sizing model calculates risk per trade in isolation.
-> With multiple concurrent positions (up to `max_open_positions`), total portfolio exposure can
-> exceed expected limits. For example, 3 positions each risking 2% could result in 6% total risk
-> if all hit stop loss simultaneously. See [Issue #9](https://github.com/KeryxFlow-Project/KeryxFlow/issues/9)
-> for ongoing improvements.
+> **Aggregate Risk Protection (v0.11.0):** The guardrails layer now tracks aggregate portfolio risk.
+> Multiple positions are evaluated together - if 3 positions each risking 2% would total 6%,
+> the third position is REJECTED because it exceeds the 5% daily loss limit.
+> See [Issue #9](https://github.com/KeryxFlow-Project/KeryxFlow/issues/9) (fixed in v0.11.0).
 
 **Recommended Settings for Safety:**
 
@@ -436,16 +435,26 @@ Current system limitations being actively addressed:
 
 | Limitation | Impact | Status |
 |------------|--------|--------|
-| **Isolated position risk** | Multiple positions can compound losses beyond `risk_per_trade` | [Issue #9](https://github.com/KeryxFlow-Project/KeryxFlow/issues/9) |
+| ~~**Isolated position risk**~~ | ~~Multiple positions can compound losses~~ | ✅ **FIXED in v0.11.0** |
 | **No correlation analysis** | Correlated assets (BTC/ETH) may move together, amplifying risk | Planned |
 | **Fixed rule-based signals** | Oracle uses predetermined indicator thresholds | See Future Roadmap |
 | **No memory between sessions** | System doesn't learn from past trades | See Future Roadmap |
 | **Single exchange** | Binance only - if unavailable, system stops | Planned |
 | **Latency for scalping** | ~1-3s signal generation not suitable for HFT | By design (swing trading focus) |
 
-**Mitigations:**
-- Use conservative `risk_per_trade` settings (0.5-1%)
-- Limit `max_open_positions` to 2-3
+**Guardrails (v0.11.0):**
+
+The system now enforces immutable guardrails that cannot be bypassed:
+
+| Guardrail | Limit | Effect |
+|-----------|-------|--------|
+| Max position size | 10% | Single position cannot exceed 10% of portfolio |
+| Max total exposure | 50% | All positions combined cannot exceed 50% |
+| Max loss per trade | 2% | Individual trade risk capped at 2% |
+| Max daily loss | 5% | Aggregate risk across all positions capped |
+| Consecutive losses | 5 | Trading halts after 5 losses in a row |
+
+**Additional Mitigations:**
 - Avoid highly correlated pairs simultaneously
 - Monitor the system regularly
 
@@ -471,21 +480,22 @@ Data → Claude PERCEIVES → Claude ANALYZES → Claude DECIDES
 Claude EXECUTES → Claude EVALUATES → Claude LEARNS
 ```
 
-**Key Proposed Changes:**
+**Implementation Progress:**
 
-| Feature | Current | Future |
-|---------|---------|--------|
-| Decision maker | Fixed indicator rules | Claude with tools |
-| Memory | None | Episodic + Semantic + Procedural |
-| Learning | Manual parameter tuning | Continuous from trades |
-| Guardrails | Aegis approval checks | Immutable code limits |
+| Phase | Status | Description |
+|-------|--------|-------------|
+| 1. Guardrails | ✅ **COMPLETE** | Immutable safety limits (v0.11.0) |
+| 2. Memory | 🔜 Next | Episodic + Semantic + Procedural memory |
+| 3. Tools | Planned | Claude tools for data and execution |
+| 4. Agent | Planned | Claude as primary decision maker |
+| 5. Learning | Planned | Continuous improvement from trades |
 
-**Proposed Guardrails (hardcoded, AI cannot bypass):**
-- Max 10% capital per position
-- Max 50% total exposure
-- Max 2% loss per trade
-- Max 5% daily loss
-- Halt after 5 consecutive losses
+**Guardrails (Implemented in v0.11.0):**
+- ✅ Max 10% capital per position
+- ✅ Max 50% total exposure
+- ✅ Max 2% loss per trade
+- ✅ Max 5% daily loss (aggregate risk)
+- ✅ Halt after 5 consecutive losses
 
 See [Issue #11](https://github.com/KeryxFlow-Project/KeryxFlow/issues/11), `docs/ai-trading-architecture.md` for the full RFC, and `docs/plans/ai-first-implementation-plan.md` for the implementation plan.
 

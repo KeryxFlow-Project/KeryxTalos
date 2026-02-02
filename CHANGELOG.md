@@ -6,7 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+---
+
+## [0.11.0] - 2026-02-02
+
+### Added
+
+#### Guardrails Layer - Immutable Safety Limits (`keryxflow/aegis/`)
+
+- **`guardrails.py`** - Immutable trading guardrails (frozen dataclass)
+  - `TradingGuardrails` - Hardcoded limits that cannot be modified at runtime
+  - `GuardrailEnforcer` - Validates orders against all limits
+  - `GuardrailCheckResult` - Detailed rejection information
+  - `GuardrailViolation` enum for violation types
+
+- **`portfolio.py`** - Portfolio state tracking for aggregate risk
+  - `PositionState` - Individual position tracking with risk metrics
+  - `PortfolioState` - Aggregate portfolio state
+  - `total_risk_at_stop` property - Key metric for Issue #9 fix
+  - Position add/close with P&L tracking
+  - Daily/weekly/hourly reset methods
+
+- **Guardrail Limits (Immutable)**
+  | Limit | Value | Purpose |
+  |-------|-------|---------|
+  | MAX_POSITION_SIZE_PCT | 10% | Max single position |
+  | MAX_TOTAL_EXPOSURE_PCT | 50% | Max total exposure |
+  | MIN_CASH_RESERVE_PCT | 20% | Minimum cash reserve |
+  | MAX_LOSS_PER_TRADE_PCT | 2% | Max risk per trade |
+  | MAX_DAILY_LOSS_PCT | 5% | Max daily loss |
+  | MAX_WEEKLY_LOSS_PCT | 10% | Max weekly loss |
+  | CONSECUTIVE_LOSSES_HALT | 5 | Halt after N losses |
+  | MAX_TRADES_PER_DAY | 50 | Rate limit |
+  | MAX_TRADES_PER_HOUR | 10 | Rate limit |
+
+### Changed
+
+- **`risk.py`** - Two-layer validation integrated
+  - GuardrailEnforcer runs FIRST (immutable limits)
+  - RiskManager runs second (configurable limits)
+  - Portfolio state management methods added
+  - `get_status()` includes aggregate risk metrics
+
 ### Fixed
+
+- **Issue #9**: Position sizing allows excessive drawdown
+  - Aggregate risk now tracked via `PortfolioState.total_risk_at_stop`
+  - 3 positions at 2% risk each (6% total) are now REJECTED
+  - Guardrails check aggregate risk against daily loss limit
 
 #### TUI Stability Improvements
 - **Price Fetching** - Fixed event loop conflicts by using sync ccxt in threads
@@ -716,6 +763,7 @@ poetry run keryxflow
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.11.0 | 2026-02-02 | Guardrails layer - immutable safety limits (fixes Issue #9) |
 | 0.10.0 | 2026-02-02 | Multi-timeframe analysis |
 | 0.9.0 | 2026-02-02 | Parameter optimization (grid search) |
 | 0.8.0 | 2026-02-01 | Live trading mode with safeguards and notifications |
@@ -730,12 +778,6 @@ poetry run keryxflow
 ---
 
 ## Upcoming
-
-### [0.11.0] - Planned: Guardrails Layer
-- Immutable guardrails in code (`aegis/guardrails.py`)
-- Portfolio-level risk tracking (`aegis/portfolio.py`)
-- Fix Issue #9: Aggregate risk calculation
-- Proposed limits: 10% max position, 50% max exposure, 5% max daily loss
 
 ### [0.12.0] - Planned: Memory System
 - Trade episode memory with reasoning and lessons learned
@@ -769,7 +811,7 @@ poetry run keryxflow
 ## RFC & Architecture
 
 ### RFC #11: AI-First Trading Architecture
-**Status**: Planning Complete | **Document**: `docs/ai-trading-architecture.md`
+**Status**: Phase 1 Complete | **Document**: `docs/ai-trading-architecture.md`
 
 Proposes evolution from "AI validates" to "AI operates":
 - Current: Technical indicators (60%) + Claude validates (40%)
@@ -778,10 +820,10 @@ Proposes evolution from "AI validates" to "AI operates":
 **Implementation Plan**: `docs/plans/ai-first-implementation-plan.md`
 
 **Phases**:
-1. Guardrails Layer (1-2 weeks) - Safety first, fixes Issue #9
+1. ✅ Guardrails Layer - **COMPLETE** (v0.11.0) - Issue #9 fixed
 2. Memory System (2-3 weeks) - 3-layer memory (Episodic, Semantic, Procedural)
 3. Agent Tools (2-3 weeks) - Tools for Claude to query data and execute
 4. Cognitive Agent (3-4 weeks) - Claude as primary decision maker
 5. Learning & Reflection (2-3 weeks) - Continuous improvement
 
-**Related Issues**: #9 (Position sizing allows excessive drawdown), #11 (RFC)
+**Related Issues**: #9 (Position sizing - FIXED), #11 (RFC)

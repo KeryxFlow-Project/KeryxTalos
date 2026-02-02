@@ -77,6 +77,13 @@ class TradingSignal:
     technical_data: dict[str, Any] | None = None
     llm_data: dict[str, Any] | None = None
 
+    # Multi-Timeframe Analysis fields (optional)
+    primary_timeframe: str | None = None
+    filter_timeframe: str | None = None
+    filter_trend: TrendDirection | None = None
+    timeframe_alignment: bool | None = None
+    mtf_data: dict[str, Any] | None = None
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -95,6 +102,11 @@ class TradingSignal:
             "news_sentiment": self.news_sentiment,
             "simple_reason": self.simple_reason,
             "technical_reason": self.technical_reason,
+            # MTF fields
+            "primary_timeframe": self.primary_timeframe,
+            "filter_timeframe": self.filter_timeframe,
+            "filter_trend": self.filter_trend.value if self.filter_trend else None,
+            "timeframe_alignment": self.timeframe_alignment,
         }
 
     @property
@@ -287,9 +299,15 @@ class SignalGenerator:
         """Convert technical analysis to signal type."""
         strong_signals = (SignalStrength.STRONG, SignalStrength.MODERATE)
 
-        if technical.overall_trend == TrendDirection.BULLISH and technical.overall_strength in strong_signals:
+        if (
+            technical.overall_trend == TrendDirection.BULLISH
+            and technical.overall_strength in strong_signals
+        ):
             return SignalType.LONG
-        elif technical.overall_trend == TrendDirection.BEARISH and technical.overall_strength in strong_signals:
+        elif (
+            technical.overall_trend == TrendDirection.BEARISH
+            and technical.overall_strength in strong_signals
+        ):
             return SignalType.SHORT
 
         return SignalType.NO_ACTION

@@ -340,9 +340,15 @@ class QuantEngine:
         equity = np.array(equity_curve)
         peak = np.maximum.accumulate(equity)
 
-        drawdown = (peak - equity) / peak
-        max_drawdown = np.max(drawdown)
-        current_drawdown = drawdown[-1]
+        # Avoid division by zero and handle negative equity
+        with np.errstate(divide="ignore", invalid="ignore"):
+            drawdown = (peak - equity) / peak
+            # Cap drawdown at 1.0 (100%) - equity going negative is total loss
+            drawdown = np.clip(drawdown, 0.0, 1.0)
+            drawdown = np.nan_to_num(drawdown, nan=0.0, posinf=1.0, neginf=0.0)
+
+        max_drawdown = float(np.max(drawdown))
+        current_drawdown = float(drawdown[-1])
 
         # Calculate max drawdown duration
         in_drawdown = equity < peak

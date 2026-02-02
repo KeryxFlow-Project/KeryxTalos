@@ -19,6 +19,7 @@ from keryxflow.core.models import RiskProfile
 from keryxflow.core.safeguards import LiveTradingSafeguards
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
+from keryxflow.oracle.mtf_signals import get_mtf_signal_generator
 from keryxflow.oracle.signals import (
     SignalGenerator,
     SignalType,
@@ -123,7 +124,7 @@ class OHLCVBuffer:
     ) -> None:
         """Add a historical candle directly to the buffer."""
         # Convert timestamp (ms) to datetime
-        if isinstance(timestamp, (int, float)):
+        if isinstance(timestamp, int | float):
             candle_time = datetime.fromtimestamp(timestamp / 1000, tz=UTC)
         else:
             candle_time = timestamp
@@ -171,7 +172,6 @@ class TradingEngine:
         self.exchange = exchange_client
         self.paper = paper_engine
         self.event_bus = event_bus or get_event_bus()
-        self.signals = signal_generator or get_signal_generator()
         self.risk = risk_manager or get_risk_manager(
             risk_profile=RiskProfile.CONSERVATIVE,
             initial_balance=10000.0,
@@ -181,9 +181,21 @@ class TradingEngine:
         # Safeguards for live trading
         self._safeguards = LiveTradingSafeguards(self.settings)
 
+        # Multi-Timeframe Analysis support
+        self._mtf_enabled = self.settings.oracle.mtf.enabled
+        if self._mtf_enabled:
+            from keryxflow.core.mtf_buffer import create_mtf_buffer_from_settings
+
+            self._mtf_buffer = create_mtf_buffer_from_settings()
+            self.signals = signal_generator or get_mtf_signal_generator()
+            self._ohlcv_buffer = None  # Not used in MTF mode
+        else:
+            self._mtf_buffer = None
+            self.signals = signal_generator or get_signal_generator()
+            self._ohlcv_buffer = OHLCVBuffer(max_candles=100)
+
         # State
         self._running = False
-        self._ohlcv_buffer = OHLCVBuffer(max_candles=100)
         self._last_analysis: dict[str, datetime] = {}
         self._analysis_interval = 10  # Seconds between analyses (reduced for testing)
         self._min_candles = 20  # Minimum candles for analysis
@@ -249,25 +261,32 @@ class TradingEngine:
 
     async def _preload_ohlcv(self) -> None:
         """Pre-load historical OHLCV data for all symbols."""
-        import asyncio
-        import ccxt
 
         symbols = self.settings.system.symbols
         candles_to_load = 60  # Need at least 50 for technical analysis
+
+        if self._mtf_enabled:
+            await self._preload_mtf_ohlcv(symbols, candles_to_load)
+        else:
+            await self._preload_single_tf_ohlcv(symbols, candles_to_load)
+
+    async def _preload_single_tf_ohlcv(self, symbols: list[str], candles_to_load: int) -> None:
+        """Pre-load single timeframe OHLCV data."""
+        import asyncio
+
+        import ccxt
 
         for symbol in symbols:
             try:
                 logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
 
-                # Use sync ccxt in thread to avoid event loop conflicts with Textual
-                def fetch_ohlcv_sync():
+                def fetch_ohlcv_sync(sym=symbol):
                     client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ohlcv(symbol, "1m", limit=candles_to_load)
+                    return client.fetch_ohlcv(sym, "1m", limit=candles_to_load)
 
                 ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
 
                 if ohlcv:
-                    # Add historical candles to buffer
                     for candle in ohlcv:
                         timestamp, open_p, high, low, close, volume = candle
                         self._ohlcv_buffer.add_candle(
@@ -288,14 +307,71 @@ class TradingEngine:
             except Exception as e:
                 logger.warning("ohlcv_preload_failed", symbol=symbol, error=str(e))
 
+    async def _preload_mtf_ohlcv(self, symbols: list[str], candles_to_load: int) -> None:
+        """Pre-load multi-timeframe OHLCV data."""
+        import asyncio
+
+        import ccxt
+
+        timeframes = self.settings.oracle.mtf.timeframes
+
+        for symbol in symbols:
+            for tf in timeframes:
+                try:
+                    logger.info(
+                        "preloading_mtf_ohlcv",
+                        symbol=symbol,
+                        timeframe=tf,
+                        candles=candles_to_load,
+                    )
+
+                    def fetch_ohlcv_sync(sym=symbol, timeframe=tf):
+                        client = ccxt.binance({"enableRateLimit": True})
+                        return client.fetch_ohlcv(sym, timeframe, limit=candles_to_load)
+
+                    ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
+
+                    if ohlcv:
+                        for candle in ohlcv:
+                            timestamp, open_p, high, low, close, volume = candle
+                            self._mtf_buffer.add_candle(
+                                symbol=symbol,
+                                timeframe=tf,
+                                timestamp=timestamp,
+                                open_price=open_p,
+                                high=high,
+                                low=low,
+                                close=close,
+                                volume=volume or 0.0,
+                            )
+
+                        logger.info(
+                            "mtf_ohlcv_preloaded",
+                            symbol=symbol,
+                            timeframe=tf,
+                            candles=self._mtf_buffer.candle_count(symbol, tf),
+                        )
+                except Exception as e:
+                    logger.warning(
+                        "mtf_ohlcv_preload_failed",
+                        symbol=symbol,
+                        timeframe=tf,
+                        error=str(e),
+                    )
+
     async def _initial_analysis(self) -> None:
         """Run initial analysis for all symbols after OHLCV preload."""
         symbols = self.settings.system.symbols
 
         for symbol in symbols:
             try:
-                # Get current price from last candle
-                ohlcv = self._ohlcv_buffer.get_ohlcv(symbol)
+                if self._mtf_enabled:
+                    # Get primary timeframe data for price
+                    primary_tf = self.settings.oracle.mtf.primary_timeframe
+                    ohlcv = self._mtf_buffer.get_ohlcv(symbol, primary_tf)
+                else:
+                    ohlcv = self._ohlcv_buffer.get_ohlcv(symbol)
+
                 if ohlcv is not None and len(ohlcv) >= self._min_candles:
                     current_price = ohlcv["close"].iloc[-1]
                     logger.info("running_initial_analysis", symbol=symbol, price=current_price)
@@ -330,8 +406,14 @@ class TradingEngine:
         if not symbol or not price:
             return
 
-        # Add to OHLCV buffer
-        new_candle = self._ohlcv_buffer.add_price(symbol, price, volume or 0.0)
+        # Add to appropriate buffer
+        if self._mtf_enabled:
+            # MTF buffer updates all timeframes
+            candle_completions = self._mtf_buffer.add_price(symbol, price, volume or 0.0)
+            # Check if any timeframe completed a candle
+            new_candle = any(candle_completions.values())
+        else:
+            new_candle = self._ohlcv_buffer.add_price(symbol, price, volume or 0.0)
 
         # Check if we should analyze
         if self._should_analyze(symbol, new_candle):
@@ -340,9 +422,20 @@ class TradingEngine:
     def _should_analyze(self, symbol: str, new_candle: bool) -> bool:
         """Check if we should run analysis for a symbol."""
         # Need minimum candles
-        candle_count = self._ohlcv_buffer.candle_count(symbol)
+        if self._mtf_enabled:
+            # Check primary timeframe
+            primary_tf = self.settings.oracle.mtf.primary_timeframe
+            candle_count = self._mtf_buffer.candle_count(symbol, primary_tf)
+        else:
+            candle_count = self._ohlcv_buffer.candle_count(symbol)
+
         if candle_count < self._min_candles:
-            logger.debug("skip_analysis_low_candles", symbol=symbol, candles=candle_count, min=self._min_candles)
+            logger.debug(
+                "skip_analysis_low_candles",
+                symbol=symbol,
+                candles=candle_count,
+                min=self._min_candles,
+            )
             return False
 
         # Check time since last analysis
@@ -360,10 +453,18 @@ class TradingEngine:
         """Run analysis and generate signal for a symbol."""
         self._last_analysis[symbol] = datetime.now(UTC)
 
-        # Get OHLCV data
-        ohlcv = self._ohlcv_buffer.get_ohlcv(symbol)
-        if ohlcv is None or len(ohlcv) < self._min_candles:
-            return
+        # Get OHLCV data (single TF or MTF dict)
+        if self._mtf_enabled:
+            ohlcv = self._mtf_buffer.get_all_ohlcv(symbol)
+            # Check if we have enough data in primary timeframe
+            primary_tf = self.settings.oracle.mtf.primary_timeframe
+            primary_df = ohlcv.get(primary_tf)
+            if primary_df is None or len(primary_df) < self._min_candles:
+                return
+        else:
+            ohlcv = self._ohlcv_buffer.get_ohlcv(symbol)
+            if ohlcv is None or len(ohlcv) < self._min_candles:
+                return
 
         try:
             # Generate signal (without LLM for now - faster)
@@ -713,17 +814,32 @@ class TradingEngine:
 
     def get_status(self) -> dict[str, Any]:
         """Get current engine status."""
-        return {
+        if self._mtf_enabled:
+            symbols_tracking = list(self._mtf_buffer._buffers.keys())
+        else:
+            symbols_tracking = list(self._ohlcv_buffer._candles.keys())
+
+        status = {
             "running": self._running,
             "paused": self._paused,
             "auto_trade": self._auto_trade,
             "mode": "live" if self._is_live_mode else "paper",
             "analysis_interval": self._analysis_interval,
             "min_candles": self._min_candles,
-            "symbols_tracking": list(self._ohlcv_buffer._candles.keys()),
+            "symbols_tracking": symbols_tracking,
             "risk_status": self.risk.get_status(),
-            "last_balance_sync": self._last_balance_sync.isoformat() if self._last_balance_sync else None,
+            "last_balance_sync": self._last_balance_sync.isoformat()
+            if self._last_balance_sync
+            else None,
+            "mtf_enabled": self._mtf_enabled,
         }
+
+        if self._mtf_enabled:
+            status["mtf_timeframes"] = self.settings.oracle.mtf.timeframes
+            status["mtf_primary_timeframe"] = self.settings.oracle.mtf.primary_timeframe
+            status["mtf_filter_timeframe"] = self.settings.oracle.mtf.filter_timeframe
+
+        return status
 
 
 # Global instance

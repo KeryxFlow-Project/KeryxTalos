@@ -25,6 +25,9 @@ async def run_backtest(
     data_source: str | None = None,
     slippage: float = 0.001,
     commission: float = 0.001,
+    mtf_enabled: bool = False,
+    mtf_timeframes: list[str] | None = None,
+    filter_timeframe: str | None = None,
 ) -> BacktestResult:
     """
     Run a complete backtest.
@@ -35,14 +38,31 @@ async def run_backtest(
         end: End datetime
         initial_balance: Starting balance
         risk_profile: Risk profile to use
-        timeframe: Candle timeframe
+        timeframe: Candle timeframe (or primary TF for MTF mode)
         data_source: Path to CSV file (if None, uses exchange)
         slippage: Slippage percentage
         commission: Commission percentage
+        mtf_enabled: Enable multi-timeframe analysis
+        mtf_timeframes: List of timeframes for MTF mode
+        filter_timeframe: Filter timeframe for trend direction
 
     Returns:
         BacktestResult with metrics
     """
+    loader = None
+    exchange = None
+
+    # Determine timeframes to load
+    if mtf_enabled:
+        # Default timeframes if not specified
+        if mtf_timeframes is None:
+            mtf_timeframes = [timeframe, filter_timeframe or "4h"]
+        # Ensure primary and filter are included
+        if timeframe not in mtf_timeframes:
+            mtf_timeframes.append(timeframe)
+        if filter_timeframe and filter_timeframe not in mtf_timeframes:
+            mtf_timeframes.append(filter_timeframe)
+
     # Load data
     if data_source and Path(data_source).exists():
         # Load from CSV
@@ -53,7 +73,13 @@ async def run_backtest(
             csv_name = symbol.replace("/", "_") + ".csv"
             csv_path = Path(data_source) / csv_name
             if csv_path.exists():
-                data[symbol] = loader.load_from_csv(csv_path)
+                if mtf_enabled:
+                    # Load and resample to multiple timeframes
+                    data[symbol] = loader.load_multi_timeframe_from_csv(
+                        csv_path, mtf_timeframes
+                    )
+                else:
+                    data[symbol] = loader.load_from_csv(csv_path)
             else:
                 logger.warning("csv_not_found", symbol=symbol, path=str(csv_path))
     else:
@@ -66,13 +92,22 @@ async def run_backtest(
             data = {}
 
             for symbol in symbols:
-                df = await loader.load_from_exchange(
-                    symbol=symbol,
-                    start=start,
-                    end=end,
-                    timeframe=timeframe,
-                )
-                data[symbol] = df
+                if mtf_enabled:
+                    # Load multiple timeframes (auto-detects smallest TF as base)
+                    data[symbol] = await loader.load_multi_timeframe(
+                        symbol=symbol,
+                        start=start,
+                        end=end,
+                        timeframes=mtf_timeframes,
+                    )
+                else:
+                    df = await loader.load_from_exchange(
+                        symbol=symbol,
+                        start=start,
+                        end=end,
+                        timeframe=timeframe,
+                    )
+                    data[symbol] = df
         finally:
             await exchange.disconnect()
 
@@ -85,6 +120,8 @@ async def run_backtest(
         risk_profile=risk_profile,
         slippage=slippage,
         commission=commission,
+        mtf_enabled=mtf_enabled,
+        primary_timeframe=timeframe if mtf_enabled else None,
     )
 
     result = await engine.run(data, start=start, end=end)
@@ -124,6 +161,14 @@ Examples:
   # Backtest from CSV files
   %(prog)s --symbol BTC/USDT --start 2024-01-01 --end 2024-12-31 \\
            --data ./historical_data/
+
+  # Multi-Timeframe Analysis backtest
+  %(prog)s --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30 \\
+           --mtf --timeframes 15m 1h 4h --filter-tf 4h
+
+  # MTF with custom primary timeframe
+  %(prog)s --symbol BTC/USDT --start 2024-01-01 --end 2024-03-01 \\
+           --mtf --timeframe 1h --timeframes 1h 4h
         """,
     )
 
@@ -209,6 +254,24 @@ Examples:
         help="Show last N trades (default: 0 = none)",
     )
 
+    # Multi-Timeframe Analysis arguments
+    parser.add_argument(
+        "--mtf",
+        action="store_true",
+        help="Enable multi-timeframe analysis",
+    )
+
+    parser.add_argument(
+        "--timeframes",
+        nargs="+",
+        help="Timeframes for MTF mode (e.g., 15m 1h 4h)",
+    )
+
+    parser.add_argument(
+        "--filter-tf",
+        help="Filter timeframe for trend direction (default: 4h)",
+    )
+
     args = parser.parse_args()
 
     # Parse arguments
@@ -222,6 +285,11 @@ Examples:
     print(f"Timeframe: {args.timeframe}")
     print(f"Risk Profile: {args.profile}")
     print(f"Initial Balance: ${args.balance:,.2f}")
+    if args.mtf:
+        timeframes_str = ", ".join(args.timeframes) if args.timeframes else "auto"
+        print(f"Multi-Timeframe: enabled ({timeframes_str})")
+        if args.filter_tf:
+            print(f"Filter Timeframe: {args.filter_tf}")
     print("\nLoading data and running backtest...")
 
     # Run backtest
@@ -237,6 +305,9 @@ Examples:
                 data_source=args.data,
                 slippage=args.slippage,
                 commission=args.commission,
+                mtf_enabled=args.mtf,
+                mtf_timeframes=args.timeframes,
+                filter_timeframe=args.filter_tf,
             )
         )
     except Exception as e:

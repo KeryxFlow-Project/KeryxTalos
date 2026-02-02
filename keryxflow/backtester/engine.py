@@ -11,7 +11,8 @@ from keryxflow.aegis.risk import OrderRequest, RiskManager, get_risk_manager
 from keryxflow.config import get_settings
 from keryxflow.core.logging import get_logger
 from keryxflow.core.models import RiskProfile
-from keryxflow.oracle.signals import SignalGenerator, SignalType, get_signal_generator
+from keryxflow.oracle.mtf_signals import MTFSignalGenerator
+from keryxflow.oracle.signals import SignalGenerator, SignalType, TradingSignal
 
 if TYPE_CHECKING:
     from keryxflow.backtester.report import BacktestResult
@@ -88,6 +89,8 @@ class BacktestEngine:
     slippage: float = 0.001  # 0.1%
     commission: float = 0.001  # 0.1% per trade
     min_candles: int = 50  # Minimum candles for analysis
+    mtf_enabled: bool = False  # Multi-timeframe analysis
+    primary_timeframe: str | None = None  # Primary TF for MTF mode
 
     # Components (initialized in __post_init__)
     signal_gen: SignalGenerator = field(init=False)
@@ -104,18 +107,26 @@ class BacktestEngine:
     def __post_init__(self):
         """Initialize components after dataclass init."""
         self.balance = self.initial_balance
-        # Create a signal generator without event publishing for backtesting
-        self.signal_gen = SignalGenerator(publish_events=False)
+        self.settings = get_settings()
+
+        # Create appropriate signal generator
+        if self.mtf_enabled:
+            self.signal_gen = MTFSignalGenerator(publish_events=False)
+            # Use settings for primary TF if not specified
+            if self.primary_timeframe is None:
+                self.primary_timeframe = self.settings.oracle.mtf.primary_timeframe
+        else:
+            self.signal_gen = SignalGenerator(publish_events=False)
+
         self.risk_manager = get_risk_manager(
             risk_profile=self.risk_profile,
             initial_balance=self.initial_balance,
         )
         self.quant = get_quant_engine()
-        self.settings = get_settings()
 
     async def run(
         self,
-        data: dict[str, pd.DataFrame],
+        data: dict[str, pd.DataFrame] | dict[str, dict[str, pd.DataFrame]],
         start: datetime | None = None,
         end: datetime | None = None,
     ) -> "BacktestResult":
@@ -123,13 +134,26 @@ class BacktestEngine:
         Run backtest on historical data.
 
         Args:
-            data: Dict of {symbol: OHLCV DataFrame}
+            data: Either:
+                - Single TF: Dict of {symbol: OHLCV DataFrame}
+                - MTF mode: Dict of {symbol: {timeframe: OHLCV DataFrame}}
             start: Start datetime (optional, uses data start if None)
             end: End datetime (optional, uses data end if None)
 
         Returns:
             BacktestResult with performance metrics
         """
+        # Handle empty data early
+        if not data:
+            raise ValueError("No data in specified range")
+
+        # Determine if MTF data
+        is_mtf_data = False
+        first_value = next(iter(data.values()))
+        if isinstance(first_value, dict):
+            is_mtf_data = True
+            if not self.mtf_enabled:
+                logger.warning("mtf_data_provided_but_mtf_disabled")
 
         # Reset state
         self.balance = self.initial_balance
@@ -137,9 +161,12 @@ class BacktestEngine:
         self.trades = []
         self.equity_curve = [self.initial_balance]
 
+        # Get primary data for timestamps
+        primary_data = self._get_primary_timeframe_data(data) if is_mtf_data else data
+
         # Get all timestamps across all symbols
         all_timestamps = set()
-        for df in data.values():
+        for df in primary_data.values():
             all_timestamps.update(df["datetime"].tolist())
 
         timestamps = sorted(all_timestamps)
@@ -159,37 +186,131 @@ class BacktestEngine:
             start=timestamps[0].isoformat(),
             end=timestamps[-1].isoformat(),
             candles=len(timestamps),
+            mtf_enabled=self.mtf_enabled,
         )
 
         # Process each timestamp
         for timestamp in timestamps:
             self._current_time = timestamp
 
-            for symbol, df in data.items():
-                # Get data up to current timestamp
-                mask = df["datetime"] <= timestamp
-                history = df[mask]
+            for symbol in data:
+                if is_mtf_data:
+                    # Get MTF data up to current timestamp
+                    mtf_history = self._get_mtf_history(data[symbol], timestamp)
+                    primary_df = mtf_history.get(self.primary_timeframe)
 
-                if len(history) < self.min_candles:
-                    continue
+                    if primary_df is None or len(primary_df) < self.min_candles:
+                        continue
 
-                current_candle = history.iloc[-1]
-                await self._process_candle(symbol, current_candle, history)
+                    current_candle = primary_df.iloc[-1]
+                    await self._process_candle_mtf(symbol, current_candle, mtf_history)
+                else:
+                    # Single TF mode
+                    df = data[symbol]
+                    mask = df["datetime"] <= timestamp
+                    history = df[mask]
+
+                    if len(history) < self.min_candles:
+                        continue
+
+                    current_candle = history.iloc[-1]
+                    await self._process_candle(symbol, current_candle, history)
 
             # Update equity curve
             total_equity = self._calculate_equity()
             self.equity_curve.append(total_equity)
+
+            # Check for forced liquidation (margin call simulation)
+            # Liquidate all positions if equity drops below 1% of initial
+            liquidation_threshold = self.initial_balance * 0.01
+            if total_equity <= liquidation_threshold and self.positions:
+                logger.warning(
+                    "forced_liquidation",
+                    equity=total_equity,
+                    threshold=liquidation_threshold,
+                )
+                for symbol in list(self.positions.keys()):
+                    pos = self.positions[symbol]
+                    self._close_position(symbol, pos.current_price, "liquidation")
+                # Update equity after liquidation
+                total_equity = self._calculate_equity()
+                self.equity_curve[-1] = total_equity
 
             # Update risk manager balance
             self.risk_manager.update_balance(total_equity)
 
         # Close any remaining positions at end
         for symbol in list(self.positions.keys()):
-            last_price = data[symbol].iloc[-1]["close"]
-            self._close_position(symbol, last_price, "end")
+            last_df = data[symbol].get(self.primary_timeframe) if is_mtf_data else data[symbol]
+            if last_df is not None:
+                last_price = last_df.iloc[-1]["close"]
+                self._close_position(symbol, last_price, "end")
 
         # Calculate final metrics
         return self._calculate_result()
+
+    def _get_primary_timeframe_data(
+        self, mtf_data: dict[str, dict[str, pd.DataFrame]]
+    ) -> dict[str, pd.DataFrame]:
+        """Extract primary timeframe data from MTF data structure."""
+        result = {}
+        for symbol, tf_data in mtf_data.items():
+            if self.primary_timeframe in tf_data:
+                result[symbol] = tf_data[self.primary_timeframe]
+            elif tf_data:
+                # Fallback to first available
+                result[symbol] = next(iter(tf_data.values()))
+        return result
+
+    def _get_mtf_history(
+        self, symbol_data: dict[str, pd.DataFrame], timestamp: datetime
+    ) -> dict[str, pd.DataFrame]:
+        """Get history up to timestamp for all timeframes."""
+        result = {}
+        for tf, df in symbol_data.items():
+            mask = df["datetime"] <= timestamp
+            history = df[mask]
+            if len(history) > 0:
+                result[tf] = history
+        return result
+
+    async def _process_candle_mtf(
+        self,
+        symbol: str,
+        candle: pd.Series,
+        mtf_history: dict[str, pd.DataFrame],
+    ) -> None:
+        """Process a single candle with MTF data."""
+        current_price = candle["close"]
+        high = candle["high"]
+        low = candle["low"]
+
+        # Update position price if exists
+        if symbol in self.positions:
+            self.positions[symbol].current_price = current_price
+
+            # Check stops
+            self._check_stops(symbol, high, low)
+
+            # If position was closed by stop, return
+            if symbol not in self.positions:
+                return
+
+        # Generate signal with MTF data
+        try:
+            signal = await self.signal_gen.generate_signal(
+                symbol=symbol,
+                ohlcv=mtf_history,  # Pass dict for MTF
+                current_price=current_price,
+                include_news=False,
+                include_llm=False,
+            )
+        except Exception as e:
+            logger.warning("signal_generation_failed", symbol=symbol, error=str(e))
+            return
+
+        # Process signal (same as single TF)
+        await self._process_signal(symbol, signal, current_price)
 
     async def _process_candle(
         self,
@@ -226,6 +347,13 @@ class BacktestEngine:
             logger.warning("signal_generation_failed", symbol=symbol, error=str(e))
             return
 
+        # Process signal
+        await self._process_signal(symbol, signal, current_price)
+
+    async def _process_signal(
+        self, symbol: str, signal: TradingSignal, current_price: float
+    ) -> None:
+        """Process a trading signal."""
         # Process actionable signals
         if not signal.is_actionable:
             return
@@ -322,7 +450,7 @@ class BacktestEngine:
         commission = cost * self.commission
 
         # Deduct from balance
-        self.balance -= (cost + commission)
+        self.balance -= cost + commission
 
         # Create position
         position = BacktestPosition(
@@ -445,16 +573,12 @@ class BacktestEngine:
         profit_factor = gross_profit / gross_loss if gross_loss > 0 else float("inf")
 
         # Drawdown
-        current_dd, max_dd, max_dd_duration = self.quant.calculate_drawdown(
-            self.equity_curve
-        )
+        current_dd, max_dd, max_dd_duration = self.quant.calculate_drawdown(self.equity_curve)
 
         # Sharpe ratio (using daily returns approximation)
         returns = []
         for i in range(1, len(self.equity_curve)):
-            ret = (self.equity_curve[i] - self.equity_curve[i - 1]) / self.equity_curve[
-                i - 1
-            ]
+            ret = (self.equity_curve[i] - self.equity_curve[i - 1]) / self.equity_curve[i - 1]
             returns.append(ret)
 
         sharpe = self.quant.calculate_sharpe_ratio(returns) if returns else 0

@@ -6,21 +6,64 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+---
+
+## [0.6.0] - 2026-02-01
+
 ### Added
+
+#### Integration Loop - Trading Engine (`keryxflow/core/engine.py`)
+- **`TradingEngine`** - Central orchestrator connecting all modules
+  - Price Update → OHLCV Buffer → Oracle → Aegis → Paper Engine flow
+  - Event subscription for PRICE_UPDATE, SYSTEM_PAUSED, SYSTEM_RESUMED, PANIC_TRIGGERED
+  - Automatic signal generation at configurable intervals (default: 60s)
+  - Order creation with position sizing from RiskManager
+  - Order approval through Aegis before execution
+  - Event publishing: ORDER_APPROVED, ORDER_REJECTED, ORDER_FILLED, POSITION_CLOSED
+
+- **`OHLCVBuffer`** - Real-time candle aggregation
+  - Accumulates price updates into 1-minute OHLCV candles
+  - Configurable max candles buffer (default: 100)
+  - Multi-symbol support
+  - Returns pandas DataFrame for technical analysis
+
 - **Splash screen** with KERYX ASCII banner on startup
   - Auto-dismiss after 2.5 seconds (or press any key)
   - Bitcoin orange theme (#F7931A) for brand consistency
-- **TUI integration** with main entrypoint
-  - `poetry run keryxflow` now launches the full Hermes TUI
-  - Initialization sequence (database, profile, paper engine, exchange) before TUI
-  - Price feed worker runs in background updating widgets
+
 - **Help modal banner** with KERYX ASCII art
   - Accessible via `?` key
   - Bitcoin orange themed
 
+#### Widget Integrations
+- **`PositionsWidget`** now connected to `PaperTradingEngine`
+  - Real-time position fetching
+  - Live PnL updates with price changes
+- **`AegisWidget`** now connected to `RiskManager`
+  - Real-time risk status display
+  - Daily PnL, drawdown, and position count
+- **`LogsWidget`** receives events from full trading loop
+  - ORDER_APPROVED, ORDER_REJECTED, ORDER_FILLED events logged
+
+#### Tests
+- `tests/test_core/test_engine.py` - 17 tests for trading engine
+  - OHLCVBuffer: candle creation, updates, DataFrame output
+  - TradingEngine: initialization, start/stop, status
+  - Analysis flow: min candles requirement, analysis trigger
+  - Event handling: pause, resume, panic, price updates
+
 ### Changed
+- `keryxflow/hermes/app.py` - TUI now creates and starts TradingEngine
+  - Connects widgets to real data sources (RiskManager, PaperEngine)
+  - Subscribes to ORDER_APPROVED, ORDER_REJECTED events
 - `main.py` refactored to initialize components then launch TUI
 - Help modal widened to accommodate banner (60 chars)
+
+### Technical Details
+- pytest-mock added to dev dependencies for mocking in tests
+- `get_ohlcv()` now includes current (incomplete) candle
+- Event handlers receive Event objects consistently
+- 227 tests passing (17 new + 210 existing)
 
 ---
 
@@ -121,7 +164,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
-## [0.4.0] - 2026-02-02
+## [0.4.0] - 2026-02-01
 
 ### Added
 
@@ -180,7 +223,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
-## [0.3.0] - 2026-02-02
+## [0.3.0] - 2026-02-01
 
 ### Added
 
@@ -331,9 +374,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.6.0 | 2026-02-01 | Integration loop (TradingEngine orchestrator) |
 | 0.5.0 | 2026-02-01 | Hermes TUI (Textual interface) |
-| 0.4.0 | 2026-02-02 | Oracle intelligence layer (technical + LLM) |
-| 0.3.0 | 2026-02-02 | Aegis risk management layer |
+| 0.4.0 | 2026-02-01 | Oracle intelligence layer (technical + LLM) |
+| 0.3.0 | 2026-02-01 | Aegis risk management layer |
 | 0.2.0 | 2026-02-01 | Exchange layer + runnable MVP |
 | 0.1.0 | 2026-02-01 | Project foundation - Phase 0 complete |
 
@@ -341,12 +385,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Upcoming
 
-### [0.6.0] - Planned
-- Full integration loop
-- Main event loop connecting all modules
-- Graceful shutdown
+### [0.7.0] - Planned
+- Backtesting engine
+- Historical data replay
+- Strategy performance metrics
 
 ### [1.0.0] - Planned
-- Backtesting engine
 - Live trading mode
 - Production ready
+- Full documentation

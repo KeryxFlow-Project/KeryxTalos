@@ -46,27 +46,27 @@ git checkout -b feature/phase-11-guardrails
 
 ### Branches
 
-| Branch | Propósito | Proteção |
-|--------|-----------|----------|
-| `main` | Releases estáveis | PRs only, reviewed |
-| `dev` | Integração contínua | PRs only |
-| `feature/phase-N-nome` | Features do roadmap | - |
-| `fix/issue-N-descricao` | Correções de bugs | - |
-| `docs/descricao` | Apenas documentação | - |
+| Branch | Purpose | Protection |
+|--------|---------|------------|
+| `main` | Stable releases | PRs only, reviewed |
+| `dev` | Continuous integration | PRs only |
+| `feature/phase-N-name` | Roadmap features | - |
+| `fix/issue-N-description` | Bug fixes | - |
+| `docs/description` | Documentation only | - |
 
-### Fluxo
+### Flow
 
 ```
-feature/phase-N-nome
+feature/phase-N-name
          ↓ PR (code review)
         dev
-         ↓ PR (após validação completa)
+         ↓ PR (after full validation)
         main
 ```
 
-**Nunca faça push direto para `main` ou `dev`.**
+**Never push directly to `main` or `dev`.**
 
-### Convenção de Nomes de Branch
+### Branch Naming Convention
 
 ```bash
 # Features (roadmap phases)
@@ -86,25 +86,25 @@ refactor/oracle-signal-flow
 refactor/extract-portfolio-state
 ```
 
-### Exemplo Completo
+### Complete Example
 
 ```bash
-# 1. Sync com dev
+# 1. Sync with dev
 git checkout dev
 git pull origin dev
 
-# 2. Criar feature branch
+# 2. Create feature branch
 git checkout -b feature/phase-11-guardrails
 
-# 3. Desenvolver e commitar
+# 3. Develop and commit
 git add keryxflow/aegis/guardrails.py
 git commit -m "feat(aegis): add immutable trading guardrails"
 
-# 4. Push e criar PR
+# 4. Push and create PR
 git push -u origin feature/phase-11-guardrails
 gh pr create --base dev --title "feat(aegis): implement guardrails layer (Phase 11)"
 
-# 5. Após aprovação e merge para dev, deletar branch local
+# 5. After approval and merge to dev, delete local branch
 git checkout dev
 git pull origin dev
 git branch -d feature/phase-11-guardrails

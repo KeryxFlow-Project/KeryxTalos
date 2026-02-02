@@ -1,233 +1,233 @@
-# Plano: Evolução AI-First do KeryxFlow
+# Plan: AI-First Evolution of KeryxFlow
 
-## Objetivo
-Transformar o KeryxFlow de "AI valida" para "AI opera" - Claude passa de validador (40% peso) para operador autônomo dentro de guardrails imutáveis.
+## Objective
+Transform KeryxFlow from "AI validates" to "AI operates" - Claude evolves from validator (40% weight) to autonomous operator within immutable guardrails.
 
 ---
 
-## Fase 1: Guardrails Layer (Segurança Primeiro)
-**Duração**: 1-2 semanas | **Prioridade**: CRÍTICA (resolve Issue #9)
+## Phase 1: Guardrails Layer (Safety First)
+**Duration**: 1-2 weeks | **Priority**: CRITICAL (fixes Issue #9)
 
-### Arquivos a Criar
-| Arquivo | Propósito |
-|---------|-----------|
-| `keryxflow/aegis/guardrails.py` | Limites imutáveis em código (frozen dataclass) |
-| `keryxflow/aegis/portfolio.py` | Tracking de risco agregado do portfolio |
-| `tests/test_aegis/test_guardrails.py` | Testes 100% coverage |
+### Files to Create
+| File | Purpose |
+|------|---------|
+| `keryxflow/aegis/guardrails.py` | Immutable limits in code (frozen dataclass) |
+| `keryxflow/aegis/portfolio.py` | Aggregate portfolio risk tracking |
+| `tests/test_aegis/test_guardrails.py` | Tests with 100% coverage |
 
-### Arquivos a Modificar
-| Arquivo | Mudança |
-|---------|---------|
-| `keryxflow/aegis/risk.py` | Integrar GuardrailEnforcer antes de RiskManager |
-| `keryxflow/config.py` | Validar que config não excede guardrails |
+### Files to Modify
+| File | Change |
+|------|--------|
+| `keryxflow/aegis/risk.py` | Integrate GuardrailEnforcer before RiskManager |
+| `keryxflow/config.py` | Validate that config does not exceed guardrails |
 
-### Guardrails Propostos (Imutáveis)
+### Proposed Guardrails (Immutable)
 ```python
-MAX_POSITION_SIZE_PCT = 10%      # Máx por posição
-MAX_TOTAL_EXPOSURE_PCT = 50%     # Máx total exposto
-MIN_CASH_RESERVE_PCT = 20%       # Sempre manter em caixa
-MAX_LOSS_PER_TRADE_PCT = 2%      # Máx perda por trade
-MAX_DAILY_LOSS_PCT = 5%          # Máx perda diária
-CONSECUTIVE_LOSSES_HALT = 5      # Halt após 5 perdas
+MAX_POSITION_SIZE_PCT = 10%      # Max per position
+MAX_TOTAL_EXPOSURE_PCT = 50%     # Max total exposed
+MIN_CASH_RESERVE_PCT = 20%       # Always keep in cash
+MAX_LOSS_PER_TRADE_PCT = 2%      # Max loss per trade
+MAX_DAILY_LOSS_PCT = 5%          # Max daily loss
+CONSECUTIVE_LOSSES_HALT = 5      # Halt after 5 losses
 ```
 
-### Critérios de Sucesso
-- [ ] Issue #9 resolvida: 3 posições a 2% cada = REJEITADO (6% > 5% daily limit)
-- [ ] Guardrails não podem ser modificados em runtime
-- [ ] 100% cobertura de testes em aegis/
-- [ ] Backwards compatible com sistema atual
+### Success Criteria
+- [ ] Issue #9 fixed: 3 positions at 2% each = REJECTED (6% > 5% daily limit)
+- [ ] Guardrails cannot be modified at runtime
+- [ ] 100% test coverage on aegis/
+- [ ] Backwards compatible with current system
 
 ---
 
-## Fase 2: Sistema de Memória
-**Duração**: 2-3 semanas | **Dependência**: Fase 1 completa
+## Phase 2: Memory System
+**Duration**: 2-3 weeks | **Dependency**: Phase 1 complete
 
-### Novos Modelos de Dados (`core/models.py`)
+### New Data Models (`core/models.py`)
 ```python
-TradeEpisode     # Trade completo com reasoning e lessons_learned
-TradingRule      # Regras aprendidas (source: learned/user/backtest)
-MarketPattern    # Padrões identificados com estatísticas
+TradeEpisode     # Complete trade with reasoning and lessons_learned
+TradingRule      # Learned rules (source: learned/user/backtest)
+MarketPattern    # Identified patterns with statistics
 ```
 
-### Novo Módulo: `keryxflow/memory/`
-| Arquivo | Propósito |
-|---------|-----------|
-| `episodic.py` | Memória de trades (record/recall similar) |
-| `semantic.py` | Regras e padrões (get_active_rules) |
-| `manager.py` | Interface unificada (build_context_for_decision) |
+### New Module: `keryxflow/memory/`
+| File | Purpose |
+|------|---------|
+| `episodic.py` | Trade memory (record/recall similar) |
+| `semantic.py` | Rules and patterns (get_active_rules) |
+| `manager.py` | Unified interface (build_context_for_decision) |
 
-### Integração
-- `core/engine.py`: Gravar trades na memória após execução
-- `oracle/brain.py`: Incluir contexto de memória no prompt do Claude
+### Integration
+- `core/engine.py`: Record trades to memory after execution
+- `oracle/brain.py`: Include memory context in prompt
 
-### Critérios de Sucesso
-- [ ] Decisões de trade gravadas com contexto completo
-- [ ] Outcomes gravados para aprendizado
-- [ ] Contexto de memória incluído em prompts LLM
-- [ ] Lookup de situações similares funcional
+### Success Criteria
+- [ ] Trade decisions recorded with full context
+- [ ] Outcomes recorded for learning
+- [ ] Memory context included in LLM prompts
+- [ ] Similar situation lookup functional
 
 ---
 
-## Fase 3: Agent Tools
-**Duração**: 2-3 semanas | **Dependência**: Fase 2 completa
+## Phase 3: Agent Tools
+**Duration**: 2-3 weeks | **Dependency**: Phase 2 complete
 
-### Novo Módulo: `keryxflow/agent/`
-| Arquivo | Propósito |
-|---------|-----------|
-| `tools.py` | Framework de tools + TradingToolkit |
+### New Module: `keryxflow/agent/`
+| File | Purpose |
+|------|---------|
+| `tools.py` | Tool framework + TradingToolkit |
 | `perception_tools.py` | get_price, get_ohlcv, get_order_book |
 | `analysis_tools.py` | calculate_indicators, position_size |
 | `execution_tools.py` | place_order, set_stop_loss (GUARDED) |
-| `executor.py` | Execução segura com check de guardrails |
+| `executor.py` | Safe execution with guardrail checks |
 
-### Categorias de Tools
-| Categoria | Tools | Guarded? |
-|-----------|-------|----------|
-| Perception | get_current_price, get_ohlcv, get_portfolio_state | Não |
-| Analysis | calculate_indicators, calculate_position_size | Não |
-| Introspection | recall_similar_trades, get_trading_rules | Não |
-| Execution | place_order, close_position, set_stop_loss | **SIM** |
+### Tool Categories
+| Category | Tools | Guarded? |
+|----------|-------|----------|
+| Perception | get_current_price, get_ohlcv, get_portfolio_state | No |
+| Analysis | calculate_indicators, calculate_position_size | No |
+| Introspection | recall_similar_trades, get_trading_rules | No |
+| Execution | place_order, close_position, set_stop_loss | **YES** |
 
-### Critérios de Sucesso
-- [ ] 15+ tools implementadas e testadas
-- [ ] Tools de execução passam por GuardrailEnforcer
-- [ ] Formato compatível com Anthropic Tool Use API
-- [ ] Error handling robusto
+### Success Criteria
+- [ ] 15+ tools implemented and tested
+- [ ] Execution tools pass through GuardrailEnforcer
+- [ ] Format compatible with Anthropic Tool Use API
+- [ ] Robust error handling
 
 ---
 
-## Fase 4: Cognitive Agent
-**Duração**: 3-4 semanas | **Dependência**: Fases 1-3 completas
+## Phase 4: Cognitive Agent
+**Duration**: 3-4 weeks | **Dependency**: Phases 1-3 complete
 
-### Novo Arquivo: `keryxflow/agent/cognitive.py`
+### New File: `keryxflow/agent/cognitive.py`
 ```python
 class CognitiveAgent:
-    """Ciclo: Perceive → Remember → Analyze → Decide → Validate → Execute → Learn"""
+    """Cycle: Perceive → Remember → Analyze → Decide → Validate → Execute → Learn"""
 
     async def run_cycle(self) -> AgentCycleResult:
-        context = await self._build_context()      # 1. Perceber
-        decision = await self._get_decision(context)  # 2-4. Lembrar, Analisar, Decidir
-        results = await self._execute_tools(decision)  # 5-6. Validar, Executar
-        await self._update_memory(decision, results)   # 7. Aprender
+        context = await self._build_context()         # 1. Perceive
+        decision = await self._get_decision(context)  # 2-4. Remember, Analyze, Decide
+        results = await self._execute_tools(decision) # 5-6. Validate, Execute
+        await self._update_memory(decision, results)  # 7. Learn
 ```
 
-### Modificação: `core/engine.py`
-- Adicionar `agent_mode: bool` (default: False)
-- Quando True: CognitiveAgent substitui SignalGenerator
-- Quando False: comportamento atual preservado
+### Modification: `core/engine.py`
+- Add `agent_mode: bool` (default: False)
+- When True: CognitiveAgent replaces SignalGenerator
+- When False: current behavior preserved
 
 ### Fallback Behavior
-- API Claude falha → volta para sinais técnicos
-- Muitos erros → ativa circuit breaker
-- Guardrails NUNCA podem ser bypassed
+- Claude API fails → fall back to technical signals
+- Too many errors → activate circuit breaker
+- Guardrails can NEVER be bypassed
 
-### Critérios de Sucesso
-- [ ] Agent executa ciclos completos sem crashes
-- [ ] Tool use loop funciona corretamente
-- [ ] Fallback para modo técnico funcional
+### Success Criteria
+- [ ] Agent executes complete cycles without crashes
+- [ ] Tool use loop works correctly
+- [ ] Fallback to technical mode functional
 - [ ] Backwards compatible (agent_mode=False)
 
 ---
 
-## Fase 5: Learning e Reflection
-**Duração**: 2-3 semanas | **Dependência**: Fase 4 completa
+## Phase 5: Learning & Reflection
+**Duration**: 2-3 weeks | **Dependency**: Phase 4 complete
 
-### Novos Arquivos
-| Arquivo | Propósito |
-|---------|-----------|
-| `agent/reflection.py` | Daily/weekly reflection, post-mortem de trades |
-| `agent/strategy.py` | Seleção e adaptação de estratégias |
-| `agent/scheduler.py` | Tarefas agendadas (daily close, weekly review) |
+### New Files
+| File | Purpose |
+|------|---------|
+| `agent/reflection.py` | Daily/weekly reflection, trade post-mortems |
+| `agent/strategy.py` | Strategy selection and adaptation |
+| `agent/scheduler.py` | Scheduled tasks (daily close, weekly review) |
 
-### Funcionalidades
-- **Daily Reflection**: Analisa trades do dia, atualiza lessons_learned
-- **Weekly Reflection**: Identifica padrões, cria/modifica regras
-- **Trade Post-Mortem**: Claude revisa trade fechado e extrai lições
+### Features
+- **Daily Reflection**: Analyze day's trades, update lessons_learned
+- **Weekly Reflection**: Identify patterns, create/modify rules
+- **Trade Post-Mortem**: Claude reviews closed trade and extracts lessons
 
-### Critérios de Sucesso
-- [ ] Reflection diário roda e atualiza memória
-- [ ] Regras criadas são significativas (review humano)
-- [ ] Métricas de paper trading melhoram em 30 dias
+### Success Criteria
+- [ ] Daily reflection runs and updates memory
+- [ ] Created rules are meaningful (human review)
+- [ ] Paper trading metrics improve over 30 days
 
 ---
 
-## Arquivos Críticos
+## Critical Files
 
 ```
 keryxflow/
 ├── aegis/
-│   ├── guardrails.py    [CRIAR] Limites imutáveis
-│   ├── portfolio.py     [CRIAR] Tracking agregado
-│   └── risk.py          [MODIFICAR] Integrar guardrails
+│   ├── guardrails.py    [CREATE] Immutable limits
+│   ├── portfolio.py     [CREATE] Aggregate tracking
+│   └── risk.py          [MODIFY] Integrate guardrails
 ├── core/
-│   ├── models.py        [MODIFICAR] +TradeEpisode, TradingRule, MarketPattern
-│   ├── engine.py        [MODIFICAR] +agent_mode, +memory integration
-│   └── database.py      [MODIFICAR] Registrar novos modelos
-├── memory/              [CRIAR MÓDULO]
+│   ├── models.py        [MODIFY] +TradeEpisode, TradingRule, MarketPattern
+│   ├── engine.py        [MODIFY] +agent_mode, +memory integration
+│   └── database.py      [MODIFY] Register new models
+├── memory/              [CREATE MODULE]
 │   ├── episodic.py
 │   ├── semantic.py
 │   └── manager.py
-├── agent/               [CRIAR MÓDULO]
+├── agent/               [CREATE MODULE]
 │   ├── tools.py
 │   ├── executor.py
 │   ├── cognitive.py
 │   ├── reflection.py
 │   └── scheduler.py
 ├── oracle/
-│   └── brain.py         [MODIFICAR] Aceitar memory context
-└── config.py            [MODIFICAR] +AgentSettings, +guardrail validation
+│   └── brain.py         [MODIFY] Accept memory context
+└── config.py            [MODIFY] +AgentSettings, +guardrail validation
 ```
 
 ---
 
-## Verificação
+## Verification
 
-### Testes por Fase
-- **Fase 1**: `pytest tests/test_aegis/test_guardrails.py` - 100% coverage
-- **Fase 2**: `pytest tests/test_memory/` - memory persistence
-- **Fase 3**: `pytest tests/test_agent/test_tools.py` - all tools work
-- **Fase 4**: `pytest tests/integration/test_agent_cycle.py` - full cycle
-- **Fase 5**: Paper trading 30 dias + review manual
+### Tests per Phase
+- **Phase 1**: `pytest tests/test_aegis/test_guardrails.py` - 100% coverage
+- **Phase 2**: `pytest tests/test_memory/` - memory persistence
+- **Phase 3**: `pytest tests/test_agent/test_tools.py` - all tools work
+- **Phase 4**: `pytest tests/integration/test_agent_cycle.py` - full cycle
+- **Phase 5**: Paper trading 30 days + manual review
 
-### Validação de Segurança
+### Security Validation
 ```bash
-# Testar cenário Issue #9
-poetry run pytest tests/test_aegis/test_guardrails.py::test_aggregate_risk_rejection
+# Test Issue #9 scenario
+pytest tests/test_aegis/test_guardrails.py::test_aggregate_risk_rejection
 
-# Testar guardrails imutáveis
-poetry run pytest tests/test_aegis/test_guardrails.py::test_guardrails_immutable
+# Test immutable guardrails
+pytest tests/test_aegis/test_guardrails.py::test_guardrails_immutable
 
-# Integration test completo
-poetry run pytest tests/integration/ -v
+# Full integration test
+pytest tests/integration/ -v
 ```
 
 ### Paper Trading Validation
-Antes de cada fase ir para main:
+Before each phase goes to main:
 1. 100+ paper trades
-2. Verificar guardrails nunca bypassed
-3. Checar memória grava/recupera corretamente
-4. Validar decisões do agent são razoáveis
+2. Verify guardrails never bypassed
+3. Check memory records/retrieves correctly
+4. Validate agent decisions are reasonable
 
 ---
 
-## Estimativas
+## Estimates
 
-| Fase | Duração | Esforço |
-|------|---------|---------|
-| 1. Guardrails | 1-2 semanas | Crítico - fazer primeiro |
-| 2. Memory | 2-3 semanas | Fundação para AI-First |
-| 3. Tools | 2-3 semanas | Interface do agent |
-| 4. Agent | 3-4 semanas | Core da mudança |
-| 5. Learning | 2-3 semanas | Melhoria contínua |
-| **Total** | **10-15 semanas** | |
+| Phase | Duration | Effort |
+|-------|----------|--------|
+| 1. Guardrails | 1-2 weeks | Critical - do first |
+| 2. Memory | 2-3 weeks | Foundation for AI-First |
+| 3. Tools | 2-3 weeks | Agent interface |
+| 4. Agent | 3-4 weeks | Core of the change |
+| 5. Learning | 2-3 weeks | Continuous improvement |
+| **Total** | **10-15 weeks** | |
 
 ---
 
-## Riscos e Mitigações
+## Risks and Mitigations
 
-| Risco | Mitigação |
-|-------|-----------|
-| Claude toma decisão catastrófica | Guardrails imutáveis, checados antes de toda ação |
-| Custo API Claude alto | Rate limiting, caching, agent_mode opcional |
-| Performance degradada | Async everywhere, lazy loading |
-| Memória cresce demais | Políticas de retenção, archive de dados antigos |
+| Risk | Mitigation |
+|------|------------|
+| Claude makes catastrophic decision | Immutable guardrails, checked before every action |
+| High Claude API cost | Rate limiting, caching, agent_mode optional |
+| Performance degradation | Async everywhere, lazy loading |
+| Memory grows too large | Retention policies, archive old data |

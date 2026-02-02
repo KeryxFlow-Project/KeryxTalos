@@ -116,6 +116,46 @@ Final signal is a weighted combination:
 - If technical says BUY but LLM is bearish → NO_ACTION
 - If technical says SELL but LLM is bullish → NO_ACTION
 
+### Multi-Timeframe Analysis (MTF)
+
+When enabled, Oracle analyzes multiple timeframes to improve signal quality.
+
+**Configuration** (`settings.toml`):
+```toml
+[oracle.mtf]
+enabled = true
+timeframes = ["15m", "1h", "4h"]
+primary_timeframe = "1h"      # Main signal generation
+filter_timeframe = "4h"       # Trend confirmation
+min_filter_confidence = 0.5   # Minimum alignment required
+```
+
+**How MTF Works:**
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  15m (fast) │     │  1h (main)  │     │ 4h (filter) │
+│  Entry      │────▶│  Signal     │────▶│  Trend      │
+│  Timing     │     │  Generation │     │  Confirm    │
+└─────────────┘     └─────────────┘     └─────────────┘
+```
+
+| Timeframe | Role | Weight |
+|-----------|------|--------|
+| 15m | Entry timing, momentum | 20% |
+| 1h | Primary signal generation | 50% |
+| 4h | Trend filter, bias | 30% |
+
+**Signal Filtering:**
+- LONG signals only pass if 4h trend is bullish or neutral
+- SHORT signals only pass if 4h trend is bearish or neutral
+- Signals against the higher timeframe trend are rejected
+
+**Benefits:**
+- Reduces false signals from noise
+- Aligns entries with dominant trend
+- Improves win rate at cost of fewer signals
+
 ---
 
 ## Signal Types
@@ -157,6 +197,20 @@ Position Size = (Balance × Risk%) / (Entry - Stop Loss)
 - Entry: $67,000
 - Stop Loss: $66,000 (1.5% away)
 - Position Size: $100 / $1,000 = 0.001 BTC
+
+> **Known Limitation:** The current position sizing model calculates risk per trade in isolation.
+> With multiple concurrent positions (up to `max_open_positions`), total portfolio exposure can
+> exceed expected limits. For example, 3 positions each risking 2% could result in 6% total risk
+> if all hit stop loss simultaneously. See [Issue #9](https://github.com/KeryxFlow-Project/KeryxFlow/issues/9)
+> for ongoing improvements.
+
+**Recommended Settings for Safety:**
+
+| Risk Tolerance | risk_per_trade | max_open_positions | Max Theoretical Loss |
+|----------------|----------------|--------------------|-----------------------|
+| Conservative | 0.5% | 2 | 1% |
+| Moderate | 1% | 3 | 3% |
+| Aggressive | 2% | 3 | 6% |
 
 ### Approval Checks
 
@@ -376,6 +430,67 @@ See [optimization.md](optimization.md) for details.
 
 ---
 
+## Known Limitations
+
+Current system limitations being actively addressed:
+
+| Limitation | Impact | Status |
+|------------|--------|--------|
+| **Isolated position risk** | Multiple positions can compound losses beyond `risk_per_trade` | [Issue #9](https://github.com/KeryxFlow-Project/KeryxFlow/issues/9) |
+| **No correlation analysis** | Correlated assets (BTC/ETH) may move together, amplifying risk | Planned |
+| **Fixed rule-based signals** | Oracle uses predetermined indicator thresholds | See Future Roadmap |
+| **No memory between sessions** | System doesn't learn from past trades | See Future Roadmap |
+| **Single exchange** | Binance only - if unavailable, system stops | Planned |
+| **Latency for scalping** | ~1-3s signal generation not suitable for HFT | By design (swing trading focus) |
+
+**Mitigations:**
+- Use conservative `risk_per_trade` settings (0.5-1%)
+- Limit `max_open_positions` to 2-3
+- Avoid highly correlated pairs simultaneously
+- Monitor the system regularly
+
+---
+
+## Future Roadmap
+
+KeryxFlow is evolving toward an **AI-First Architecture** where Claude operates autonomously within strict guardrails, rather than just validating fixed rules.
+
+**Current State:**
+```
+Prices → Indicators → FIXED RULES → Signal → Claude validates
+                          ↑                      ↓
+                      (decides)              (ok/not ok)
+```
+
+**Future State (RFC #11):**
+```
+Data → Claude PERCEIVES → Claude ANALYZES → Claude DECIDES
+           ↓                                    ↓
+       (via tools)                      (within guardrails)
+           ↓                                    ↓
+Claude EXECUTES → Claude EVALUATES → Claude LEARNS
+```
+
+**Key Proposed Changes:**
+
+| Feature | Current | Future |
+|---------|---------|--------|
+| Decision maker | Fixed indicator rules | Claude with tools |
+| Memory | None | Episodic + Semantic + Procedural |
+| Learning | Manual parameter tuning | Continuous from trades |
+| Guardrails | Aegis approval checks | Immutable code limits |
+
+**Proposed Guardrails (hardcoded, AI cannot bypass):**
+- Max 10% capital per position
+- Max 50% total exposure
+- Max 2% loss per trade
+- Max 5% daily loss
+- Halt after 5 consecutive losses
+
+See [Issue #11](https://github.com/KeryxFlow-Project/KeryxFlow/issues/11) and `docs/ai-trading-architecture.md` for the full RFC.
+
+---
+
 ## Glossary
 
 | Term | Definition |
@@ -387,3 +502,8 @@ See [optimization.md](optimization.md) for details.
 | **Slippage** | Difference between expected and actual fill price |
 | **Paper Trading** | Simulated trading with virtual money |
 | **Circuit Breaker** | Automatic trading halt on excessive losses |
+| **MTF (Multi-Timeframe)** | Analysis using multiple chart timeframes for confirmation |
+| **Guardrails** | Hard limits in code that cannot be bypassed by the system |
+| **Correlation** | How closely two assets move together (high = similar moves) |
+| **Exposure** | Total capital at risk across all open positions |
+| **Swing Trading** | Trading style holding positions for hours to days |

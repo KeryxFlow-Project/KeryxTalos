@@ -731,12 +731,57 @@ poetry run keryxflow
 
 ## Upcoming
 
-### [0.11.0] - Planned
-- Parallel optimization (multiple cores)
-- Walk-forward optimization
-- Monte Carlo simulation
+### [0.11.0] - Planned: Guardrails Layer
+- Immutable guardrails in code (`aegis/guardrails.py`)
+- Portfolio-level risk tracking (`aegis/portfolio.py`)
+- Fix Issue #9: Aggregate risk calculation
+- Proposed limits: 10% max position, 50% max exposure, 5% max daily loss
+
+### [0.12.0] - Planned: Memory System
+- Trade episode memory with reasoning and lessons learned
+- Trading rules learned from experience
+- Market pattern recognition
+- Memory context in LLM prompts
+
+### [0.13.0] - Planned: Agent Tools
+- Tool framework for Claude (perception, analysis, execution)
+- Guarded execution tools (orders pass through guardrails)
+- Anthropic Tool Use API integration
+
+### [0.14.0] - Planned: Cognitive Agent
+- Claude as primary decision maker (not just validator)
+- Cognitive cycle: Perceive → Remember → Analyze → Decide → Execute → Learn
+- Agent mode toggle (backwards compatible)
+- Fallback to technical signals on API failure
+
+### [0.15.0] - Planned: Learning & Reflection
+- Daily/weekly reflection on trading performance
+- Automatic rule generation from patterns
+- Strategy adaptation based on market conditions
 
 ### [1.0.0] - Planned
-- Production ready
+- Production ready AI-First architecture
 - Full documentation
 - Performance optimizations
+
+---
+
+## RFC & Architecture
+
+### RFC #11: AI-First Trading Architecture
+**Status**: Planning Complete | **Document**: `docs/ai-trading-architecture.md`
+
+Proposes evolution from "AI validates" to "AI operates":
+- Current: Technical indicators (60%) + Claude validates (40%)
+- Future: Claude decides autonomously within immutable guardrails
+
+**Implementation Plan**: `docs/plans/ai-first-implementation-plan.md`
+
+**Phases**:
+1. Guardrails Layer (1-2 weeks) - Safety first, fixes Issue #9
+2. Memory System (2-3 weeks) - 3-layer memory (Episodic, Semantic, Procedural)
+3. Agent Tools (2-3 weeks) - Tools for Claude to query data and execute
+4. Cognitive Agent (3-4 weeks) - Claude as primary decision maker
+5. Learning & Reflection (2-3 weeks) - Continuous improvement
+
+**Related Issues**: #9 (Position sizing allows excessive drawdown), #11 (RFC)

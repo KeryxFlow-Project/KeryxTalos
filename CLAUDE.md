@@ -80,11 +80,19 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 ## Code Patterns
 
 - **Async everywhere**: All I/O operations use async/await with tenacity retries
-- **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton.
-- **Global singletons**: Use `get_event_bus()` and `get_settings()` for shared instances
+- **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton. Nested settings use prefixes (e.g., `KERYXFLOW_RISK_`, `KERYXFLOW_ORACLE_`).
+- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()` for shared instances
 - **Type hints required**: All functions need complete type annotations
 - **Database**: SQLModel with aiosqlite (async SQLite)
 - **Event dispatch**: `publish()` queues async, `publish_sync()` dispatches immediately and waits
+
+## Testing
+
+Tests use pytest-asyncio in auto mode. Important patterns:
+
+- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons (`_settings`, `_event_bus`, `_paper_engine`, etc.) before each test. If you add a new singleton, add its reset to this fixture.
+- **Async fixtures**: Use `@pytest_asyncio.fixture` for async fixtures, regular `@pytest.fixture` for sync
+- **Database isolation**: Each test gets a fresh SQLite database in `tmp_path`
 
 ## Commit Format
 

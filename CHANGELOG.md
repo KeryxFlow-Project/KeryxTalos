@@ -164,7 +164,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
-## [0.4.0] - 2026-02-02
+## [0.4.0] - 2026-02-01
 
 ### Added
 
@@ -223,7 +223,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
-## [0.3.0] - 2026-02-02
+## [0.3.0] - 2026-02-01
 
 ### Added
 
@@ -376,8 +376,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 |---------|------|-------------|
 | 0.6.0 | 2026-02-01 | Integration loop (TradingEngine orchestrator) |
 | 0.5.0 | 2026-02-01 | Hermes TUI (Textual interface) |
-| 0.4.0 | 2026-02-02 | Oracle intelligence layer (technical + LLM) |
-| 0.3.0 | 2026-02-02 | Aegis risk management layer |
+| 0.4.0 | 2026-02-01 | Oracle intelligence layer (technical + LLM) |
+| 0.3.0 | 2026-02-01 | Aegis risk management layer |
 | 0.2.0 | 2026-02-01 | Exchange layer + runnable MVP |
 | 0.1.0 | 2026-02-01 | Project foundation - Phase 0 complete |
 

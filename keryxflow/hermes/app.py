@@ -4,7 +4,6 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, Header
-from textual.worker import Worker
 
 from keryxflow import __version__
 from keryxflow.config import get_settings
@@ -19,7 +18,6 @@ from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
 from keryxflow.hermes.widgets.oracle import OracleWidget
 from keryxflow.hermes.widgets.positions import PositionsWidget
-from keryxflow.hermes.widgets.splash import SplashScreen
 from keryxflow.hermes.widgets.stats import StatsWidget
 
 logger = get_logger(__name__)
@@ -57,7 +55,7 @@ class KeryxFlowApp(App):
         self._paused = False
         self._current_symbol_index = 0
         self._symbols = self.settings.system.symbols
-        self._price_worker: Worker | None = None
+        self._price_timer = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -78,7 +76,7 @@ class KeryxFlowApp(App):
 
         yield Footer()
 
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         """Called when the app is mounted."""
         logger.info("tui_started", version=__version__)
 
@@ -90,75 +88,138 @@ class KeryxFlowApp(App):
         self.event_bus.subscribe(EventType.ORDER_APPROVED, self._on_order_approved)
         self.event_bus.subscribe(EventType.ORDER_REJECTED, self._on_order_rejected)
 
-        # Show splash screen, then initialize
-        self.push_screen(SplashScreen(), callback=self._on_splash_dismissed)
+        # Log startup
+        try:
+            logs = self.query_one("#logs", LogsWidget)
+            logs.add_entry("KeryxFlow starting...", level="info")
+        except Exception:
+            pass
 
-    async def _on_splash_dismissed(self, _result: None) -> None:
-        """Called when splash screen is dismissed."""
-        # Start trading engine
-        if self.exchange_client and self.paper_engine:
-            self.trading_engine = TradingEngine(
-                exchange_client=self.exchange_client,
-                paper_engine=self.paper_engine,
-                event_bus=self.event_bus,
-            )
-            await self.trading_engine.start()
+        # Initialize directly (skip splash for now)
+        self.run_worker(self._initialize_after_splash)
 
+    async def _initialize_after_splash(self) -> None:
+        """Async initialization after splash screen."""
+        try:
+            self._log_msg("Starting initialization...")
+
+            # Start trading engine
+            if self.exchange_client and self.paper_engine:
+                self._log_msg("Creating trading engine...")
+
+                self.trading_engine = TradingEngine(
+                    exchange_client=self.exchange_client,
+                    paper_engine=self.paper_engine,
+                    event_bus=self.event_bus,
+                )
+                await self.trading_engine.start()
+
+                self._log_msg("Trading engine started!")
+                self._connect_widgets()
+            else:
+                self._log_msg(
+                    f"No client/paper: client={self.exchange_client is not None}, "
+                    f"paper={self.paper_engine is not None}"
+                )
+
+            # Start price feed timer
+            self._start_price_feed()
+
+        except Exception as e:
+            self._log_msg(f"ERROR: {e}")
+
+    def _log_msg(self, msg: str) -> None:
+        """Log a message to the activity widget."""
+        try:
+            logs = self.query_one("#logs", LogsWidget)
+            logs.add_entry(msg, level="info")
+        except Exception:
+            pass
+
+    def _connect_widgets(self) -> None:
+        """Connect widgets to engines (called from main thread)."""
+        if self.trading_engine:
             # Connect aegis widget to risk manager
             aegis = self.query_one("#aegis", AegisWidget)
             aegis.set_risk_manager(self.trading_engine.risk)
 
+        if self.paper_engine:
             # Connect positions widget to paper engine
             positions = self.query_one("#positions", PositionsWidget)
             positions.set_paper_engine(self.paper_engine)
 
-            # Log engine started
-            logs = self.query_one("#logs", LogsWidget)
-            logs.add_entry("Trading engine started", level="success")
+        # Log engine started
+        logs = self.query_one("#logs", LogsWidget)
+        logs.add_entry("Trading engine started", level="success")
 
-        # Initial data load
-        await self._refresh_all()
-
-        # Start price feed worker if exchange client is available
+    def _start_price_feed(self) -> None:
+        """Start the price feed timer (called from main thread)."""
+        self._log_msg("Starting price feed...")
         if self.exchange_client:
-            self._price_worker = self.run_worker(self._price_loop, exclusive=True)
+            # Use set_interval with a sync wrapper that schedules the async work
+            self._price_timer = self.set_interval(
+                self.settings.hermes.refresh_rate,
+                self._schedule_price_fetch,
+            )
+            self._log_msg(f"Price timer started (every {self.settings.hermes.refresh_rate}s)")
+            # Fetch initial prices immediately
+            self._schedule_price_fetch()
+        else:
+            self._log_msg("No exchange client for price feed!")
 
-    async def _price_loop(self) -> None:
-        """Background worker for fetching prices."""
+    def _schedule_price_fetch(self) -> None:
+        """Schedule async price fetch (sync wrapper for set_interval)."""
+        if self._paused or not self.exchange_client:
+            return
+        # Use asyncio.create_task to run the async function
         import asyncio
+        asyncio.create_task(self._fetch_prices_async())
 
-        while True:
-            if self._paused:
-                await asyncio.sleep(1)
-                continue
+    async def _fetch_prices_async(self) -> None:
+        """Fetch prices and update widgets directly (async worker)."""
+        if self._paused or not self.exchange_client:
+            self._log_msg("Fetch skipped: paused or no client")
+            return
 
-            for symbol in self._symbols:
-                try:
-                    ticker = await self.exchange_client.get_ticker(symbol)
-                    price = ticker["last"]
+        for symbol in self._symbols:
+            try:
+                self._log_msg(f"Fetching {symbol}...")
+                ticker = await self.exchange_client.get_ticker(symbol)
+                price = ticker["last"]
+                self._log_msg(f"Got {symbol}: ${price:,.2f}")
 
-                    # Update paper engine
-                    if self.paper_engine:
-                        self.paper_engine.update_price(symbol, price)
+                # Update paper engine
+                if self.paper_engine:
+                    self.paper_engine.update_price(symbol, price)
 
-                    # Publish price update event
-                    await self.event_bus.publish(
-                        Event(
-                            type=EventType.PRICE_UPDATE,
-                            data={
-                                "symbol": symbol,
-                                "price": price,
-                                "bid": ticker.get("bid"),
-                                "ask": ticker.get("ask"),
-                                "volume": ticker.get("volume"),
-                            },
-                        )
+                # Update chart directly if it's the current symbol
+                if symbol == self.current_symbol:
+                    try:
+                        chart = self.query_one("#chart", ChartWidget)
+                        chart.update_price(price)
+                    except Exception as chart_err:
+                        logger.warning("chart_update_error", error=str(chart_err))
+
+                # Log price update
+                self._log_msg(f"{symbol}: ${price:,.2f}")
+
+                # Publish to event bus for trading engine
+                await self.event_bus.publish(
+                    Event(
+                        type=EventType.PRICE_UPDATE,
+                        data={
+                            "symbol": symbol,
+                            "price": price,
+                            "bid": ticker.get("bid"),
+                            "ask": ticker.get("ask"),
+                            "volume": ticker.get("volume", 0),
+                        },
                     )
-                except Exception as e:
-                    logger.warning("price_fetch_error", symbol=symbol, error=str(e))
+                )
 
-            # Wait before next update
-            await asyncio.sleep(self.settings.hermes.refresh_rate)
+            except Exception as e:
+                logger.warning("price_fetch_error", symbol=symbol, error=str(e))
+                self._log_msg(f"Error {symbol}: {e}")
 
     async def _refresh_all(self) -> None:
         """Refresh all widgets with current data."""
@@ -180,20 +241,14 @@ class KeryxFlowApp(App):
         """Get the currently selected symbol."""
         return self._symbols[self._current_symbol_index]
 
-    async def _on_price_update(self, event: Event) -> None:
-        """Handle price update events."""
+    async def _on_price_update(self, _event: Event) -> None:
+        """Handle price update events from trading engine."""
+        # Note: Most widget updates are now done directly in _fetch_prices
+        # This handler is mainly for trading engine events
         if self._paused:
             return
 
-        data = event.data
-        chart = self.query_one("#chart", ChartWidget)
-        if data.get("symbol") == self.current_symbol:
-            chart.update_price(data.get("price", 0.0))
-
-        positions = self.query_one("#positions", PositionsWidget)
-        await positions.update_prices(data)
-
-        # Update aegis with current balance
+        # Update aegis periodically
         if self.paper_engine:
             aegis = self.query_one("#aegis", AegisWidget)
             await aegis.refresh_data()

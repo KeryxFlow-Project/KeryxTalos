@@ -5,8 +5,8 @@ Transform KeryxFlow from "AI validates" to "AI operates" - Claude evolves from v
 
 ---
 
-## Phase 1: Guardrails Layer (Safety First)
-**Duration**: 1-2 weeks | **Priority**: CRITICAL (fixes Issue #9)
+## Phase 1: Guardrails Layer (Safety First) ✅ COMPLETE
+**Duration**: 1-2 weeks | **Priority**: CRITICAL (fixes Issue #9) | **Version**: v0.11.0
 
 ### Files to Create
 | File | Purpose |
@@ -32,15 +32,15 @@ CONSECUTIVE_LOSSES_HALT = 5      # Halt after 5 losses
 ```
 
 ### Success Criteria
-- [ ] Issue #9 fixed: 3 positions at 2% each = REJECTED (6% > 5% daily limit)
-- [ ] Guardrails cannot be modified at runtime
-- [ ] 100% test coverage on aegis/
-- [ ] Backwards compatible with current system
+- [x] Issue #9 fixed: 3 positions at 2% each = REJECTED (6% > 5% daily limit)
+- [x] Guardrails cannot be modified at runtime
+- [x] 100% test coverage on aegis/
+- [x] Backwards compatible with current system
 
 ---
 
-## Phase 2: Memory System
-**Duration**: 2-3 weeks | **Dependency**: Phase 1 complete
+## Phase 2: Memory System ✅ COMPLETE
+**Duration**: 2-3 weeks | **Dependency**: Phase 1 complete | **Version**: v0.12.0
 
 ### New Data Models (`core/models.py`)
 ```python
@@ -61,10 +61,10 @@ MarketPattern    # Identified patterns with statistics
 - `oracle/brain.py`: Include memory context in prompt
 
 ### Success Criteria
-- [ ] Trade decisions recorded with full context
-- [ ] Outcomes recorded for learning
-- [ ] Memory context included in LLM prompts
-- [ ] Similar situation lookup functional
+- [x] Trade decisions recorded with full context
+- [x] Outcomes recorded for learning
+- [x] Memory context included in LLM prompts
+- [x] Similar situation lookup functional
 
 ---
 

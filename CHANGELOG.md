@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Fixed
+
+#### TUI Stability Improvements
+- **Price Fetching** - Fixed event loop conflicts by using sync ccxt in threads
+  - Replaced async ccxt calls with `asyncio.to_thread(fetch_sync)`
+  - Prices now display correctly in the TUI
+- **Oracle Widget** - Fixed signal display stuck on "Analyzing market..."
+  - Added direct Oracle updates from TUI price loop
+  - Signal generation now uses sync wrapper in thread
+- **Trading Engine Initialization** - Fixed startup sequence
+  - Engine now starts before TUI to avoid async conflicts
+  - OHLCV buffer preloads historical candles on startup
+- **Event Bus Compatibility** - Resolved Textual event loop conflicts
+  - Removed `call_from_thread` usage that caused crashes
+  - Direct widget updates in async workers
+
 ---
 
 ## [0.9.0] - 2026-02-02

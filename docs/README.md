@@ -24,10 +24,10 @@ This directory contains detailed documentation for the KeryxFlow project.
 | Document | Status |
 |----------|--------|
 | Optimization | Complete |
-| Architecture | Planned |
-| API Reference | Planned |
-| Configuration | Planned |
-| Trading Guide | Planned |
-| Development | Planned |
+| Architecture | Complete |
+| API Reference | Complete |
+| Configuration | Complete |
+| Trading Guide | Complete |
+| Development | Complete |
 
-Documentation will be added as the project develops.
+All core documentation is now available.

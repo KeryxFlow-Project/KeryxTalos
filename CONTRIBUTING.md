@@ -36,8 +36,78 @@ cd keryxflow
 # Install dependencies (including dev)
 poetry install --with dev
 
-# Create your branch
-git checkout -b feature/your-feature-name
+# Create your branch from dev
+git checkout dev
+git pull origin dev
+git checkout -b feature/phase-11-guardrails
+```
+
+## Git Workflow
+
+### Branches
+
+| Branch | Propósito | Proteção |
+|--------|-----------|----------|
+| `main` | Releases estáveis | PRs only, reviewed |
+| `dev` | Integração contínua | PRs only |
+| `feature/phase-N-nome` | Features do roadmap | - |
+| `fix/issue-N-descricao` | Correções de bugs | - |
+| `docs/descricao` | Apenas documentação | - |
+
+### Fluxo
+
+```
+feature/phase-N-nome
+         ↓ PR (code review)
+        dev
+         ↓ PR (após validação completa)
+        main
+```
+
+**Nunca faça push direto para `main` ou `dev`.**
+
+### Convenção de Nomes de Branch
+
+```bash
+# Features (roadmap phases)
+feature/phase-11-guardrails
+feature/phase-12-memory
+
+# Bug fixes (reference issue number)
+fix/issue-9-aggregate-risk
+fix/issue-23-price-feed
+
+# Documentation only
+docs/update-trading-guide
+docs/add-api-reference
+
+# Refactoring
+refactor/oracle-signal-flow
+refactor/extract-portfolio-state
+```
+
+### Exemplo Completo
+
+```bash
+# 1. Sync com dev
+git checkout dev
+git pull origin dev
+
+# 2. Criar feature branch
+git checkout -b feature/phase-11-guardrails
+
+# 3. Desenvolver e commitar
+git add keryxflow/aegis/guardrails.py
+git commit -m "feat(aegis): add immutable trading guardrails"
+
+# 4. Push e criar PR
+git push -u origin feature/phase-11-guardrails
+gh pr create --base dev --title "feat(aegis): implement guardrails layer (Phase 11)"
+
+# 5. Após aprovação e merge para dev, deletar branch local
+git checkout dev
+git pull origin dev
+git branch -d feature/phase-11-guardrails
 ```
 
 ### Running Tests
@@ -179,7 +249,7 @@ test(exchange): add paper trading order flow tests
 
 #### 4. Submit Pull Request
 
-- Target the `main` branch
+- **Target the `dev` branch** (not main!)
 - Fill out the PR template
 - Link related issues
 - Ensure CI passes
@@ -187,6 +257,11 @@ test(exchange): add paper trading order flow tests
 PR title should follow commit format:
 ```
 feat(oracle): add support for custom indicators
+```
+
+Creating a PR:
+```bash
+gh pr create --base dev --title "feat(oracle): add support for custom indicators"
 ```
 
 ## Architecture Guidelines

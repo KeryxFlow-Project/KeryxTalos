@@ -42,6 +42,15 @@ async def init_db():
     await _init_db()
 
 
+@pytest_asyncio.fixture
+async def db_session(init_db):
+    """Get an async database session for testing."""
+    from keryxflow.core.database import get_session_factory
+    async_session = get_session_factory()
+    async with async_session() as session:
+        yield session
+
+
 @pytest.fixture
 def sample_ohlcv_data():
     """Sample OHLCV data for testing."""

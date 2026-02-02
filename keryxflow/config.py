@@ -86,6 +86,39 @@ class DatabaseSettings(BaseSettings):
     url: str = "sqlite+aiosqlite:///data/keryxflow.db"
 
 
+class LiveSettings(BaseSettings):
+    """Live trading configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="KERYXFLOW_LIVE_")
+
+    require_confirmation: bool = True
+    min_paper_trades: int = Field(default=30, ge=0, le=1000)
+    min_balance: float = Field(default=100.0, ge=0.0)
+    max_position_value: float = Field(default=1000.0, ge=10.0)
+    sync_interval: int = Field(default=60, ge=10, le=300)
+
+
+class NotificationSettings(BaseSettings):
+    """Notification configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="KERYXFLOW_NOTIFY_")
+
+    # Telegram
+    telegram_enabled: bool = False
+    telegram_token: str = ""
+    telegram_chat_id: str = ""
+
+    # Discord
+    discord_enabled: bool = False
+    discord_webhook: str = ""
+
+    # Notification preferences
+    notify_on_trade: bool = True
+    notify_on_circuit_breaker: bool = True
+    notify_daily_summary: bool = True
+    notify_on_error: bool = True
+
+
 class Settings(BaseSettings):
     """Main application settings."""
 
@@ -110,6 +143,8 @@ class Settings(BaseSettings):
     oracle: OracleSettings = Field(default_factory=OracleSettings)
     hermes: HermesSettings = Field(default_factory=HermesSettings)
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
+    live: LiveSettings = Field(default_factory=LiveSettings)
+    notifications: NotificationSettings = Field(default_factory=NotificationSettings)
 
     @field_validator("binance_api_key", "binance_api_secret", "anthropic_api_key")
     @classmethod

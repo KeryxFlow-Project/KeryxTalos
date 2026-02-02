@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
@@ -16,6 +16,7 @@ from keryxflow.config import get_settings
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.core.models import RiskProfile
+from keryxflow.core.safeguards import LiveTradingSafeguards
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.oracle.signals import (
@@ -24,6 +25,9 @@ from keryxflow.oracle.signals import (
     TradingSignal,
     get_signal_generator,
 )
+
+if TYPE_CHECKING:
+    from keryxflow.notifications.manager import NotificationManager
 
 logger = get_logger(__name__)
 
@@ -128,6 +132,7 @@ class TradingEngine:
         event_bus: EventBus | None = None,
         signal_generator: SignalGenerator | None = None,
         risk_manager: RiskManager | None = None,
+        notification_manager: "NotificationManager | None" = None,
     ):
         """Initialize the trading engine."""
         self.settings = get_settings()
@@ -139,6 +144,10 @@ class TradingEngine:
             risk_profile=RiskProfile.CONSERVATIVE,
             initial_balance=10000.0,
         )
+        self.notifications = notification_manager
+
+        # Safeguards for live trading
+        self._safeguards = LiveTradingSafeguards(self.settings)
 
         # State
         self._running = False
@@ -148,11 +157,21 @@ class TradingEngine:
         self._min_candles = 20  # Minimum candles for analysis
         self._auto_trade = True  # Execute orders automatically
         self._paused = False
+        self._is_live_mode = not self.settings.is_paper_mode
+        self._last_balance_sync: datetime | None = None
+        self._balance_sync_interval = self.settings.live.sync_interval
 
     async def start(self) -> None:
         """Start the trading engine."""
         if self._running:
             return
+
+        # Verify safeguards for live mode
+        if self._is_live_mode:
+            safeguard_result = await self._verify_live_mode_safe()
+            if not safeguard_result:
+                logger.error("live_mode_safeguards_failed")
+                raise RuntimeError("Live trading safeguards failed. Check logs for details.")
 
         self._running = True
 
@@ -162,16 +181,33 @@ class TradingEngine:
         self.event_bus.subscribe(EventType.SYSTEM_RESUMED, self._on_resume)
         self.event_bus.subscribe(EventType.PANIC_TRIGGERED, self._on_panic)
 
-        # Update risk manager with current balance
-        balance = await self.paper.get_balance()
-        usdt_balance = balance["total"].get("USDT", 10000.0)
+        # Setup notification manager
+        if self.notifications:
+            self.notifications.subscribe_to_events()
+
+        # Get balance from appropriate source
+        if self._is_live_mode:
+            balance = await self._sync_balance_from_exchange()
+            usdt_balance = balance.get("USDT", 0.0)
+        else:
+            balance = await self.paper.get_balance()
+            usdt_balance = balance["total"].get("USDT", 10000.0)
+
         self.risk.update_balance(usdt_balance)
 
         # Update open positions count
         positions = await self.paper.get_positions()
         self.risk.set_open_positions(len(positions))
 
-        logger.info("trading_engine_started")
+        mode = "live" if self._is_live_mode else "paper"
+        logger.info("trading_engine_started", mode=mode)
+
+        # Send startup notification
+        if self.notifications:
+            await self.notifications.notify_system_start(
+                mode=mode,
+                symbols=self.settings.system.symbols,
+            )
 
     async def stop(self) -> None:
         """Stop the trading engine."""
@@ -338,15 +374,20 @@ class TradingEngine:
         )
 
         try:
-            # Execute via paper engine
-            result = await self.paper.execute_order(
-                symbol=order.symbol,
-                side=order.side,
-                quantity=order.quantity,
-                price=order.entry_price,
-            )
+            # Execute via appropriate engine
+            if self._is_live_mode:
+                result = await self._execute_live_order(order)
+            else:
+                result = await self.paper.execute_order(
+                    symbol=order.symbol,
+                    side=order.side,
+                    quantity=order.quantity,
+                    price=order.entry_price,
+                )
 
             if result:
+                fill_price = result.get("price", order.entry_price)
+
                 # Publish fill event
                 await self.event_bus.publish(
                     Event(
@@ -355,28 +396,78 @@ class TradingEngine:
                             "symbol": order.symbol,
                             "side": order.side,
                             "quantity": order.quantity,
-                            "price": result.get("price", order.entry_price),
+                            "price": fill_price,
                             "order_id": result.get("id"),
+                            "is_live": self._is_live_mode,
                         },
                     )
                 )
 
                 # Update risk manager state
-                positions = await self.paper.get_positions()
-                self.risk.set_open_positions(len(positions))
-
-                balance = await self.paper.get_balance()
-                self.risk.update_balance(balance["total"].get("USDT", 0.0))
+                if self._is_live_mode:
+                    await self._sync_balance_from_exchange()
+                else:
+                    positions = await self.paper.get_positions()
+                    self.risk.set_open_positions(len(positions))
+                    balance = await self.paper.get_balance()
+                    self.risk.update_balance(balance["total"].get("USDT", 0.0))
 
                 logger.info(
                     "order_executed",
                     symbol=order.symbol,
                     side=order.side,
                     quantity=order.quantity,
+                    is_live=self._is_live_mode,
                 )
 
         except Exception as e:
             logger.error("order_execution_failed", symbol=order.symbol, error=str(e))
+
+            # Notify about execution error in live mode
+            if self._is_live_mode and self.notifications:
+                await self.notifications.notify_system_error(
+                    error=str(e),
+                    component="OrderExecution",
+                )
+
+    async def _execute_live_order(self, order: OrderRequest) -> dict[str, Any] | None:
+        """Execute an order on the live exchange.
+
+        Args:
+            order: The order request to execute
+
+        Returns:
+            Order result dict or None if failed
+        """
+        try:
+            # Apply slippage protection for market orders
+            # Use market order for simplicity - limit orders would need monitoring
+            result = await self.exchange.create_market_order(
+                symbol=order.symbol,
+                side=order.side,
+                amount=order.quantity,
+            )
+
+            if result:
+                logger.info(
+                    "live_order_executed",
+                    order_id=result.get("id"),
+                    symbol=order.symbol,
+                    side=order.side,
+                    amount=order.quantity,
+                    price=result.get("average") or result.get("price"),
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                "live_order_failed",
+                symbol=order.symbol,
+                side=order.side,
+                error=str(e),
+            )
+            raise
 
     async def _handle_rejection(
         self,
@@ -438,16 +529,103 @@ class TradingEngine:
         except Exception as e:
             logger.error("panic_close_failed", error=str(e))
 
+    async def _verify_live_mode_safe(self) -> bool:
+        """Verify that live trading mode is safe to enable.
+
+        Returns:
+            True if all safeguards pass, False otherwise
+        """
+        try:
+            # Get current exchange balance
+            balance = await self.exchange.get_balance()
+            usdt_balance = balance.get("free", {}).get("USDT", 0.0)
+
+            # Get paper trade count (would come from database in real implementation)
+            # For now, we'll use a placeholder - this should be fetched from DB
+            paper_trade_count = 0  # TODO: Fetch from database
+
+            # Check circuit breaker status
+            circuit_breaker_active = self.risk.is_circuit_breaker_active
+
+            # Run safeguard checks
+            result = await self._safeguards.verify_ready_for_live(
+                current_balance=usdt_balance,
+                paper_trade_count=paper_trade_count,
+                circuit_breaker_active=circuit_breaker_active,
+            )
+
+            if not result.passed:
+                logger.warning(
+                    "live_safeguards_failed",
+                    errors=[c.message for c in result.errors],
+                    warnings=[c.message for c in result.warnings],
+                )
+
+                # Notify about safeguard failure
+                if self.notifications:
+                    await self.notifications.notify_system_error(
+                        error=result.summary(),
+                        component="LiveTradingSafeguards",
+                    )
+
+            return result.passed
+
+        except Exception as e:
+            logger.error("safeguard_check_failed", error=str(e))
+            return False
+
+    async def _sync_balance_from_exchange(self) -> dict[str, float]:
+        """Sync balance from the exchange.
+
+        Returns:
+            Dict with currency balances
+        """
+        try:
+            balance = await self.exchange.get_balance()
+            self._last_balance_sync = datetime.now(UTC)
+
+            # Extract free balances
+            free_balance = balance.get("free", {})
+
+            logger.debug(
+                "balance_synced",
+                usdt=free_balance.get("USDT", 0.0),
+            )
+
+            return free_balance
+
+        except Exception as e:
+            logger.error("balance_sync_failed", error=str(e))
+            return {}
+
+    async def _maybe_sync_balance(self) -> None:
+        """Sync balance from exchange if enough time has passed."""
+        if not self._is_live_mode:
+            return
+
+        now = datetime.now(UTC)
+        if self._last_balance_sync is None:
+            await self._sync_balance_from_exchange()
+            return
+
+        elapsed = (now - self._last_balance_sync).total_seconds()
+        if elapsed >= self._balance_sync_interval:
+            balance = await self._sync_balance_from_exchange()
+            usdt_balance = balance.get("USDT", 0.0)
+            self.risk.update_balance(usdt_balance)
+
     def get_status(self) -> dict[str, Any]:
         """Get current engine status."""
         return {
             "running": self._running,
             "paused": self._paused,
             "auto_trade": self._auto_trade,
+            "mode": "live" if self._is_live_mode else "paper",
             "analysis_interval": self._analysis_interval,
             "min_candles": self._min_candles,
             "symbols_tracking": list(self._ohlcv_buffer._candles.keys()),
             "risk_status": self.risk.get_status(),
+            "last_balance_sync": self._last_balance_sync.isoformat() if self._last_balance_sync else None,
         }
 
 

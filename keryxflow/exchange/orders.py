@@ -377,6 +377,46 @@ class OrderManager:
             client = get_exchange_client()
             return await client.get_balance()
 
+    async def sync_balance_from_exchange(self) -> dict[str, float]:
+        """
+        Sync balance from exchange (live mode only).
+
+        Returns:
+            Dict with free balances per currency
+        """
+        if self.is_paper_mode:
+            balance = await self.get_balance()
+            return balance.get("free", {})
+
+        client = get_exchange_client()
+        balance = await client.get_balance()
+        return balance.get("free", {})
+
+    async def get_open_orders(self, _symbol: str | None = None) -> list[Order]:
+        """
+        Get open orders from exchange.
+
+        Args:
+            symbol: Optional symbol to filter by
+
+        Returns:
+            List of open orders
+        """
+        if self.is_paper_mode:
+            return self.get_pending_orders()
+
+        # Live mode - fetch from exchange
+        if self._exchange_client is None:
+            self._exchange_client = get_exchange_client(sandbox=False)
+
+        try:
+            # This would fetch real open orders from exchange
+            # For now, return pending orders tracked locally
+            return self.get_pending_orders()
+        except Exception as e:
+            logger.error("fetch_open_orders_failed", error=str(e))
+            return []
+
 
 # Global instance
 _order_manager: OrderManager | None = None

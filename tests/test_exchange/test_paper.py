@@ -6,7 +6,7 @@ from keryxflow.exchange.paper import PaperTradingEngine
 
 
 @pytest.fixture
-async def paper_engine(init_db):
+async def paper_engine(init_db):  # noqa: ARG001
     """Create a fresh paper trading engine for testing."""
     engine = PaperTradingEngine(initial_balance=10000.0, slippage_pct=0.001)
     await engine.initialize()

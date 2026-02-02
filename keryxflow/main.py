@@ -190,7 +190,7 @@ class KeryxFlow:
                     timeout=5.0,
                 )
                 break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 continue
 
     async def _show_portfolio(self) -> None:
@@ -215,7 +215,7 @@ class KeryxFlow:
                     total_value += value
                     print(f"    {curr}: {amt:.8f} (≈${value:,.2f})")
 
-        print(f"    ────────────────────────")
+        print("    ────────────────────────")
         print(f"    Total: ${total_value:,.2f}")
 
         if positions:
@@ -279,10 +279,9 @@ def run() -> None:
     )
 
     # Run the async main
-    try:
+    import contextlib
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(async_main())
-    except KeyboardInterrupt:
-        pass
 
 
 if __name__ == "__main__":

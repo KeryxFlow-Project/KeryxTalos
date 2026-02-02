@@ -8,6 +8,83 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.8.0] - 2026-02-01
+
+### Added
+
+#### Live Trading Mode (`keryxflow/core/`)
+- **`LiveTradingSafeguards`** - Safety verification before enabling live mode
+  - API credentials check
+  - Minimum balance verification (100 USDT)
+  - Paper trading history requirement (30+ trades)
+  - Risk settings validation
+  - Circuit breaker status check
+  - Environment verification (production mode)
+
+- **TradingEngine Live Integration**
+  - Live mode detection via settings
+  - Balance sync from exchange (configurable interval)
+  - Live order execution via Binance API
+  - Error notifications for live trading failures
+  - Mode indicator in status
+
+- **`TradeRepository`** - Trade persistence layer
+  - Create/close trades with paper/live flag
+  - Query trades by date, symbol, status
+  - Daily stats tracking
+  - Paper trade counting for safeguards
+
+#### Notifications Module (`keryxflow/notifications/`)
+- **`TelegramNotifier`** - Telegram Bot API integration
+  - Markdown-formatted messages
+  - Bot token + chat ID configuration
+  - Connection testing
+
+- **`DiscordNotifier`** - Discord Webhook integration
+  - Rich embeds with color coding
+  - Custom bot username
+  - Webhook URL validation
+
+- **`NotificationManager`** - Coordinates multiple notifiers
+  - `notify_order_filled()` - Trade execution alerts
+  - `notify_circuit_breaker()` - Emergency stop alerts
+  - `notify_daily_summary()` - End of day reports
+  - `notify_system_start/error()` - System events
+  - Automatic event bus subscription
+
+#### Configuration
+- **`[live]`** section in settings.toml
+  - `require_confirmation` - Require explicit live mode confirmation
+  - `min_paper_trades` - Minimum paper trades before live
+  - `min_balance` - Minimum USDT balance
+  - `max_position_value` - Position size limit
+  - `sync_interval` - Balance sync frequency
+
+- **`[notifications]`** section in settings.toml
+  - Telegram: enabled, token, chat_id
+  - Discord: enabled, webhook
+  - Preferences: notify_on_trade, circuit_breaker, daily_summary, errors
+
+#### Tests
+- `tests/test_core/test_safeguards.py` - 31 tests for live safeguards
+- `tests/test_core/test_repository.py` - 14 tests for trade persistence
+- `tests/test_core/test_engine.py` - 9 new tests for live mode
+- `tests/test_notifications/` - 37 tests for notification system
+- Total: 351 tests passing (23 new + 328 existing)
+
+### Changed
+- `TradingEngine` now supports notification manager injection
+- `OrderManager` has `sync_balance_from_exchange()` and `get_open_orders()` methods
+- `.env.example` includes notification configuration
+
+### Technical Details
+- Live orders use market orders for simplicity
+- Safeguards block live mode if any error-level check fails
+- Notifications are optional (disabled by default)
+- Repository uses async context manager for session handling
+
+---
+
 ## [0.7.0] - 2026-02-01
 
 ### Added
@@ -433,6 +510,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.8.0 | 2026-02-01 | Live trading mode with safeguards and notifications |
 | 0.7.0 | 2026-02-01 | Backtesting engine for strategy validation |
 | 0.6.0 | 2026-02-01 | Integration loop (TradingEngine orchestrator) |
 | 0.5.0 | 2026-02-01 | Hermes TUI (Textual interface) |
@@ -445,12 +523,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Upcoming
 
-### [0.8.0] - Planned
+### [0.9.0] - Planned
 - Parameter optimization (grid search)
 - Multi-timeframe analysis
 - Backtest comparison dashboard
 
 ### [1.0.0] - Planned
-- Live trading mode
 - Production ready
 - Full documentation
+- Performance optimizations

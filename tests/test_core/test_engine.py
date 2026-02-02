@@ -1,7 +1,7 @@
 """Tests for the trading engine."""
 
-
 import pytest
+from pydantic import SecretStr
 
 from keryxflow.core.engine import OHLCVBuffer, TradingEngine
 from keryxflow.core.events import Event, EventBus, EventType
@@ -313,5 +313,188 @@ class TestTradingEngineEvents:
         await engine._on_price_update(event)
 
         assert "BTC/USDT" in engine._ohlcv_buffer._current_candle
+
+        await engine.stop()
+
+
+class TestTradingEngineLiveMode:
+    """Tests for live trading mode functionality."""
+
+    @pytest.fixture
+    def mock_exchange(self, mocker):
+        """Create mock exchange client."""
+        mock = mocker.MagicMock()
+        mock.get_balance = mocker.AsyncMock(
+            return_value={"free": {"USDT": 500.0}, "total": {"USDT": 500.0}}
+        )
+        mock.create_market_order = mocker.AsyncMock(
+            return_value={"id": "live_order_1", "price": 50000.0, "filled": 0.01}
+        )
+        return mock
+
+    @pytest.fixture
+    def mock_paper(self, mocker):
+        """Create mock paper trading engine."""
+        mock = mocker.MagicMock()
+        mock.get_balance = mocker.AsyncMock(
+            return_value={"total": {"USDT": 10000.0}, "free": {"USDT": 10000.0}}
+        )
+        mock.get_positions = mocker.AsyncMock(return_value=[])
+        return mock
+
+    @pytest.fixture
+    def event_bus(self):
+        """Create event bus."""
+        return EventBus()
+
+    def test_live_mode_detection_paper(self, mock_exchange, mock_paper, event_bus):
+        """Test engine detects paper mode correctly."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+
+        # Default is paper mode
+        assert engine._is_live_mode is False
+
+    def test_get_status_includes_mode(self, mock_exchange, mock_paper, event_bus):
+        """Test status includes trading mode."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+
+        status = engine.get_status()
+
+        assert "mode" in status
+        assert status["mode"] == "paper"
+
+    def test_safeguards_initialized(self, mock_exchange, mock_paper, event_bus):
+        """Test safeguards are initialized."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+
+        assert engine._safeguards is not None
+
+    @pytest.mark.asyncio
+    async def test_sync_balance_from_exchange(self, mock_exchange, mock_paper, event_bus):
+        """Test balance sync from exchange."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+        engine._is_live_mode = True
+
+        balance = await engine._sync_balance_from_exchange()
+
+        assert balance.get("USDT") == 500.0
+        assert engine._last_balance_sync is not None
+
+    @pytest.mark.asyncio
+    async def test_verify_live_mode_fails_without_credentials(
+        self, mock_exchange, mock_paper, event_bus
+    ):
+        """Test live mode verification fails without credentials."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+
+        # No credentials set, should fail
+        result = await engine._verify_live_mode_safe()
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_verify_live_mode_with_credentials(
+        self, mock_exchange, mock_paper, event_bus
+    ):
+        """Test live mode verification with valid credentials."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+
+        # Mock settings to have credentials
+        engine.settings.binance_api_key = SecretStr("test_key")
+        engine.settings.binance_api_secret = SecretStr("test_secret")
+        engine.settings.env = "production"
+
+        # Skip paper trade check
+        engine._safeguards.set_min_paper_trades(0)
+
+        result = await engine._verify_live_mode_safe()
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_execute_live_order(self, mock_exchange, mock_paper, event_bus):
+        """Test live order execution."""
+        from keryxflow.aegis.risk import OrderRequest
+
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+        engine._is_live_mode = True
+
+        order = OrderRequest(
+            symbol="BTC/USDT",
+            side="buy",
+            quantity=0.01,
+            entry_price=50000.0,
+            stop_loss=49000.0,
+        )
+
+        result = await engine._execute_live_order(order)
+
+        assert result is not None
+        assert result["id"] == "live_order_1"
+        mock_exchange.create_market_order.assert_called_once_with(
+            symbol="BTC/USDT",
+            side="buy",
+            amount=0.01,
+        )
+
+    def test_notification_manager_optional(self, mock_exchange, mock_paper, event_bus):
+        """Test notification manager is optional."""
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+            notification_manager=None,
+        )
+
+        assert engine.notifications is None
+
+    @pytest.mark.asyncio
+    async def test_start_with_notification_manager(
+        self, mock_exchange, mock_paper, event_bus, mocker
+    ):
+        """Test start subscribes notification manager to events."""
+        mock_notifier = mocker.MagicMock()
+        mock_notifier.subscribe_to_events = mocker.MagicMock()
+        mock_notifier.notify_system_start = mocker.AsyncMock()
+
+        engine = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+            notification_manager=mock_notifier,
+        )
+
+        await engine.start()
+
+        mock_notifier.subscribe_to_events.assert_called_once()
+        mock_notifier.notify_system_start.assert_called_once()
 
         await engine.stop()

@@ -7,7 +7,7 @@ from textual.widgets import Footer, Header
 
 from keryxflow import __version__
 from keryxflow.config import get_settings
-from keryxflow.core.events import EventBus, get_event_bus
+from keryxflow.core.events import EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
@@ -69,10 +69,10 @@ class KeryxFlowApp(App):
         logger.info("tui_started", version=__version__)
 
         # Subscribe to events
-        await self.event_bus.subscribe("price.update", self._on_price_update)
-        await self.event_bus.subscribe("oracle.signal_generated", self._on_signal)
-        await self.event_bus.subscribe("aegis.circuit_tripped", self._on_circuit_trip)
-        await self.event_bus.subscribe("trade.executed", self._on_trade)
+        self.event_bus.subscribe(EventType.PRICE_UPDATE, self._on_price_update)
+        self.event_bus.subscribe(EventType.SIGNAL_GENERATED, self._on_signal)
+        self.event_bus.subscribe(EventType.CIRCUIT_BREAKER_TRIGGERED, self._on_circuit_trip)
+        self.event_bus.subscribe(EventType.ORDER_FILLED, self._on_trade)
 
         # Initial data load
         await self._refresh_all()

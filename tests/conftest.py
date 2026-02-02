@@ -19,12 +19,18 @@ def setup_test_database(tmp_path):
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
     import keryxflow.exchange.paper as paper_module
+    import keryxflow.memory.episodic as episodic_module
+    import keryxflow.memory.manager as manager_module
+    import keryxflow.memory.semantic as semantic_module
 
     config_module._settings = None
     db_module._engine = None
     db_module._async_session_factory = None
     events_module._event_bus = None
     paper_module._paper_engine = None
+    episodic_module._episodic_memory = None
+    semantic_module._semantic_memory = None
+    manager_module._memory_manager = None
 
     yield
 

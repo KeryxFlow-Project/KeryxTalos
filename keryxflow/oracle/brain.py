@@ -3,13 +3,16 @@
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from keryxflow.config import get_settings
 from keryxflow.core.events import EventBus, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.oracle.feeds import NewsDigest, NewsSentiment
 from keryxflow.oracle.technical import TechnicalAnalysis, TrendDirection
+
+if TYPE_CHECKING:
+    from keryxflow.memory.manager import MemoryContext
 
 logger = get_logger(__name__)
 
@@ -155,6 +158,7 @@ Always respond with valid JSON only, no additional text."""
         symbol: str,
         technical: TechnicalAnalysis | None = None,
         news: NewsDigest | None = None,
+        memory_context: "MemoryContext | None" = None,
     ) -> MarketContext:
         """
         Analyze market context using LLM.
@@ -163,6 +167,7 @@ Always respond with valid JSON only, no additional text."""
             symbol: Trading pair symbol
             technical: Technical analysis results
             news: News digest
+            memory_context: Memory context from past trades and rules
 
         Returns:
             MarketContext with LLM analysis
@@ -177,7 +182,7 @@ Always respond with valid JSON only, no additional text."""
             return self._create_fallback_context(symbol, technical, news)
 
         # Build analysis prompt
-        prompt = self._build_prompt(symbol, technical, news)
+        prompt = self._build_prompt(symbol, technical, news, memory_context)
 
         try:
             # Call LLM
@@ -216,6 +221,7 @@ Always respond with valid JSON only, no additional text."""
         symbol: str,
         technical: TechnicalAnalysis | None,
         news: NewsDigest | None,
+        memory_context: "MemoryContext | None" = None,
     ) -> str:
         """Build the analysis prompt for the LLM."""
         parts = [f"Analyze {symbol} with the following data:\n"]
@@ -245,6 +251,11 @@ Always respond with valid JSON only, no additional text."""
                 sentiment = f"[{item.sentiment.value}]" if item.sentiment != NewsSentiment.UNKNOWN else ""
                 parts.append(f"- [{age}] {item.title} {sentiment}")
 
+            parts.append("")
+
+        # Include memory context if available
+        if memory_context and memory_context.has_relevant_context():
+            parts.append(memory_context.to_prompt_context())
             parts.append("")
 
         parts.append("Provide your analysis in the required JSON format.")

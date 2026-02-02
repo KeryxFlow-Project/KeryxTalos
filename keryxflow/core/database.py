@@ -11,10 +11,13 @@ from keryxflow.config import get_settings
 from keryxflow.core.models import (
     DailyStats,
     MarketContext,
+    MarketPattern,
     PaperBalance,
     Position,
     Signal,
     Trade,
+    TradeEpisode,
+    TradingRule,
     UserProfile,
 )
 
@@ -22,10 +25,13 @@ from keryxflow.core.models import (
 __all__ = [
     "DailyStats",
     "MarketContext",
+    "MarketPattern",
     "PaperBalance",
     "Position",
     "Signal",
     "Trade",
+    "TradeEpisode",
+    "TradingRule",
     "UserProfile",
     "get_session",
     "init_db",

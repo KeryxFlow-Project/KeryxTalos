@@ -57,7 +57,7 @@ KeryxFlow is an AI-powered cryptocurrency trading engine with a 7-layer architec
 │  RSI, MACD, Bollinger, signal generation     │
 ├─ AEGIS (keryxflow/aegis/) ──────────────────┤
 │  Risk Management - Position sizing, limits   │
-│  Circuit breaker, Kelly criterion            │
+│  Immutable guardrails, circuit breaker       │
 ├─ EXCHANGE (keryxflow/exchange/) ────────────┤
 │  Connectivity - CCXT/Binance wrapper         │
 │  Paper trading engine, order execution       │
@@ -90,7 +90,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 Tests use pytest-asyncio in auto mode. Important patterns:
 
-- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons (`_settings`, `_event_bus`, `_paper_engine`, etc.) before each test. If you add a new singleton, add its reset to this fixture.
+- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`
 - **Async fixtures**: Use `@pytest_asyncio.fixture` for async fixtures, regular `@pytest.fixture` for sync
 - **Database isolation**: Each test gets a fresh SQLite database in `tmp_path`
 
@@ -106,3 +106,38 @@ Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer, notificati
 ## Safety Rules
 
 Changes to `aegis/` (risk management) require 100% test coverage. Never bypass risk checks, remove safety limits, or disable circuit breakers.
+
+**Immutable Guardrails** (`aegis/guardrails.py`): The `TradingGuardrails` class is a frozen dataclass with hardcoded safety limits that cannot be modified at runtime. Key limits include:
+- `MAX_POSITION_SIZE_PCT = 10%` — Single position cap
+- `MAX_TOTAL_EXPOSURE_PCT = 50%` — Total portfolio exposure
+- `MIN_CASH_RESERVE_PCT = 20%` — Minimum cash reserve
+- `MAX_DAILY_LOSS_PCT = 5%` — Daily circuit breaker trigger
+- `MAX_TOTAL_DRAWDOWN_PCT = 20%` — Maximum drawdown from peak
+
+The `GuardrailEnforcer` validates all orders against these limits before approval.
+
+## Serena MCP Server
+
+This project includes [Serena](https://github.com/oraios/serena) configuration for enhanced code navigation and editing. Serena is an MCP (Model Context Protocol) server that provides semantic code tools via Language Server Protocol (LSP).
+
+**Configuration:** `.serena/project.yml`
+
+**Prerequisites:** Requires `uv` package manager. Install via: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+**Key tools available when Serena is active:**
+
+| Tool | Purpose |
+|------|---------|
+| `find_symbol` | Find symbols (classes, functions, methods) by name pattern |
+| `get_symbols_overview` | Get all symbols in a file with their signatures |
+| `find_referencing_symbols` | Find all references to a symbol across the codebase |
+| `replace_symbol_body` | Replace entire function/method body |
+| `rename_symbol` | Rename a symbol with automatic refactoring |
+| `insert_before_symbol` / `insert_after_symbol` | Insert code relative to symbols |
+
+**Running manually:**
+```bash
+uvx --from git+https://github.com/oraios/serena serena start-mcp-server --project-from-cwd
+```
+
+**Supported languages:** Python, TypeScript, JavaScript, Rust, Go, Java, C/C++, and 30+ others via LSP.

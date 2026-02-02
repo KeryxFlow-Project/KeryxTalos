@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+- **Splash screen** with KERYX ASCII banner on startup
+  - Auto-dismiss after 2.5 seconds (or press any key)
+  - Bitcoin orange theme (#F7931A) for brand consistency
+- **TUI integration** with main entrypoint
+  - `poetry run keryxflow` now launches the full Hermes TUI
+  - Initialization sequence (database, profile, paper engine, exchange) before TUI
+  - Price feed worker runs in background updating widgets
+- **Help modal banner** with KERYX ASCII art
+  - Accessible via `?` key
+  - Bitcoin orange themed
+
+### Changed
+- `main.py` refactored to initialize components then launch TUI
+- Help modal widened to accommodate banner (60 chars)
+
 ---
 
 ## [0.5.0] - 2026-02-01

@@ -375,6 +375,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Terminal UI (Hermes) - Textual-based TUI
 - [x] Guided onboarding - experience & risk profile wizard
 - [x] Help modal with glossary integration
+- [x] Splash screen with Bitcoin orange branding
+- [x] TUI integrated with main entrypoint (`poetry run keryxflow`)
 - [ ] Full integration loop
 - [ ] Backtesting engine
 - [ ] Live trading mode

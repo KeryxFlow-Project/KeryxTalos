@@ -6,9 +6,54 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+---
+
+## [0.2.0] - 2026-02-01
+
 ### Added
-- Project foundation and structure
-- Documentation (README, CONTRIBUTING, LICENSE)
+
+#### Exchange Module (`keryxflow/exchange/`)
+- `client.py` - CCXT async wrapper for Binance connectivity
+  - Connection management with automatic retry (tenacity)
+  - Rate limiting respect
+  - Ticker, OHLCV, order book, and balance fetching
+  - Price feed streaming with event bus integration
+  - Market and limit order execution
+- `paper.py` - Paper trading engine for simulated execution
+  - Virtual balance management persisted to SQLite
+  - Position tracking with entry/exit and PnL calculation
+  - Slippage simulation for realistic fills
+  - Panic mode (close all positions instantly)
+- `orders.py` - Order management abstraction
+  - Unified interface over paper/live trading modes
+  - Pending limit order tracking
+  - Order status management
+
+#### Main Application
+- Rewritten `main.py` with full functionality:
+  - ASCII banner and startup sequence
+  - Live price feed from Binance (BTC/USDT, ETH/USDT)
+  - Portfolio summary display
+  - Graceful shutdown with Ctrl+C
+  - Now runnable with `poetry run keryxflow`
+
+#### Test Scripts
+- `scripts/test_binance.py` - Binance connectivity test
+- `scripts/test_paper_trading.py` - Paper trading simulation demo
+- `scripts/run.py` - Standalone runner
+
+#### Tests
+- `tests/test_exchange/test_paper.py` - 13 comprehensive tests for paper trading
+- `tests/conftest.py` - Enhanced with database isolation fixtures
+
+### Changed
+- Fixed `datetime.utcnow()` deprecation warnings across all modules
+- Updated `core/models.py` to use timezone-aware UTC timestamps
+
+### Technical Details
+- Binance sandbox mode for safe testing
+- Event-driven price updates
+- Async database operations with proper session handling
 
 ---
 
@@ -64,16 +109,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.2.0 | 2026-02-01 | Exchange layer + runnable MVP |
 | 0.1.0 | 2026-02-01 | Project foundation - Phase 0 complete |
 
 ---
 
 ## Upcoming
-
-### [0.2.0] - Planned
-- Exchange client (CCXT wrapper)
-- Paper trading engine
-- Basic price feed
 
 ### [0.3.0] - Planned
 - Aegis quant engine (position sizing, Kelly criterion)

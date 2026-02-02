@@ -8,6 +8,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.9.0] - 2026-02-02
+
+### Added
+
+#### Optimizer Module - Parameter Optimization (`keryxflow/optimizer/`)
+- **`ParameterGrid`** - Grid generation for parameter combinations
+  - `ParameterRange` dataclass for defining parameter values
+  - Category support: 'oracle' (technical) and 'risk' parameters
+  - Preset grids: `quick` (27), `oracle` (81), `risk` (27), `full` (2187 combinations)
+  - Iterator-based combination generation
+  - Flat and categorized output formats
+
+- **`OptimizationEngine`** - Backtest execution across parameter grid
+  - Runs BacktestEngine for each parameter combination
+  - Progress callback for real-time updates
+  - Automatic settings save/restore
+  - Configurable optimization metric
+  - Results sorted by target metric
+
+- **`ResultComparator`** - Analysis and comparison tools
+  - Rank results by any metric (Sharpe, return, win rate, etc.)
+  - Top N / Bottom N extraction
+  - Filter by criteria (min trades, max drawdown, etc.)
+  - Parameter sensitivity analysis
+  - Metrics summary statistics
+  - Consistency scoring
+
+- **`OptimizationReport`** - Report generation
+  - Formatted terminal summary with sensitivity analysis
+  - Compact tabular output
+  - CSV export of all results
+  - Best parameters extraction and export
+
+- **CLI Runner** - Command-line interface
+  - `poetry run keryxflow-optimize`
+  - Grid presets: --grid quick|oracle|risk|full
+  - Custom parameters: --param name:val1,val2,val3:category
+  - Metric selection: --metric sharpe_ratio|total_return|profit_factor|win_rate
+  - Output directory for CSV exports
+
+#### Optimizable Parameters
+| Category | Parameters |
+|----------|------------|
+| Oracle | rsi_period, macd_fast, macd_slow, bbands_std |
+| Risk | risk_per_trade, min_risk_reward, atr_multiplier |
+
+#### Tests
+- `tests/test_optimizer/test_grid.py` - 16 tests for ParameterGrid
+- `tests/test_optimizer/test_engine.py` - 6 tests for OptimizationEngine
+- `tests/test_optimizer/test_comparator.py` - 11 tests for ResultComparator
+- `tests/test_optimizer/test_report.py` - 13 tests for OptimizationReport
+- Total: 397 tests passing (46 new + 351 existing)
+
+### Changed
+- `pyproject.toml` - Added `keryxflow-optimize` script entry
+
+### Technical Details
+- Grid search approach (exhaustive parameter testing)
+- Reuses existing BacktestEngine for each run
+- Settings temporarily modified then restored after optimization
+- Sequential execution (parallelization planned for future)
+
+---
+
 ## [0.8.0] - 2026-02-01
 
 ### Added
@@ -510,6 +574,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.9.0 | 2026-02-02 | Parameter optimization (grid search) |
 | 0.8.0 | 2026-02-01 | Live trading mode with safeguards and notifications |
 | 0.7.0 | 2026-02-01 | Backtesting engine for strategy validation |
 | 0.6.0 | 2026-02-01 | Integration loop (TradingEngine orchestrator) |
@@ -523,10 +588,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Upcoming
 
-### [0.9.0] - Planned
-- Parameter optimization (grid search)
+### [0.10.0] - Planned
 - Multi-timeframe analysis
-- Backtest comparison dashboard
+- Parallel optimization (multiple cores)
+- Walk-forward optimization
 
 ### [1.0.0] - Planned
 - Production ready

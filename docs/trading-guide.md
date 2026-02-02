@@ -487,7 +487,7 @@ Claude EXECUTES → Claude EVALUATES → Claude LEARNS
 - Max 5% daily loss
 - Halt after 5 consecutive losses
 
-See [Issue #11](https://github.com/KeryxFlow-Project/KeryxFlow/issues/11) and `docs/ai-trading-architecture.md` for the full RFC.
+See [Issue #11](https://github.com/KeryxFlow-Project/KeryxFlow/issues/11), `docs/ai-trading-architecture.md` for the full RFC, and `docs/plans/ai-first-implementation-plan.md` for the implementation plan.
 
 ---
 

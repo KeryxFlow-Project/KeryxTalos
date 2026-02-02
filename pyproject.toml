@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "keryxflow"
-version = "0.8.0"
+version = "0.9.0"
 description = "A hybrid AI & quantitative trading engine for cryptocurrency markets"
 authors = ["KeryxFlow Contributors"]
 license = "MIT"
@@ -11,6 +11,7 @@ keywords = ["trading", "cryptocurrency", "bitcoin", "ai", "algorithmic-trading"]
 [tool.poetry.scripts]
 keryxflow = "keryxflow.main:run"
 keryxflow-backtest = "keryxflow.backtester.runner:main"
+keryxflow-optimize = "keryxflow.optimizer.runner:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"

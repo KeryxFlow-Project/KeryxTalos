@@ -24,7 +24,7 @@
 An AI-powered trading assistant that helps you accumulate Bitcoin.
 
 ```
-┌─ KERYXFLOW v0.8.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
+┌─ KERYXFLOW v0.9.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
 │                                                                              │
 │  ┌─ BTC/USDT ─────────────────────────┐  ┌─ POSITIONS ────────────────────┐ │
 │  │     ▁▂▃▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆       │  │  BTC   0.052  +$234.50  +3.2%  │ │
@@ -380,6 +380,84 @@ RISK
 
 ---
 
+## Parameter Optimization
+
+Find the best parameter combinations for your strategy using grid search.
+
+```bash
+# Quick optimization (27 combinations)
+poetry run keryxflow-optimize \
+    --symbol BTC/USDT \
+    --start 2024-01-01 \
+    --end 2024-06-30 \
+    --grid quick
+
+# Full optimization (2187 combinations)
+poetry run keryxflow-optimize \
+    --symbol BTC/USDT \
+    --start 2024-01-01 \
+    --end 2024-06-30 \
+    --grid full \
+    --output ./results
+```
+
+**Output:**
+```
+==================================================
+         OPTIMIZATION REPORT
+==================================================
+
+GRID SUMMARY
+--------------------------------------------------
+  Parameters:     3
+  Combinations:   27
+  Total Runtime:  4m 32s
+
+TOP 5 RESULTS (by Sharpe Ratio)
+--------------------------------------------------
+  #1  Sharpe: 2.14  Return: +34.5%  Win: 65%
+      rsi=14, risk=0.01, rr=1.5
+
+  #2  Sharpe: 1.98  Return: +28.2%  Win: 62%
+      rsi=14, risk=0.02, rr=1.5
+
+PARAMETER SENSITIVITY
+--------------------------------------------------
+  rsi_period:
+       7 -> Avg Sharpe: 1.230
+      14 -> Avg Sharpe: 1.850 (best)
+      21 -> Avg Sharpe: 1.540
+
+BEST PARAMETERS
+--------------------------------------------------
+  rsi_period: 14
+  risk_per_trade: 0.01
+  min_risk_reward: 1.5
+==================================================
+```
+
+**Grid Types:**
+| Grid | Combinations | Parameters |
+|------|--------------|------------|
+| `quick` | 27 | rsi_period, risk_per_trade, min_risk_reward |
+| `oracle` | 81 | rsi, macd_fast, macd_slow, bbands_std |
+| `risk` | 27 | risk_per_trade, min_risk_reward, atr_multiplier |
+| `full` | 2187 | All oracle + risk parameters |
+
+**Custom Parameters:**
+```bash
+poetry run keryxflow-optimize \
+    --symbol BTC/USDT \
+    --start 2024-01-01 \
+    --end 2024-06-30 \
+    --param rsi_period:7,14,21:oracle \
+    --param risk_per_trade:0.005,0.01,0.02:risk
+```
+
+See [docs/optimization.md](docs/optimization.md) for detailed documentation.
+
+---
+
 ## Architecture (Technical)
 
 For developers and curious minds:
@@ -406,6 +484,9 @@ For developers and curious minds:
 ├─────────────────────────────────────────────────────────────┤
 │                     BACKTESTER (Validation)                  │
 │     Historical Replay • Performance Metrics • Reports        │
+├─────────────────────────────────────────────────────────────┤
+│                     OPTIMIZER (Tuning)                       │
+│    Parameter Grid • Grid Search • Sensitivity Analysis       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -472,8 +553,10 @@ keryxflow/
 │   ├── aegis/               # Risk Management
 │   ├── exchange/            # Binance + Paper Trading
 │   ├── backtester/          # Historical testing
+│   ├── optimizer/           # Parameter optimization
 │   └── notifications/       # Telegram + Discord alerts
 ├── tests/
+├── docs/
 ├── settings.toml
 └── pyproject.toml
 ```
@@ -515,8 +598,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] **Backtesting engine** - `poetry run keryxflow-backtest`
 - [x] **Live trading mode** - Real orders on Binance with safeguards
 - [x] **Notifications** - Telegram and Discord alerts
-- [ ] Parameter optimization (grid search)
+- [x] **Parameter optimization** - `poetry run keryxflow-optimize` (grid search)
 - [ ] Multi-timeframe analysis
+- [ ] Parallel optimization
 
 ---
 

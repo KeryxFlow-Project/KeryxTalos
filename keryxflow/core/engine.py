@@ -253,7 +253,7 @@ class TradingEngine:
         import ccxt
 
         symbols = self.settings.system.symbols
-        candles_to_load = self._min_candles + 10  # Extra buffer
+        candles_to_load = 60  # Need at least 50 for technical analysis
 
         for symbol in symbols:
             try:

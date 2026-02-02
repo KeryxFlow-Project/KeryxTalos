@@ -160,6 +160,7 @@ class KeryxFlowApp(App):
         import asyncio
 
         self._log_msg("Price loop started!")
+        analysis_counter = 0
 
         while True:
             if self._paused:
@@ -167,6 +168,13 @@ class KeryxFlowApp(App):
                 continue
 
             await self._fetch_prices_once()
+
+            # Run analysis every 3 iterations (~12 seconds)
+            analysis_counter += 1
+            if analysis_counter >= 3 and self.trading_engine:
+                analysis_counter = 0
+                await self._update_oracle()
+
             await asyncio.sleep(self.settings.hermes.refresh_rate)
 
     async def _fetch_prices_once(self) -> None:
@@ -214,6 +222,53 @@ class KeryxFlowApp(App):
             except Exception as e:
                 logger.warning("price_fetch_error", symbol=symbol, error=str(e))
                 self._log_msg(f"Error {symbol}: {e}")
+
+    async def _update_oracle(self) -> None:
+        """Update Oracle widget with latest signal from trading engine."""
+        import asyncio
+
+        if not self.trading_engine:
+            return
+
+        try:
+            symbol = self.current_symbol
+
+            # Get OHLCV data from engine buffer
+            ohlcv = self.trading_engine._ohlcv_buffer.get_ohlcv(symbol)
+            if ohlcv is None or len(ohlcv) < 50:
+                return
+
+            current_price = ohlcv["close"].iloc[-1]
+
+            # Generate signal using engine's signal generator (in thread to avoid blocking)
+            def generate_signal_sync():
+                import asyncio
+                loop = asyncio.new_event_loop()
+                try:
+                    return loop.run_until_complete(
+                        self.trading_engine.signals.generate_signal(
+                            symbol=symbol,
+                            ohlcv=ohlcv,
+                            current_price=current_price,
+                            include_news=False,
+                            include_llm=False,
+                        )
+                    )
+                finally:
+                    loop.close()
+
+            signal = await asyncio.to_thread(generate_signal_sync)
+
+            # Update Oracle widget
+            oracle = self.query_one("#oracle", OracleWidget)
+            oracle.update_signal(signal.to_dict())
+
+            # Log actionable signals
+            if signal.signal_type.value in ("long", "short"):
+                self._log_msg(f"Signal: {signal.signal_type.value.upper()} {symbol} ({signal.confidence:.0%})")
+
+        except Exception as e:
+            logger.warning("oracle_update_error", error=str(e))
 
     async def _refresh_all(self) -> None:
         """Refresh all widgets with current data."""

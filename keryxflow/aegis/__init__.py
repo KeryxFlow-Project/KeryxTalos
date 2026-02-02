@@ -1,16 +1,40 @@
 """Aegis - Risk management and mathematical trading layer."""
 
 from keryxflow.aegis.circuit import CircuitBreaker, get_circuit_breaker
+from keryxflow.aegis.guardrails import (
+    GuardrailCheckResult,
+    GuardrailEnforcer,
+    GuardrailViolation,
+    TradingGuardrails,
+    get_guardrail_enforcer,
+    get_guardrails,
+)
+from keryxflow.aegis.portfolio import PortfolioState, PositionState, create_portfolio_state
 from keryxflow.aegis.profiles import get_risk_profile
 from keryxflow.aegis.quant import QuantEngine, get_quant_engine
 from keryxflow.aegis.risk import RiskManager, get_risk_manager
 
 __all__ = [
+    # Circuit breaker
     "CircuitBreaker",
-    "QuantEngine",
-    "RiskManager",
     "get_circuit_breaker",
-    "get_quant_engine",
-    "get_risk_manager",
+    # Guardrails
+    "GuardrailCheckResult",
+    "GuardrailEnforcer",
+    "GuardrailViolation",
+    "TradingGuardrails",
+    "get_guardrail_enforcer",
+    "get_guardrails",
+    # Portfolio
+    "PortfolioState",
+    "PositionState",
+    "create_portfolio_state",
+    # Profiles
     "get_risk_profile",
+    # Quant
+    "QuantEngine",
+    "get_quant_engine",
+    # Risk
+    "RiskManager",
+    "get_risk_manager",
 ]

@@ -50,15 +50,22 @@ class TestOrderApproval:
         assert result.suggested_stop_loss is not None
 
     def test_reject_risk_too_high(self, risk_manager):
-        """Test rejection when quantity too large."""
-        # Balanced profile: 1% risk per trade = $100
-        # Stop distance = $1000 (50000 - 49000)
-        # Max safe quantity = 100/1000 = 0.1
+        """Test rejection when quantity too large.
 
+        With the guardrails integration (Phase 1 - Issue #9 fix), large positions
+        are now rejected by the immutable guardrails first. The guardrails enforce
+        a max 10% position size, which catches this 250% position before the
+        RiskManager's own risk calculation runs.
+
+        Note: Guardrail rejections don't include suggested_quantity since they
+        represent hard limits, not adjustable thresholds.
+        """
+        # Position value = 0.5 * 50000 = 25000 = 250% of portfolio
+        # This exceeds the 10% max position guardrail
         order = OrderRequest(
             symbol="BTC/USDT",
             side="buy",
-            quantity=0.5,  # Way too large
+            quantity=0.5,  # Way too large (250% of portfolio)
             entry_price=50000.0,
             stop_loss=49000.0,
         )
@@ -67,8 +74,8 @@ class TestOrderApproval:
 
         assert result.approved is False
         assert result.reason == RejectionReason.RISK_TOO_HIGH
-        assert result.suggested_quantity is not None
-        assert result.suggested_quantity < 0.5
+        # Guardrail rejections don't include suggestions (hard limits)
+        assert "Safety limit" in result.simple_message or "Position size" in result.simple_message
 
     def test_reject_poor_risk_reward(self, risk_manager):
         """Test rejection for poor risk/reward."""

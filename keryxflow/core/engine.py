@@ -111,6 +111,38 @@ class OHLCVBuffer:
         """Get number of completed candles for a symbol."""
         return len(self._candles.get(symbol, []))
 
+    def add_candle(
+        self,
+        symbol: str,
+        timestamp: int | float,
+        open_price: float,
+        high: float,
+        low: float,
+        close: float,
+        volume: float,
+    ) -> None:
+        """Add a historical candle directly to the buffer."""
+        # Convert timestamp (ms) to datetime
+        if isinstance(timestamp, (int, float)):
+            candle_time = datetime.fromtimestamp(timestamp / 1000, tz=UTC)
+        else:
+            candle_time = timestamp
+
+        candle = {
+            "timestamp": candle_time,
+            "open": open_price,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
+
+        self._candles[symbol].append(candle)
+
+        # Keep only max_candles
+        if len(self._candles[symbol]) > self.max_candles:
+            self._candles[symbol] = self._candles[symbol][-self.max_candles :]
+
 
 class TradingEngine:
     """
@@ -153,7 +185,7 @@ class TradingEngine:
         self._running = False
         self._ohlcv_buffer = OHLCVBuffer(max_candles=100)
         self._last_analysis: dict[str, datetime] = {}
-        self._analysis_interval = 60  # Seconds between analyses
+        self._analysis_interval = 10  # Seconds between analyses (reduced for testing)
         self._min_candles = 20  # Minimum candles for analysis
         self._auto_trade = True  # Execute orders automatically
         self._paused = False
@@ -199,6 +231,12 @@ class TradingEngine:
         positions = await self.paper.get_positions()
         self.risk.set_open_positions(len(positions))
 
+        # Pre-load historical OHLCV data for faster signal generation
+        await self._preload_ohlcv()
+
+        # Run initial analysis for all symbols
+        await self._initial_analysis()
+
         mode = "live" if self._is_live_mode else "paper"
         logger.info("trading_engine_started", mode=mode)
 
@@ -208,6 +246,62 @@ class TradingEngine:
                 mode=mode,
                 symbols=self.settings.system.symbols,
             )
+
+    async def _preload_ohlcv(self) -> None:
+        """Pre-load historical OHLCV data for all symbols."""
+        import asyncio
+        import ccxt
+
+        symbols = self.settings.system.symbols
+        candles_to_load = 60  # Need at least 50 for technical analysis
+
+        for symbol in symbols:
+            try:
+                logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
+
+                # Use sync ccxt in thread to avoid event loop conflicts with Textual
+                def fetch_ohlcv_sync():
+                    client = ccxt.binance({"enableRateLimit": True})
+                    return client.fetch_ohlcv(symbol, "1m", limit=candles_to_load)
+
+                ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
+
+                if ohlcv:
+                    # Add historical candles to buffer
+                    for candle in ohlcv:
+                        timestamp, open_p, high, low, close, volume = candle
+                        self._ohlcv_buffer.add_candle(
+                            symbol=symbol,
+                            timestamp=timestamp,
+                            open_price=open_p,
+                            high=high,
+                            low=low,
+                            close=close,
+                            volume=volume or 0.0,
+                        )
+
+                    logger.info(
+                        "ohlcv_preloaded",
+                        symbol=symbol,
+                        candles=self._ohlcv_buffer.candle_count(symbol),
+                    )
+            except Exception as e:
+                logger.warning("ohlcv_preload_failed", symbol=symbol, error=str(e))
+
+    async def _initial_analysis(self) -> None:
+        """Run initial analysis for all symbols after OHLCV preload."""
+        symbols = self.settings.system.symbols
+
+        for symbol in symbols:
+            try:
+                # Get current price from last candle
+                ohlcv = self._ohlcv_buffer.get_ohlcv(symbol)
+                if ohlcv is not None and len(ohlcv) >= self._min_candles:
+                    current_price = ohlcv["close"].iloc[-1]
+                    logger.info("running_initial_analysis", symbol=symbol, price=current_price)
+                    await self._analyze_symbol(symbol, current_price)
+            except Exception as e:
+                logger.warning("initial_analysis_failed", symbol=symbol, error=str(e))
 
     async def stop(self) -> None:
         """Stop the trading engine."""
@@ -246,7 +340,9 @@ class TradingEngine:
     def _should_analyze(self, symbol: str, new_candle: bool) -> bool:
         """Check if we should run analysis for a symbol."""
         # Need minimum candles
-        if self._ohlcv_buffer.candle_count(symbol) < self._min_candles:
+        candle_count = self._ohlcv_buffer.candle_count(symbol)
+        if candle_count < self._min_candles:
+            logger.debug("skip_analysis_low_candles", symbol=symbol, candles=candle_count, min=self._min_candles)
             return False
 
         # Check time since last analysis
@@ -254,6 +350,7 @@ class TradingEngine:
         last = self._last_analysis.get(symbol)
 
         if last is None:
+            logger.debug("should_analyze_first_time", symbol=symbol)
             return True
 
         elapsed = (now - last).total_seconds()

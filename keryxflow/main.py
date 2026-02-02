@@ -8,6 +8,7 @@ from keryxflow.config import get_settings
 from keryxflow.core.database import get_or_create_user_profile, get_session, init_db
 from keryxflow.core.events import get_event_bus
 from keryxflow.core.logging import get_logger, setup_logging
+from keryxflow.core.engine import TradingEngine
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.app import KeryxFlowApp
@@ -129,17 +130,28 @@ def run() -> None:
     # Initialize components
     client, paper = asyncio.run(initialize())
 
+    # Create and start trading engine (before TUI, where asyncio works correctly)
+    event_bus = get_event_bus()
+    trading_engine = TradingEngine(
+        exchange_client=client,
+        paper_engine=paper,
+        event_bus=event_bus,
+    )
+    asyncio.run(trading_engine.start())
+    print("        ✓ Trading engine started")
+
     try:
         # Run the TUI
-        event_bus = get_event_bus()
         app = KeryxFlowApp(
             event_bus=event_bus,
             exchange_client=client,
             paper_engine=paper,
+            trading_engine=trading_engine,
         )
         app.run()
     finally:
         # Cleanup
+        asyncio.run(trading_engine.stop())
         asyncio.run(shutdown(client))
         print("\n  Stack sats. ₿\n")
 

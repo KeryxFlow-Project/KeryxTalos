@@ -367,10 +367,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] Core infrastructure (database, events, logging)
 - [x] Exchange connectivity (Binance via CCXT)
 - [x] Paper trading engine
+- [x] Risk engine (Aegis) - position sizing, risk manager, circuit breaker
 - [x] **Runnable MVP** - `poetry run keryxflow`
-- [ ] Risk engine (Aegis)
-- [ ] Technical analysis (Oracle)
-- [ ] LLM integration (Claude)
+- [x] Technical analysis (Oracle) - RSI, MACD, Bollinger, OBV, ATR, EMA
+- [x] News feeds - RSS, CryptoPanic integration
+- [x] LLM integration (Claude) - market context analysis
 - [ ] Terminal UI (Hermes)
 - [ ] Guided onboarding
 - [ ] Backtesting

@@ -1,6 +1,25 @@
-# KeryxFlow
+```
+╔═══════════════════════════════════════════════════════════════╗
+║                                                               ║
+║   ██╗  ██╗███████╗██████╗ ██╗   ██╗██╗  ██╗                   ║
+║   ██║ ██╔╝██╔════╝██╔══██╗╚██╗ ██╔╝╚██╗██╔╝                   ║
+║   █████╔╝ █████╗  ██████╔╝ ╚████╔╝  ╚███╔╝                    ║
+║   ██╔═██╗ ██╔══╝  ██╔══██╗  ╚██╔╝   ██╔██╗                    ║
+║   ██║  ██╗███████╗██║  ██║   ██║   ██╔╝ ██╗                   ║
+║   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝  FLOW            ║
+║                                                               ║
+║   Your keys, your trades, your code.                         ║
+║                                                               ║
+╚═══════════════════════════════════════════════════════════════╝
+```
 
-### *Your keys, your trades, your code.*
+![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Status-MVP-orange)
+![Binance](https://img.shields.io/badge/Exchange-Binance-yellow?logo=binance)
+![Claude](https://img.shields.io/badge/AI-Claude-blueviolet)
+
+---
 
 An AI-powered trading assistant that helps you accumulate Bitcoin.
 
@@ -345,11 +364,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## Roadmap
 
 - [x] Project structure and documentation
-- [ ] Core infrastructure
-- [ ] Exchange connectivity
+- [x] Core infrastructure (database, events, logging)
+- [x] Exchange connectivity (Binance via CCXT)
+- [x] Paper trading engine
+- [x] **Runnable MVP** - `poetry run keryxflow`
 - [ ] Risk engine (Aegis)
 - [ ] Technical analysis (Oracle)
-- [ ] LLM integration
+- [ ] LLM integration (Claude)
 - [ ] Terminal UI (Hermes)
 - [ ] Guided onboarding
 - [ ] Backtesting

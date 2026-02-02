@@ -2,9 +2,15 @@
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import Enum
 from typing import Any
 
+from keryxflow.aegis.guardrails import (
+    GuardrailViolation,
+    get_guardrail_enforcer,
+)
+from keryxflow.aegis.portfolio import PortfolioState, PositionState, create_portfolio_state
 from keryxflow.aegis.profiles import get_risk_profile
 from keryxflow.aegis.quant import get_quant_engine
 from keryxflow.config import get_settings
@@ -25,6 +31,22 @@ class RejectionReason(str, Enum):
     CIRCUIT_BREAKER_ACTIVE = "circuit_breaker_active"
     INVALID_ORDER = "invalid_order"
     SYMBOL_NOT_ALLOWED = "symbol_not_allowed"
+    GUARDRAIL_VIOLATION = "guardrail_violation"
+
+
+# Mapping from GuardrailViolation to RejectionReason
+_GUARDRAIL_TO_REJECTION: dict[GuardrailViolation, RejectionReason] = {
+    GuardrailViolation.POSITION_TOO_LARGE: RejectionReason.RISK_TOO_HIGH,
+    GuardrailViolation.TOTAL_EXPOSURE_EXCEEDED: RejectionReason.RISK_TOO_HIGH,
+    GuardrailViolation.INSUFFICIENT_RESERVE: RejectionReason.INSUFFICIENT_BALANCE,
+    GuardrailViolation.DAILY_LOSS_EXCEEDED: RejectionReason.DAILY_DRAWDOWN_EXCEEDED,
+    GuardrailViolation.WEEKLY_LOSS_EXCEEDED: RejectionReason.DAILY_DRAWDOWN_EXCEEDED,
+    GuardrailViolation.TOTAL_DRAWDOWN_EXCEEDED: RejectionReason.DAILY_DRAWDOWN_EXCEEDED,
+    GuardrailViolation.CONSECUTIVE_LOSSES_HALT: RejectionReason.CIRCUIT_BREAKER_ACTIVE,
+    GuardrailViolation.TRADE_RATE_EXCEEDED: RejectionReason.CIRCUIT_BREAKER_ACTIVE,
+    GuardrailViolation.SYMBOL_NOT_ALLOWED: RejectionReason.SYMBOL_NOT_ALLOWED,
+    GuardrailViolation.INVALID_ORDER_TYPE: RejectionReason.INVALID_ORDER,
+}
 
 
 @dataclass
@@ -70,11 +92,12 @@ class RiskManager:
     """
     Risk manager that approves or rejects orders.
 
-    Enforces:
-    - Position size limits
-    - Maximum open positions
-    - Daily drawdown limits
-    - Minimum risk/reward ratio
+    Enforces two layers of protection:
+    1. Immutable guardrails (GuardrailEnforcer) - cannot be bypassed
+    2. Configurable risk profile limits (RiskManager) - can be adjusted
+
+    The guardrails check is ALWAYS performed first, ensuring that
+    no order can ever violate the hardcoded safety limits.
     """
 
     def __init__(
@@ -92,6 +115,10 @@ class RiskManager:
         self.settings = get_settings()
         self.profile = get_risk_profile(risk_profile)
         self.quant = get_quant_engine(self.profile.risk_per_trade)
+
+        # Immutable guardrails (Phase 1 - Issue #9 fix)
+        self._guardrail_enforcer = get_guardrail_enforcer()
+        self._portfolio_state = create_portfolio_state(initial_balance)
 
         # State tracking
         self._initial_balance = initial_balance
@@ -115,6 +142,90 @@ class RiskManager:
         """Set the number of open positions."""
         self._open_positions = count
 
+    # =========================================================================
+    # Portfolio State Management (for guardrails - Issue #9 fix)
+    # =========================================================================
+
+    @property
+    def portfolio_state(self) -> PortfolioState:
+        """Get the current portfolio state for guardrail checks."""
+        return self._portfolio_state
+
+    def add_position_to_portfolio(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        entry_price: float,
+        stop_loss: float | None = None,
+        take_profit: float | None = None,
+    ) -> None:
+        """
+        Add a position to the portfolio state for aggregate risk tracking.
+
+        This should be called after an order is filled.
+
+        Args:
+            symbol: Trading pair
+            side: Position side ("long" or "short")
+            quantity: Position quantity
+            entry_price: Entry price
+            stop_loss: Stop loss price
+            take_profit: Take profit price
+        """
+        position = PositionState(
+            symbol=symbol,
+            side=side,
+            quantity=Decimal(str(quantity)),
+            entry_price=Decimal(str(entry_price)),
+            current_price=Decimal(str(entry_price)),
+            stop_loss=Decimal(str(stop_loss)) if stop_loss else None,
+            take_profit=Decimal(str(take_profit)) if take_profit else None,
+        )
+        self._portfolio_state.add_position(position)
+        self._open_positions = self._portfolio_state.position_count
+
+    def close_position_in_portfolio(self, symbol: str, exit_price: float) -> float | None:
+        """
+        Close a position in the portfolio state.
+
+        This should be called when a position is closed.
+
+        Args:
+            symbol: Symbol to close
+            exit_price: Exit price
+
+        Returns:
+            Realized P&L or None if position not found
+        """
+        result = self._portfolio_state.close_position(symbol, exit_price)
+        self._open_positions = self._portfolio_state.position_count
+        if result is not None:
+            self._daily_pnl += float(result)
+        return float(result) if result else None
+
+    def update_position_prices(self, prices: dict[str, float]) -> None:
+        """
+        Update current prices for all positions.
+
+        Args:
+            prices: Dict mapping symbol to current price
+        """
+        self._portfolio_state.update_prices(prices)
+
+    def sync_portfolio_balance(self, balance: float) -> None:
+        """
+        Sync portfolio state with actual balance.
+
+        Args:
+            balance: Current account balance
+        """
+        self._current_balance = balance
+        # Update portfolio total value if no positions
+        if self._portfolio_state.position_count == 0:
+            self._portfolio_state.total_value = Decimal(str(balance))
+            self._portfolio_state.cash_available = Decimal(str(balance))
+
     def _check_daily_reset(self) -> None:
         """Check if we need to reset daily tracking."""
         today = datetime.now(UTC).strftime("%Y-%m-%d")
@@ -122,6 +233,8 @@ class RiskManager:
             self._daily_starting_balance = self._current_balance
             self._daily_pnl = 0.0
             self._last_reset_date = today
+            # Also reset portfolio state daily tracking
+            self._portfolio_state.reset_daily()
             logger.info("daily_risk_reset", date=today, balance=self._current_balance)
 
     @property
@@ -154,6 +267,10 @@ class RiskManager:
         """
         Evaluate an order request and approve or reject.
 
+        Two-layer validation:
+        1. Immutable guardrails (cannot be bypassed) - checks aggregate risk
+        2. Configurable risk profile limits
+
         Args:
             order: The order request to evaluate
             current_balance: Current account balance (optional, uses tracked)
@@ -164,6 +281,44 @@ class RiskManager:
         self._check_daily_reset()
 
         balance = current_balance or self._current_balance
+
+        # =================================================================
+        # LAYER 1: Immutable Guardrails (Issue #9 fix - aggregate risk)
+        # These checks cannot be bypassed under any circumstances
+        # =================================================================
+        guardrail_result = self._guardrail_enforcer.validate_order(
+            symbol=order.symbol,
+            side=order.side,
+            quantity=order.quantity,
+            entry_price=order.entry_price,
+            stop_loss=order.stop_loss,
+            portfolio=self._portfolio_state,
+        )
+
+        if not guardrail_result.allowed:
+            violation = guardrail_result.violation
+            rejection_reason = _GUARDRAIL_TO_REJECTION.get(
+                violation, RejectionReason.GUARDRAIL_VIOLATION
+            )
+
+            logger.warning(
+                "order_rejected_by_guardrail",
+                symbol=order.symbol,
+                violation=violation.value if violation else "unknown",
+                message=guardrail_result.message,
+            )
+
+            return ApprovalResult(
+                approved=False,
+                reason=rejection_reason,
+                simple_message=f"Safety limit reached: {guardrail_result.message}",
+                technical_message=f"Guardrail violation: {guardrail_result.message}",
+            )
+
+        # =================================================================
+        # LAYER 2: Configurable Risk Profile Limits
+        # These can be adjusted via risk profiles
+        # =================================================================
 
         # Check circuit breaker
         if self._circuit_breaker_active:
@@ -322,6 +477,7 @@ class RiskManager:
 
     def get_status(self) -> dict[str, Any]:
         """Get current risk manager status."""
+        portfolio = self._portfolio_state
         return {
             "profile": self.profile.name,
             "balance": self._current_balance,
@@ -332,6 +488,11 @@ class RiskManager:
             "max_positions": self.profile.max_open_positions,
             "circuit_breaker_active": self._circuit_breaker_active,
             "risk_per_trade": self.profile.risk_per_trade,
+            # Portfolio state (Issue #9 - aggregate risk)
+            "aggregate_risk_pct": float(portfolio.risk_at_stop_pct),
+            "total_exposure_pct": float(portfolio.exposure_pct),
+            "cash_reserve_pct": float(portfolio.cash_reserve_pct),
+            "consecutive_losses": portfolio.consecutive_losses,
         }
 
     def format_status_simple(self) -> str:

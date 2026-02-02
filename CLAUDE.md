@@ -11,6 +11,9 @@ poetry install --with dev
 # Run the application (paper trading mode by default)
 poetry run keryxflow
 
+# Run backtests
+poetry run keryxflow-backtest --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30
+
 # Run all tests
 poetry run pytest
 
@@ -31,7 +34,7 @@ poetry run ruff format .
 
 ## Architecture
 
-KeryxFlow is an AI-powered cryptocurrency trading engine with a 5-layer architecture:
+KeryxFlow is an AI-powered cryptocurrency trading engine with a 6-layer architecture:
 
 ```
 ┌─ HERMES (keryxflow/hermes/) ────────────────┐
@@ -40,6 +43,9 @@ KeryxFlow is an AI-powered cryptocurrency trading engine with a 5-layer architec
 ├─ ENGINE (keryxflow/core/engine.py) ─────────┤
 │  TradingEngine - Central orchestrator        │
 │  OHLCV buffer, signal flow, order loop       │
+├─ BACKTESTER (keryxflow/backtester/) ────────┤
+│  Strategy validation with historical data    │
+│  DataLoader, BacktestEngine, Reports         │
 ├─ ORACLE (keryxflow/oracle/) ────────────────┤
 │  Intelligence - Technical analysis + LLM     │
 │  RSI, MACD, Bollinger, signal generation     │
@@ -79,7 +85,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 ```
 Types: feat, fix, refactor, test, docs, chore
 
-Scopes: core, hermes, oracle, aegis, exchange
+Scopes: core, hermes, oracle, aegis, exchange, backtester
 
 ## Safety Rules
 

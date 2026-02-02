@@ -8,6 +8,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.7.0] - 2026-02-01
+
+### Added
+
+#### Backtesting Module (`keryxflow/backtester/`)
+- **`DataLoader`** - Historical data loading
+  - Load OHLCV from Binance API via CCXT
+  - Load from CSV files for offline testing
+  - Data validation (required columns, null checks, numeric types)
+  - Resample to different timeframes
+
+- **`BacktestEngine`** - Strategy simulation engine
+  - Replay historical data candle by candle
+  - Reuses SignalGenerator for signal generation
+  - Reuses RiskManager for order approval
+  - Simulates slippage and commission (configurable)
+  - Stop loss and take profit execution
+  - Tracks positions, trades, and equity curve
+
+- **`BacktestResult`** - Performance metrics
+  - Total return and net P&L
+  - Win rate, avg win, avg loss
+  - Expectancy per trade
+  - Profit factor (gross profit / gross loss)
+  - Max drawdown and duration
+  - Sharpe ratio
+
+- **`BacktestReporter`** - Report generation
+  - Formatted terminal output
+  - ASCII equity curve chart
+  - Trade list formatting
+  - CSV export (trades and equity curve)
+
+- **CLI Runner** - Command-line interface
+  - `poetry run keryxflow-backtest`
+  - Arguments: --symbol, --start, --end, --timeframe, --balance, --profile
+  - Optional: --chart (ASCII equity), --trades N (show last N trades)
+  - Optional: --output (save CSV reports)
+
+#### Tests
+- `tests/test_backtester/test_data.py` - 10 tests for DataLoader
+  - CSV loading and validation
+  - Missing columns detection
+  - Resampling functionality
+
+- `tests/test_backtester/test_engine.py` - 23 tests for BacktestEngine
+  - Trade and position dataclasses
+  - Stop loss and take profit execution
+  - Equity calculation
+  - Full backtest run
+
+### Technical Details
+- Reuses existing components (SignalGenerator, RiskManager, QuantEngine)
+- LLM/news disabled by default for speed
+- Slippage: 0.1% default, Commission: 0.1% default
+- 260 tests passing (33 new + 227 existing)
+
+---
+
 ## [0.6.0] - 2026-02-01
 
 ### Added
@@ -374,6 +433,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.7.0 | 2026-02-01 | Backtesting engine for strategy validation |
 | 0.6.0 | 2026-02-01 | Integration loop (TradingEngine orchestrator) |
 | 0.5.0 | 2026-02-01 | Hermes TUI (Textual interface) |
 | 0.4.0 | 2026-02-01 | Oracle intelligence layer (technical + LLM) |
@@ -385,10 +445,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Upcoming
 
-### [0.7.0] - Planned
-- Backtesting engine
-- Historical data replay
-- Strategy performance metrics
+### [0.8.0] - Planned
+- Parameter optimization (grid search)
+- Multi-timeframe analysis
+- Backtest comparison dashboard
 
 ### [1.0.0] - Planned
 - Live trading mode

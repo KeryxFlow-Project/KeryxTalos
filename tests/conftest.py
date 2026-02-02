@@ -1,6 +1,5 @@
 """Shared pytest fixtures."""
 
-import asyncio
 import os
 
 import pytest
@@ -30,11 +29,10 @@ def setup_test_database(tmp_path):
     yield
 
     # Cleanup
+    import contextlib
     if db_path.exists():
-        try:
+        with contextlib.suppress(PermissionError):
             db_path.unlink()
-        except PermissionError:
-            pass  # May be locked on Windows
 
 
 @pytest_asyncio.fixture

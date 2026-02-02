@@ -22,6 +22,9 @@ def setup_test_database(tmp_path):
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
     import keryxflow.memory.semantic as semantic_module
+    import keryxflow.agent.tools as tools_module
+    import keryxflow.agent.executor as executor_module
+    import keryxflow.aegis.risk as risk_module
 
     config_module._settings = None
     db_module._engine = None
@@ -31,6 +34,9 @@ def setup_test_database(tmp_path):
     episodic_module._episodic_memory = None
     semantic_module._semantic_memory = None
     manager_module._memory_manager = None
+    tools_module._toolkit = None
+    executor_module._executor = None
+    risk_module._risk_manager = None
 
     yield
 

@@ -8,6 +8,78 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.13.0] - 2026-02-02
+
+### Added
+
+#### Agent Tools - AI Tool Framework (`keryxflow/agent/`)
+
+- **`tools.py`** - Agent tool framework
+  - `BaseTool` - Abstract base class for all agent tools
+  - `ToolParameter` - Parameter definition with type, description, validation
+  - `ToolResult` - Standardized result with success status and data
+  - `ToolCategory` - Categories: PERCEPTION, ANALYSIS, INTROSPECTION, EXECUTION
+  - `TradingToolkit` - Registry and manager for all tools
+  - `create_tool` - Decorator for creating tools from functions
+  - Anthropic Tool Use API compatible schema generation
+
+- **`perception_tools.py`** - Market data tools (7 tools)
+  - `get_current_price` - Get current price for a trading pair
+  - `get_ohlcv` - Get OHLCV candlestick data
+  - `get_order_book` - Get order book depth
+  - `get_portfolio_state` - Get portfolio with positions and risk metrics
+  - `get_balance` - Get account balances
+  - `get_positions` - Get all open positions
+  - `get_open_orders` - Get pending orders
+
+- **`analysis_tools.py`** - Analysis and memory tools (7 tools)
+  - `calculate_indicators` - Run technical analysis (RSI, MACD, etc.)
+  - `calculate_position_size` - Calculate safe position size
+  - `calculate_risk_reward` - Calculate R:R ratio for trade
+  - `calculate_stop_loss` - Calculate stop loss (fixed % or ATR)
+  - `get_trading_rules` - Get active rules from semantic memory
+  - `recall_similar_trades` - Recall similar trades from episodic memory
+  - `get_market_patterns` - Get matching patterns from memory
+
+- **`execution_tools.py`** - Order execution tools (6 tools, **GUARDED**)
+  - `place_order` - Place market or limit order (validates guardrails)
+  - `close_position` - Close an open position
+  - `set_stop_loss` - Update stop loss for position
+  - `set_take_profit` - Update take profit for position
+  - `cancel_order` - Cancel a pending order
+  - `close_all_positions` - Emergency close all (requires confirmation)
+
+- **`executor.py`** - Safe tool executor
+  - `ToolExecutor` - Wraps tool execution with guardrail validation
+  - Pre-execution guardrail checks for execution tools
+  - Rate limiting (max executions per minute)
+  - Execution statistics and history tracking
+  - Event publishing for tool lifecycle
+
+#### Tests (`tests/test_agent/`)
+
+- `test_tools.py` - Tool framework tests (25 tests)
+- `test_perception.py` - Perception tools tests (20 tests)
+- `test_analysis.py` - Analysis tools tests (24 tests)
+- `test_execution.py` - Execution tools tests (24 tests)
+- `test_executor.py` - Executor tests (16 tests)
+- Total: 109 new tests
+
+### Changed
+
+- Updated `tests/conftest.py` - Added singleton resets for agent module
+- Updated `CLAUDE.md` - Added agent tools documentation
+
+### Technical Details
+
+- **20 tools total** - All compatible with Anthropic Tool Use API
+- **Guarded execution** - Execution tools validate against guardrails before running
+- **Type-safe parameters** - Full validation with JSON Schema compatible definitions
+- **Async throughout** - All tools are async/await compatible
+- **Memory integration** - Introspection tools access episodic/semantic memory
+
+---
+
 ## [0.12.0] - 2026-02-02
 
 ### Added

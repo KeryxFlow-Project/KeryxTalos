@@ -218,6 +218,26 @@ class TestDrawdown:
         assert current_dd == 0.0
         assert max_dd == 0.0
 
+    def test_drawdown_capped_at_100_percent(self, quant):
+        """Test that drawdown is capped at 100% even if equity goes negative."""
+        # Simulate equity going negative (shouldn't happen but testing defense)
+        equity = [10000, 9000, 5000, 1000, -500]  # Equity goes negative
+
+        current_dd, max_dd, duration = quant.calculate_drawdown(equity)
+
+        # Drawdown should be capped at 1.0 (100%)
+        assert max_dd <= 1.0
+        assert current_dd <= 1.0
+        assert max_dd == 1.0  # Total loss
+
+    def test_drawdown_empty_curve(self, quant):
+        """Test drawdown with empty equity curve."""
+        current_dd, max_dd, duration = quant.calculate_drawdown([])
+
+        assert current_dd == 0.0
+        assert max_dd == 0.0
+        assert duration == 0
+
 
 class TestExpectancy:
     """Tests for expectancy calculation."""

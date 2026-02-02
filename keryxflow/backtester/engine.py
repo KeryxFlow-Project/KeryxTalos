@@ -220,6 +220,22 @@ class BacktestEngine:
             total_equity = self._calculate_equity()
             self.equity_curve.append(total_equity)
 
+            # Check for forced liquidation (margin call simulation)
+            # Liquidate all positions if equity drops below 1% of initial
+            liquidation_threshold = self.initial_balance * 0.01
+            if total_equity <= liquidation_threshold and self.positions:
+                logger.warning(
+                    "forced_liquidation",
+                    equity=total_equity,
+                    threshold=liquidation_threshold,
+                )
+                for symbol in list(self.positions.keys()):
+                    pos = self.positions[symbol]
+                    self._close_position(symbol, pos.current_price, "liquidation")
+                # Update equity after liquidation
+                total_equity = self._calculate_equity()
+                self.equity_curve[-1] = total_equity
+
             # Update risk manager balance
             self.risk_manager.update_balance(total_equity)
 

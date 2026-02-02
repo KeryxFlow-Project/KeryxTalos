@@ -37,7 +37,7 @@ poetry run ruff format .
 
 ## Architecture
 
-KeryxFlow is an AI-powered cryptocurrency trading engine with an 8-layer architecture:
+KeryxFlow is an AI-powered cryptocurrency trading engine with a 9-layer architecture:
 
 ```
 ┌─ HERMES (keryxflow/hermes/) ────────────────┐
@@ -52,6 +52,9 @@ KeryxFlow is an AI-powered cryptocurrency trading engine with an 8-layer archite
 ├─ OPTIMIZER (keryxflow/optimizer/) ──────────┤
 │  Parameter optimization via grid search      │
 │  ParameterGrid, ResultComparator, Reports    │
+├─ AGENT (keryxflow/agent/) ──────────────────┤
+│  AI Tool Framework - Anthropic Tool Use API  │
+│  Perception, Analysis, Execution tools       │
 ├─ MEMORY (keryxflow/memory/) ────────────────┤
 │  Trade memory - Episodes, Rules, Patterns    │
 │  Episodic (trades), Semantic (rules/patterns)│
@@ -84,7 +87,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 - **Async everywhere**: All I/O operations use async/await with tenacity retries
 - **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton. Nested settings use prefixes (e.g., `KERYXFLOW_RISK_`, `KERYXFLOW_ORACLE_`).
-- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()` for shared instances
+- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()` for shared instances
 - **Type hints required**: All functions need complete type annotations
 - **Database**: SQLModel with aiosqlite (async SQLite)
 - **Event dispatch**: `publish()` queues async, `publish_sync()` dispatches immediately and waits
@@ -93,7 +96,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 Tests use pytest-asyncio in auto mode. Important patterns:
 
-- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`
+- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `risk._risk_manager`
 - **Async fixtures**: Use `@pytest_asyncio.fixture` for async fixtures, regular `@pytest.fixture` for sync
 - **Database isolation**: Each test gets a fresh SQLite database in `tmp_path`
 
@@ -104,7 +107,7 @@ Tests use pytest-asyncio in auto mode. Important patterns:
 ```
 Types: feat, fix, refactor, test, docs, chore
 
-Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer, notifications, memory
+Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer, notifications, memory, agent
 
 ## Memory System
 
@@ -129,6 +132,43 @@ episode_id = await memory_manager.record_trade_entry(trade_id, symbol, ...)
 
 # Record trade exit with outcome
 await memory_manager.record_trade_exit(episode_id, exit_price, outcome, pnl, ...)
+```
+
+## Agent Tools
+
+The Agent module (`keryxflow/agent/`) provides a tool framework for AI-first trading:
+
+- **Tool Framework** (`tools.py`): Base classes and toolkit for managing tools. Use `get_trading_toolkit()` singleton.
+- **Perception Tools** (`perception_tools.py`): Read-only market data (7 tools): `get_current_price`, `get_ohlcv`, `get_order_book`, `get_portfolio_state`, `get_balance`, `get_positions`, `get_open_orders`
+- **Analysis Tools** (`analysis_tools.py`): Computation and memory access (7 tools): `calculate_indicators`, `calculate_position_size`, `calculate_risk_reward`, `calculate_stop_loss`, `get_trading_rules`, `recall_similar_trades`, `get_market_patterns`
+- **Execution Tools** (`execution_tools.py`): Order execution - **GUARDED** (6 tools): `place_order`, `close_position`, `set_stop_loss`, `set_take_profit`, `cancel_order`, `close_all_positions`
+- **Safe Executor** (`executor.py`): Wraps tool execution with guardrail validation. Use `get_tool_executor()` singleton.
+
+**Tool Categories:**
+| Category | Guarded | Description |
+|----------|---------|-------------|
+| PERCEPTION | No | Read-only market data |
+| ANALYSIS | No | Computation and analysis |
+| INTROSPECTION | No | Memory access (rules, patterns, trades) |
+| EXECUTION | **Yes** | Order execution - validates guardrails |
+
+**Usage:**
+```python
+from keryxflow.agent import get_trading_toolkit, get_tool_executor, register_all_tools
+
+# Initialize toolkit with all tools
+toolkit = get_trading_toolkit()
+register_all_tools(toolkit)
+
+# Get Anthropic-compatible tool schemas
+schemas = toolkit.get_anthropic_tools_schema()
+
+# Execute tool directly
+result = await toolkit.execute("get_current_price", symbol="BTC/USDT")
+
+# Execute with guardrail validation (recommended for execution tools)
+executor = get_tool_executor()
+result = await executor.execute_guarded("place_order", symbol="BTC/USDT", side="buy", quantity=0.1)
 ```
 
 ## Safety Rules

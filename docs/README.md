@@ -6,6 +6,7 @@ This directory contains detailed documentation for the KeryxFlow project.
 
 | Document | Description |
 |----------|-------------|
+| [Optimization](optimization.md) | Parameter optimization guide |
 | [Architecture](architecture.md) | System design and module interactions |
 | [API Reference](api.md) | Internal API documentation |
 | [Configuration](configuration.md) | Configuration options and examples |
@@ -22,6 +23,7 @@ This directory contains detailed documentation for the KeryxFlow project.
 
 | Document | Status |
 |----------|--------|
+| Optimization | Complete |
 | Architecture | Planned |
 | API Reference | Planned |
 | Configuration | Planned |

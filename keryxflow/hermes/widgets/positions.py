@@ -1,9 +1,12 @@
 """Positions widget for displaying open positions."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from textual.app import ComposeResult
 from textual.widgets import DataTable, Static
+
+if TYPE_CHECKING:
+    from keryxflow.exchange.paper import PaperTradingEngine
 
 
 class PositionsWidget(Static):
@@ -32,6 +35,11 @@ class PositionsWidget(Static):
         """Initialize the positions widget."""
         super().__init__(*args, **kwargs)
         self._positions: list[dict[str, Any]] = []
+        self._paper_engine: "PaperTradingEngine | None" = None
+
+    def set_paper_engine(self, paper_engine: "PaperTradingEngine") -> None:
+        """Set the paper trading engine reference."""
+        self._paper_engine = paper_engine
 
     def compose(self) -> ComposeResult:
         """Create child widgets."""
@@ -46,10 +54,24 @@ class PositionsWidget(Static):
 
     async def refresh_data(self) -> None:
         """Refresh positions from paper trading engine."""
-        # This will be connected to the paper trading engine
-        # For now, show placeholder data
         table = self.query_one("#positions-table", DataTable)
         table.clear()
+
+        # Get positions from paper engine if available
+        if self._paper_engine:
+            positions = await self._paper_engine.get_positions()
+            self._positions = [
+                {
+                    "symbol": pos.symbol,
+                    "quantity": pos.quantity,
+                    "entry_price": pos.entry_price,
+                    "current_price": pos.current_price,
+                    "side": pos.side.value if hasattr(pos.side, "value") else pos.side,
+                    "pnl": pos.unrealized_pnl,
+                    "pnl_pct": pos.unrealized_pnl_percentage,
+                }
+                for pos in positions
+            ]
 
         if self._positions:
             for pos in self._positions:
@@ -59,7 +81,7 @@ class PositionsWidget(Static):
 
                 table.add_row(
                     pos.get("symbol", ""),
-                    f"{pos.get('quantity', 0):.4f}",
+                    f"{pos.get('quantity', 0):.6f}",
                     f"${pos.get('entry_price', 0):,.2f}",
                     f"${pos.get('current_price', 0):,.2f}",
                     f"[{pnl_color}]${pnl:+,.2f}[/]",
@@ -67,7 +89,7 @@ class PositionsWidget(Static):
                 )
         else:
             # Show empty state
-            table.add_row("No positions", "", "", "", "", "")
+            table.add_row("—", "—", "—", "—", "—", "—")
 
     async def update_prices(self, price_data: dict[str, Any]) -> None:
         """Update position prices with new market data."""

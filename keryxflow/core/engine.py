@@ -234,6 +234,9 @@ class TradingEngine:
         # Pre-load historical OHLCV data for faster signal generation
         await self._preload_ohlcv()
 
+        # Run initial analysis for all symbols
+        await self._initial_analysis()
+
         mode = "live" if self._is_live_mode else "paper"
         logger.info("trading_engine_started", mode=mode)
 
@@ -281,6 +284,21 @@ class TradingEngine:
                     )
             except Exception as e:
                 logger.warning("ohlcv_preload_failed", symbol=symbol, error=str(e))
+
+    async def _initial_analysis(self) -> None:
+        """Run initial analysis for all symbols after OHLCV preload."""
+        symbols = self.settings.system.symbols
+
+        for symbol in symbols:
+            try:
+                # Get current price from last candle
+                ohlcv = self._ohlcv_buffer.get_ohlcv(symbol)
+                if ohlcv is not None and len(ohlcv) >= self._min_candles:
+                    current_price = ohlcv["close"].iloc[-1]
+                    logger.info("running_initial_analysis", symbol=symbol, price=current_price)
+                    await self._analyze_symbol(symbol, current_price)
+            except Exception as e:
+                logger.warning("initial_analysis_failed", symbol=symbol, error=str(e))
 
     async def stop(self) -> None:
         """Stop the trading engine."""

@@ -1,0 +1,250 @@
+/* KeryxFlow Theme - Cyberpunk style */
+
+/* Global styles */
+Screen {
+    background: $surface;
+}
+
+Header {
+    background: $primary;
+    color: $text;
+}
+
+Footer {
+    background: $primary-darken-2;
+}
+
+/* Main container */
+#main-container {
+    height: 100%;
+    padding: 1;
+}
+
+#top-row {
+    height: 1fr;
+    margin-bottom: 1;
+}
+
+#left-column {
+    width: 60%;
+    margin-right: 1;
+}
+
+#right-column {
+    width: 40%;
+}
+
+/* Widget base styles */
+.widget-box {
+    border: solid $primary;
+    padding: 1;
+    margin-bottom: 1;
+    background: $surface-darken-1;
+}
+
+.widget-box:focus {
+    border: solid $accent;
+}
+
+.widget-title {
+    text-style: bold;
+    color: $primary-lighten-2;
+    margin-bottom: 1;
+}
+
+/* Chart widget */
+#chart {
+    height: 50%;
+}
+
+#chart .chart-area {
+    height: 1fr;
+}
+
+#chart .indicators {
+    height: 3;
+    margin-top: 1;
+}
+
+/* Oracle widget */
+#oracle {
+    height: 50%;
+}
+
+#oracle .context {
+    color: $success;
+}
+
+#oracle .context.bearish {
+    color: $error;
+}
+
+#oracle .signal {
+    margin-top: 1;
+}
+
+/* Positions widget */
+#positions {
+    height: 35%;
+}
+
+#positions .position-row {
+    padding: 0 1;
+}
+
+#positions .position-row.profit {
+    color: $success;
+}
+
+#positions .position-row.loss {
+    color: $error;
+}
+
+/* Aegis widget */
+#aegis {
+    height: 30%;
+}
+
+#aegis .status-armed {
+    color: $success;
+}
+
+#aegis .status-tripped {
+    color: $error;
+    text-style: bold blink;
+}
+
+#aegis .risk-bar {
+    margin-top: 1;
+}
+
+/* Stats widget */
+#stats {
+    height: 35%;
+}
+
+#stats .stat-row {
+    padding: 0 1;
+}
+
+#stats .win-rate {
+    color: $success;
+}
+
+/* Logs widget */
+#logs {
+    height: 25%;
+    border: solid $primary;
+    padding: 1;
+    background: $surface-darken-2;
+}
+
+#logs.hidden {
+    display: none;
+}
+
+#logs .log-entry {
+    padding: 0 1;
+}
+
+#logs .log-entry.info {
+    color: $text;
+}
+
+#logs .log-entry.warning {
+    color: $warning;
+}
+
+#logs .log-entry.error {
+    color: $error;
+    text-style: bold;
+}
+
+/* Help modal */
+HelpModal {
+    align: center middle;
+}
+
+#help-dialog {
+    width: 60;
+    height: auto;
+    max-height: 80%;
+    border: thick $primary;
+    background: $surface;
+    padding: 2;
+}
+
+#help-dialog .help-title {
+    text-style: bold;
+    color: $primary-lighten-2;
+    text-align: center;
+    margin-bottom: 1;
+}
+
+#help-dialog .help-section {
+    margin-bottom: 1;
+}
+
+#help-dialog .help-key {
+    text-style: bold;
+    color: $accent;
+}
+
+/* Status indicators */
+.status-dot {
+    width: 2;
+}
+
+.status-dot.active {
+    color: $success;
+}
+
+.status-dot.inactive {
+    color: $text-muted;
+}
+
+.status-dot.warning {
+    color: $warning;
+}
+
+.status-dot.error {
+    color: $error;
+}
+
+/* Price colors */
+.price-up {
+    color: $success;
+}
+
+.price-down {
+    color: $error;
+}
+
+.price-neutral {
+    color: $text;
+}
+
+/* Progress bars */
+.progress-bar {
+    height: 1;
+    background: $surface-darken-2;
+}
+
+.progress-bar .progress-fill {
+    background: $primary;
+}
+
+.progress-bar.danger .progress-fill {
+    background: $error;
+}
+
+.progress-bar.warning .progress-fill {
+    background: $warning;
+}
+
+/* Tagline */
+.tagline {
+    text-align: right;
+    color: $text-muted;
+    text-style: italic;
+}

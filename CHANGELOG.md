@@ -8,6 +8,103 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.5.0] - 2026-02-01
+
+### Added
+
+#### Hermes Module - Terminal User Interface (`keryxflow/hermes/`)
+- `app.py` - Main TUI application with Textual framework
+  - Multi-panel layout (chart, positions, oracle, aegis, stats, logs)
+  - Real-time updates via event bus subscription
+  - Keyboard shortcuts: Q (quit), P (panic), Space (pause), ? (help), L (logs), S (symbols)
+  - Responsive layout adapting to terminal size
+
+- `theme.tcss` - CSS styles for the TUI
+  - Cyberpunk-inspired dark theme
+  - Color classes for status indicators (armed, tripped, price-up, price-down)
+  - Consistent styling across all widgets
+
+- `onboarding.py` - First-run wizard
+  - Experience level selection (beginner, intermediate, advanced)
+  - Risk profile selection (conservative, balanced, aggressive)
+  - Quick setup wizard for paper trading mode
+  - User profile dataclass for storing preferences
+
+#### Hermes Widgets (`keryxflow/hermes/widgets/`)
+- `chart.py` - ASCII price chart widget
+  - Real-time price visualization with ASCII characters
+  - Price labels and axis
+  - Technical indicator display (RSI bar, MACD arrow, trend emoji)
+  - Progress bar rendering
+
+- `positions.py` - Open positions display
+  - DataTable showing symbol, quantity, entry, current price
+  - PnL and PnL% with color coding (green/red)
+  - Total PnL calculation
+
+- `oracle.py` - Market context and signals display
+  - Market bias indicator (bullish/bearish/neutral)
+  - Current signal with entry price
+  - Confidence bar visualization
+  - Context and signal summary methods
+
+- `aegis.py` - Risk management status widget
+  - Circuit breaker status (ARMED/TRIPPED)
+  - Daily PnL display
+  - Risk usage bar with color thresholds
+  - Position count vs maximum
+
+- `stats.py` - Trading statistics widget
+  - Win rate with progress bar
+  - Average win/loss amounts
+  - Expectancy calculation per trade
+  - Trade recording with automatic stats update
+
+- `logs.py` - Activity log widget
+  - RichLog for formatted output
+  - Level-based icons (info, success, warning, error, trade, signal)
+  - Timestamp formatting
+  - Maximum entries limit (100)
+
+- `help.py` - Help modal with glossary integration
+  - Term lookup from core glossary
+  - Search functionality
+  - Glossary browser by category
+  - Quick help widget for contextual hints
+  - Keyboard shortcuts reference
+
+#### Tests
+- `tests/test_hermes/test_widgets.py` - 47 tests for widget logic
+  - ChartWidget: price tracking, progress bars, chart rendering
+  - LogsWidget: entries, formatting, icons
+  - StatsWidget: expectancy, win rate bar, properties
+  - AegisWidget: trip state, can_trade logic, risk bar
+  - OracleWidget: context/signal storage, summaries
+  - PositionsWidget: add/remove/total PnL
+
+- `tests/test_hermes/test_help.py` - 14 tests for help/glossary
+  - Modal initialization
+  - Glossary integration
+  - Category validation
+  - Search functionality
+
+- `tests/test_hermes/test_onboarding.py` - 9 tests for onboarding
+  - UserProfile dataclass
+  - Wizard step progression
+  - Selection actions
+
+- Total: 210 tests passing (70 new + 140 existing)
+
+### Technical Details
+- Textual ^0.50 for TUI framework
+- CSS-based styling with TCSS files
+- Event bus integration for real-time updates
+- Modular widget architecture
+- Glossary with 25+ trading terms (simple + technical explanations)
+- Experience-based verbosity levels
+
+---
+
 ## [0.4.0] - 2026-02-02
 
 ### Added
@@ -218,6 +315,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.5.0 | 2026-02-01 | Hermes TUI (Textual interface) |
 | 0.4.0 | 2026-02-02 | Oracle intelligence layer (technical + LLM) |
 | 0.3.0 | 2026-02-02 | Aegis risk management layer |
 | 0.2.0 | 2026-02-01 | Exchange layer + runnable MVP |
@@ -227,12 +325,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Upcoming
 
-### [0.5.0] - Planned
-- Hermes TUI (Textual interface)
-- Onboarding wizard
-- Help modal with glossary
+### [0.6.0] - Planned
+- Full integration loop
+- Main event loop connecting all modules
+- Graceful shutdown
 
 ### [1.0.0] - Planned
-- Full integration
 - Backtesting engine
+- Live trading mode
 - Production ready

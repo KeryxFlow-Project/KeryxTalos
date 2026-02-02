@@ -111,6 +111,38 @@ class OHLCVBuffer:
         """Get number of completed candles for a symbol."""
         return len(self._candles.get(symbol, []))
 
+    def add_candle(
+        self,
+        symbol: str,
+        timestamp: int | float,
+        open_price: float,
+        high: float,
+        low: float,
+        close: float,
+        volume: float,
+    ) -> None:
+        """Add a historical candle directly to the buffer."""
+        # Convert timestamp (ms) to datetime
+        if isinstance(timestamp, (int, float)):
+            candle_time = datetime.fromtimestamp(timestamp / 1000, tz=UTC)
+        else:
+            candle_time = timestamp
+
+        candle = {
+            "timestamp": candle_time,
+            "open": open_price,
+            "high": high,
+            "low": low,
+            "close": close,
+            "volume": volume,
+        }
+
+        self._candles[symbol].append(candle)
+
+        # Keep only max_candles
+        if len(self._candles[symbol]) > self.max_candles:
+            self._candles[symbol] = self._candles[symbol][-self.max_candles :]
+
 
 class TradingEngine:
     """
@@ -199,6 +231,9 @@ class TradingEngine:
         positions = await self.paper.get_positions()
         self.risk.set_open_positions(len(positions))
 
+        # Pre-load historical OHLCV data for faster signal generation
+        await self._preload_ohlcv()
+
         mode = "live" if self._is_live_mode else "paper"
         logger.info("trading_engine_started", mode=mode)
 
@@ -208,6 +243,44 @@ class TradingEngine:
                 mode=mode,
                 symbols=self.settings.system.symbols,
             )
+
+    async def _preload_ohlcv(self) -> None:
+        """Pre-load historical OHLCV data for all symbols."""
+        symbols = self.settings.system.symbols
+        candles_to_load = self._min_candles + 10  # Extra buffer
+
+        for symbol in symbols:
+            try:
+                logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
+
+                # Fetch historical OHLCV from exchange
+                ohlcv = await self.exchange.get_ohlcv(
+                    symbol=symbol,
+                    timeframe="1m",
+                    limit=candles_to_load,
+                )
+
+                if ohlcv:
+                    # Add historical candles to buffer
+                    for candle in ohlcv:
+                        timestamp, open_p, high, low, close, volume = candle
+                        self._ohlcv_buffer.add_candle(
+                            symbol=symbol,
+                            timestamp=timestamp,
+                            open_price=open_p,
+                            high=high,
+                            low=low,
+                            close=close,
+                            volume=volume or 0.0,
+                        )
+
+                    logger.info(
+                        "ohlcv_preloaded",
+                        symbol=symbol,
+                        candles=self._ohlcv_buffer.candle_count(symbol),
+                    )
+            except Exception as e:
+                logger.warning("ohlcv_preload_failed", symbol=symbol, error=str(e))
 
     async def stop(self) -> None:
         """Stop the trading engine."""

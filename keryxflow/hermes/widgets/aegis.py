@@ -90,7 +90,9 @@ class AegisWidget(Static):
         if self._is_tripped:
             status_line.update("[bold red]Status:     ● TRIPPED[/]")
             if self._trip_reason:
-                status_line.update(f"[bold red]Status:     ● TRIPPED[/]\n[dim]{self._trip_reason}[/]")
+                status_line.update(
+                    f"[bold red]Status:     ● TRIPPED[/]\n[dim]{self._trip_reason}[/]"
+                )
         else:
             status_line.update("[bold green]Status:     ● ARMED[/]")
 

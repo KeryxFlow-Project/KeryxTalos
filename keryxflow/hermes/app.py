@@ -4,17 +4,21 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, Header
+from textual.worker import Worker
 
 from keryxflow import __version__
 from keryxflow.config import get_settings
-from keryxflow.core.events import EventBus, EventType, get_event_bus
+from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
+from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
 from keryxflow.hermes.widgets.oracle import OracleWidget
 from keryxflow.hermes.widgets.positions import PositionsWidget
+from keryxflow.hermes.widgets.splash import SplashScreen
 from keryxflow.hermes.widgets.stats import StatsWidget
 
 logger = get_logger(__name__)
@@ -36,14 +40,22 @@ class KeryxFlowApp(App):
         Binding("s", "cycle_symbol", "Next Symbol"),
     ]
 
-    def __init__(self, event_bus: EventBus | None = None) -> None:
+    def __init__(
+        self,
+        event_bus: EventBus | None = None,
+        exchange_client: ExchangeClient | None = None,
+        paper_engine: PaperTradingEngine | None = None,
+    ) -> None:
         """Initialize the app."""
         super().__init__()
         self.settings = get_settings()
         self.event_bus = event_bus or get_event_bus()
+        self.exchange_client = exchange_client
+        self.paper_engine = paper_engine
         self._paused = False
         self._current_symbol_index = 0
         self._symbols = self.settings.system.symbols
+        self._price_worker: Worker | None = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -74,8 +86,54 @@ class KeryxFlowApp(App):
         self.event_bus.subscribe(EventType.CIRCUIT_BREAKER_TRIGGERED, self._on_circuit_trip)
         self.event_bus.subscribe(EventType.ORDER_FILLED, self._on_trade)
 
+        # Show splash screen, then initialize
+        self.push_screen(SplashScreen(), callback=self._on_splash_dismissed)
+
+    async def _on_splash_dismissed(self, _result: None) -> None:
+        """Called when splash screen is dismissed."""
         # Initial data load
         await self._refresh_all()
+
+        # Start price feed worker if exchange client is available
+        if self.exchange_client:
+            self._price_worker = self.run_worker(self._price_loop, exclusive=True)
+
+    async def _price_loop(self) -> None:
+        """Background worker for fetching prices."""
+        import asyncio
+
+        while True:
+            if self._paused:
+                await asyncio.sleep(1)
+                continue
+
+            for symbol in self._symbols:
+                try:
+                    ticker = await self.exchange_client.get_ticker(symbol)
+                    price = ticker["last"]
+
+                    # Update paper engine
+                    if self.paper_engine:
+                        self.paper_engine.update_price(symbol, price)
+
+                    # Publish price update event
+                    await self.event_bus.publish(
+                        Event(
+                            type=EventType.PRICE_UPDATE,
+                            data={
+                                "symbol": symbol,
+                                "price": price,
+                                "bid": ticker.get("bid"),
+                                "ask": ticker.get("ask"),
+                                "volume": ticker.get("volume"),
+                            },
+                        )
+                    )
+                except Exception as e:
+                    logger.warning("price_fetch_error", symbol=symbol, error=str(e))
+
+            # Wait before next update
+            await asyncio.sleep(self.settings.hermes.refresh_rate)
 
     async def _refresh_all(self) -> None:
         """Refresh all widgets with current data."""

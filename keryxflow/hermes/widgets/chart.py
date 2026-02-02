@@ -96,7 +96,9 @@ class ChartWidget(Static):
         if self._current_price > 0:
             change_str = f"{self._price_change:+.2%}" if self._price_change != 0 else ""
             change_class = "price-up" if self._price_change >= 0 else "price-down"
-            title.update(f"{self.symbol}  ${self._current_price:,.2f} [{change_class}]{change_str}[/]")
+            title.update(
+                f"{self.symbol}  ${self._current_price:,.2f} [{change_class}]{change_str}[/]"
+            )
         else:
             title.update(f"{self.symbol}")
 

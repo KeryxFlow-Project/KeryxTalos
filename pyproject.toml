@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "keryxflow"
-version = "0.5.0"
+version = "0.6.0"
 description = "A hybrid AI & quantitative trading engine for cryptocurrency markets"
 authors = ["KeryxFlow Contributors"]
 license = "MIT"
@@ -51,6 +51,7 @@ tenacity = "^8.0"
 pytest = "^8.0"
 pytest-asyncio = "^0.23"
 pytest-cov = "^4.0"
+pytest-mock = "^3.0"
 ruff = "^0.2"
 
 [build-system]

@@ -8,6 +8,7 @@ from textual.worker import Worker
 
 from keryxflow import __version__
 from keryxflow.config import get_settings
+from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.exchange.client import ExchangeClient
@@ -52,6 +53,7 @@ class KeryxFlowApp(App):
         self.event_bus = event_bus or get_event_bus()
         self.exchange_client = exchange_client
         self.paper_engine = paper_engine
+        self.trading_engine: TradingEngine | None = None
         self._paused = False
         self._current_symbol_index = 0
         self._symbols = self.settings.system.symbols
@@ -85,12 +87,35 @@ class KeryxFlowApp(App):
         self.event_bus.subscribe(EventType.SIGNAL_GENERATED, self._on_signal)
         self.event_bus.subscribe(EventType.CIRCUIT_BREAKER_TRIGGERED, self._on_circuit_trip)
         self.event_bus.subscribe(EventType.ORDER_FILLED, self._on_trade)
+        self.event_bus.subscribe(EventType.ORDER_APPROVED, self._on_order_approved)
+        self.event_bus.subscribe(EventType.ORDER_REJECTED, self._on_order_rejected)
 
         # Show splash screen, then initialize
         self.push_screen(SplashScreen(), callback=self._on_splash_dismissed)
 
     async def _on_splash_dismissed(self, _result: None) -> None:
         """Called when splash screen is dismissed."""
+        # Start trading engine
+        if self.exchange_client and self.paper_engine:
+            self.trading_engine = TradingEngine(
+                exchange_client=self.exchange_client,
+                paper_engine=self.paper_engine,
+                event_bus=self.event_bus,
+            )
+            await self.trading_engine.start()
+
+            # Connect aegis widget to risk manager
+            aegis = self.query_one("#aegis", AegisWidget)
+            aegis.set_risk_manager(self.trading_engine.risk)
+
+            # Connect positions widget to paper engine
+            positions = self.query_one("#positions", PositionsWidget)
+            positions.set_paper_engine(self.paper_engine)
+
+            # Log engine started
+            logs = self.query_one("#logs", LogsWidget)
+            logs.add_entry("Trading engine started", level="success")
+
         # Initial data load
         await self._refresh_all()
 
@@ -155,11 +180,12 @@ class KeryxFlowApp(App):
         """Get the currently selected symbol."""
         return self._symbols[self._current_symbol_index]
 
-    async def _on_price_update(self, data: dict) -> None:
+    async def _on_price_update(self, event: Event) -> None:
         """Handle price update events."""
         if self._paused:
             return
 
+        data = event.data
         chart = self.query_one("#chart", ChartWidget)
         if data.get("symbol") == self.current_symbol:
             chart.update_price(data.get("price", 0.0))
@@ -167,19 +193,35 @@ class KeryxFlowApp(App):
         positions = self.query_one("#positions", PositionsWidget)
         await positions.update_prices(data)
 
-    async def _on_signal(self, data: dict) -> None:
+        # Update aegis with current balance
+        if self.paper_engine:
+            aegis = self.query_one("#aegis", AegisWidget)
+            await aegis.refresh_data()
+
+    async def _on_signal(self, event: Event) -> None:
         """Handle signal generated events."""
         if self._paused:
             return
 
+        data = event.data
         oracle = self.query_one("#oracle", OracleWidget)
         oracle.update_signal(data)
 
         logs = self.query_one("#logs", LogsWidget)
-        logs.add_entry(f"Signal: {data.get('signal_type', 'unknown')} @ {data.get('symbol', '')}")
+        signal_type = data.get("signal_type", "unknown").upper()
+        symbol = data.get("symbol", "")
+        confidence = data.get("confidence", 0)
 
-    async def _on_circuit_trip(self, data: dict) -> None:
+        if signal_type in ("LONG", "SHORT"):
+            logs.add_entry(
+                f"Signal: {signal_type} {symbol} (conf: {confidence:.0%})", level="signal"
+            )
+        else:
+            logs.add_entry(f"Signal: {signal_type} {symbol}", level="info")
+
+    async def _on_circuit_trip(self, event: Event) -> None:
         """Handle circuit breaker trip events."""
+        data = event.data
         aegis = self.query_one("#aegis", AegisWidget)
         aegis.set_tripped(data.get("reason", "Unknown"))
 
@@ -188,14 +230,15 @@ class KeryxFlowApp(App):
 
         self.notify("Circuit Breaker Tripped!", severity="warning", timeout=10)
 
-    async def _on_trade(self, data: dict) -> None:
+    async def _on_trade(self, event: Event) -> None:
         """Handle trade executed events."""
+        data = event.data
         logs = self.query_one("#logs", LogsWidget)
         side = data.get("side", "").upper()
         symbol = data.get("symbol", "")
         quantity = data.get("quantity", 0)
         price = data.get("price", 0)
-        logs.add_entry(f"{side} {quantity} {symbol} @ ${price:,.2f}")
+        logs.add_entry(f"FILLED: {side} {quantity:.6f} {symbol} @ ${price:,.2f}", level="trade")
 
         # Refresh positions and stats
         positions = self.query_one("#positions", PositionsWidget)
@@ -203,6 +246,27 @@ class KeryxFlowApp(App):
 
         stats = self.query_one("#stats", StatsWidget)
         await stats.refresh_data()
+
+        aegis = self.query_one("#aegis", AegisWidget)
+        await aegis.refresh_data()
+
+        self.notify(f"Order Filled: {side} {symbol}", severity="information")
+
+    async def _on_order_approved(self, event: Event) -> None:
+        """Handle order approved events."""
+        data = event.data
+        logs = self.query_one("#logs", LogsWidget)
+        side = data.get("side", "").upper()
+        symbol = data.get("symbol", "")
+        logs.add_entry(f"APPROVED: {side} {symbol}", level="success")
+
+    async def _on_order_rejected(self, event: Event) -> None:
+        """Handle order rejected events."""
+        data = event.data
+        logs = self.query_one("#logs", LogsWidget)
+        symbol = data.get("symbol", "")
+        reason = data.get("message", data.get("reason", "Unknown"))
+        logs.add_entry(f"REJECTED: {symbol} - {reason}", level="warning")
 
     def action_quit(self) -> None:
         """Quit the application."""
@@ -214,19 +278,21 @@ class KeryxFlowApp(App):
         logs = self.query_one("#logs", LogsWidget)
         logs.add_entry("PANIC MODE ACTIVATED - Closing all positions!", level="error")
 
-        await self.event_bus.publish("panic.requested", {})
+        await self.event_bus.publish(Event(type=EventType.PANIC_TRIGGERED, data={}))
 
         self.notify("Panic Mode - Closing all positions!", severity="error", timeout=5)
 
-    def action_toggle_pause(self) -> None:
+    async def action_toggle_pause(self) -> None:
         """Toggle pause/resume trading."""
         self._paused = not self._paused
 
         logs = self.query_one("#logs", LogsWidget)
         if self._paused:
+            await self.event_bus.publish(Event(type=EventType.SYSTEM_PAUSED, data={}))
             logs.add_entry("Trading PAUSED", level="warning")
             self.notify("Trading Paused", severity="warning")
         else:
+            await self.event_bus.publish(Event(type=EventType.SYSTEM_RESUMED, data={}))
             logs.add_entry("Trading RESUMED", level="info")
             self.notify("Trading Resumed", severity="information")
 

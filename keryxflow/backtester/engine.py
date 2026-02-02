@@ -104,7 +104,8 @@ class BacktestEngine:
     def __post_init__(self):
         """Initialize components after dataclass init."""
         self.balance = self.initial_balance
-        self.signal_gen = get_signal_generator()
+        # Create a signal generator without event publishing for backtesting
+        self.signal_gen = SignalGenerator(publish_events=False)
         self.risk_manager = get_risk_manager(
             risk_profile=self.risk_profile,
             initial_balance=self.initial_balance,

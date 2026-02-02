@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 
 from keryxflow.config import get_settings
-from keryxflow.core.events import EventBus, get_event_bus
+from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.oracle.brain import (
     ActionRecommendation,
@@ -124,13 +124,23 @@ class SignalGenerator:
         news_aggregator: NewsAggregator | None = None,
         brain: OracleBrain | None = None,
         event_bus: EventBus | None = None,
+        publish_events: bool = True,
     ):
-        """Initialize the signal generator."""
+        """Initialize the signal generator.
+
+        Args:
+            technical_analyzer: Custom technical analyzer (optional)
+            news_aggregator: Custom news aggregator (optional)
+            brain: Custom LLM brain (optional)
+            event_bus: Custom event bus (optional)
+            publish_events: Whether to publish events (disable for backtesting)
+        """
         self.settings = get_settings()
         self.technical = technical_analyzer or get_technical_analyzer()
         self.news = news_aggregator or get_news_aggregator()
         self.brain = brain or get_oracle_brain()
         self.event_bus = event_bus or get_event_bus()
+        self._publish_events = publish_events
 
         # Signal history for deduplication
         self._last_signals: dict[str, TradingSignal] = {}
@@ -193,7 +203,10 @@ class SignalGenerator:
 
         # Step 5: Check for signal changes
         if self._is_significant_change(symbol, signal):
-            await self.event_bus.publish("oracle.signal_generated", signal.to_dict())
+            if self._publish_events:
+                await self.event_bus.publish(
+                    Event(type=EventType.SIGNAL_GENERATED, data=signal.to_dict())
+                )
             self._last_signals[symbol] = signal
 
         logger.info(

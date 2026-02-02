@@ -167,7 +167,7 @@ async def run_optimization(
                 )
                 data[symbol] = df
         finally:
-            await exchange.close()
+            await exchange.disconnect()
 
     if not data:
         raise ValueError("No data loaded for any symbol")

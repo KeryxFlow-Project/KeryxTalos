@@ -143,14 +143,18 @@ class ExchangeClient:
         symbol: str,
         timeframe: str = "1h",
         limit: int = 100,
+        since: int | None = None,
     ) -> list[list[float]]:
         """
         Get OHLCV (candlestick) data.
+
+        Always uses real Binance API for historical data (sandbox doesn't have it).
 
         Args:
             symbol: Trading pair
             timeframe: Candle timeframe (1m, 5m, 15m, 1h, 4h, 1d)
             limit: Number of candles to fetch
+            since: Timestamp in milliseconds for start time (optional)
 
         Returns:
             List of [timestamp, open, high, low, close, volume]
@@ -158,7 +162,22 @@ class ExchangeClient:
         self._ensure_connected()
         assert self._exchange is not None
 
-        ohlcv = await self._exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+        # Use real API for OHLCV data (sandbox doesn't have historical data)
+        # OHLCV is public data, doesn't need authentication
+        if self._sandbox:
+            # Temporarily create a non-sandbox client for market data
+            market_client = ccxt.binance({"enableRateLimit": True})
+            try:
+                ohlcv = await market_client.fetch_ohlcv(
+                    symbol, timeframe, since=since, limit=limit
+                )
+            finally:
+                await market_client.close()
+        else:
+            ohlcv = await self._exchange.fetch_ohlcv(
+                symbol, timeframe, since=since, limit=limit
+            )
+
         return ohlcv
 
     @retry(

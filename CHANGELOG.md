@@ -24,6 +24,132 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.10.0] - 2026-02-02
+
+### Added
+
+#### Multi-Timeframe Analysis (`keryxflow/oracle/` and `keryxflow/core/`)
+- **`MultiTimeframeBuffer`** - Buffer for managing OHLCV across multiple timeframes
+  - `TimeframeConfig` dataclass for configuring individual timeframes
+  - `TimeframeBuffer` for single timeframe candle accumulation
+  - Price updates propagate to all configured timeframes
+  - Resample from base timeframe to higher timeframes
+  - Primary and filter timeframe designation
+
+- **`MTFAnalyzer`** - Multi-timeframe analysis coordinator
+  - `MultiTimeframeAnalysis` dataclass for aggregated results
+  - Analyzes all timeframes and determines filter trend
+  - Alignment detection across timeframes
+  - Simple and technical summaries
+  - Fallback to highest available timeframe for filter
+
+- **`MTFSignalGenerator`** - Signal generator with MTF support
+  - Extends base `SignalGenerator` with MTF capabilities
+  - Higher timeframe trend filtering (hierarchical filter)
+  - Alignment-based confidence adjustment (+20% aligned, -20% divergent)
+  - Fallback to single-timeframe when only DataFrame provided
+  - Filter rules: BULLISH allows LONG only, BEARISH allows SHORT only
+
+- **`apply_trend_filter()`** - Filter function for signal validation
+  - Applies higher timeframe trend to filter signals
+  - Configurable minimum confidence threshold
+  - NEUTRAL filter allows all signals
+  - Low confidence bypasses filter
+
+#### Configuration (`keryxflow/config.py`)
+- **`MTFSettings`** - Multi-timeframe configuration
+  - `enabled` - Enable/disable MTF analysis (default: false)
+  - `timeframes` - List of timeframes to analyze (default: ["15m", "1h", "4h"])
+  - `primary_timeframe` - Timeframe for entry signals (default: "1h")
+  - `filter_timeframe` - Timeframe for trend filtering (default: "4h")
+  - `min_filter_confidence` - Minimum confidence to apply filter (default: 0.5)
+
+#### TradingSignal Extensions (`keryxflow/oracle/signals.py`)
+- New MTF fields added to `TradingSignal` dataclass:
+  - `primary_timeframe` - Primary TF used for signal
+  - `filter_timeframe` - Filter TF used for trend
+  - `filter_trend` - Trend direction from filter TF
+  - `timeframe_alignment` - Whether timeframes agree
+  - `mtf_data` - Full MTF analysis dict
+
+#### TradingEngine Integration (`keryxflow/core/engine.py`)
+- Conditional MTF mode based on settings
+- `MultiTimeframeBuffer` used when MTF enabled
+- `MTFSignalGenerator` used when MTF enabled
+- OHLCV preloading for all configured timeframes
+- Analysis uses dict of DataFrames in MTF mode
+
+#### Backtester MTF Support (`keryxflow/backtester/`)
+- **`DataLoader.load_multi_timeframe()`** - Load multiple timeframes
+  - Fetches base timeframe and resamples to targets
+  - Efficient single fetch with resampling
+  - CSV loading with multi-timeframe resampling
+
+- **`BacktestEngine`** - Extended for MTF
+  - `mtf_enabled` parameter
+  - `primary_timeframe` parameter
+  - Accepts dict of DataFrames per symbol
+  - Uses `MTFSignalGenerator` when enabled
+
+- **CLI Arguments** - New backtest options
+  - `--mtf` - Enable multi-timeframe analysis
+  - `--timeframes` - Specify timeframes (e.g., 15m 1h 4h)
+  - `--filter-tf` - Specify filter timeframe
+
+#### Tests
+- `tests/test_core/test_mtf_buffer.py` - 25+ tests for MTF buffer
+  - TimeframeConfig, TimeframeBuffer, MultiTimeframeBuffer
+  - Price updates, candle completion, resampling
+  - Multiple symbols, max candles, clear operations
+
+- `tests/test_oracle/test_mtf_analyzer.py` - 20+ tests for MTF analyzer
+  - Analysis with single and multiple timeframes
+  - Filter trend detection (bullish/bearish/neutral)
+  - Alignment checking
+  - apply_trend_filter() edge cases
+
+- `tests/test_oracle/test_mtf_signals.py` - 18+ tests for MTF signals
+  - Single TF fallback
+  - MTF dict handling
+  - MTF fields in signal
+  - Filter behavior
+
+### Changed
+- `TradingEngine` now supports MTF mode via settings
+- `BacktestEngine` accepts MTF data structure
+- `DataLoader.resample()` uses proper pandas resample strings
+
+### Technical Details
+- Hierarchical filter approach: higher TF defines direction, lower TF for timing
+- Alignment detection: all non-neutral trends must agree
+- Confidence adjustment: +20% for alignment, -20% for divergence
+- Filter bypass: low confidence filter allows any signal
+
+### Example Configuration
+
+```toml
+# settings.toml
+[oracle.mtf]
+enabled = true
+timeframes = ["15m", "1h", "4h"]
+primary_timeframe = "1h"
+filter_timeframe = "4h"
+min_filter_confidence = 0.5
+```
+
+### Example Usage
+
+```bash
+# Run backtest with MTF
+poetry run keryxflow-backtest --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30 \
+    --mtf --timeframes 15m 1h 4h --filter-tf 4h
+
+# Run application with MTF (enable in settings.toml)
+poetry run keryxflow
+```
+
+---
+
 ## [0.9.0] - 2026-02-02
 
 ### Added
@@ -590,6 +716,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.10.0 | 2026-02-02 | Multi-timeframe analysis |
 | 0.9.0 | 2026-02-02 | Parameter optimization (grid search) |
 | 0.8.0 | 2026-02-01 | Live trading mode with safeguards and notifications |
 | 0.7.0 | 2026-02-01 | Backtesting engine for strategy validation |
@@ -604,10 +731,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## Upcoming
 
-### [0.10.0] - Planned
-- Multi-timeframe analysis
+### [0.11.0] - Planned
 - Parallel optimization (multiple cores)
 - Walk-forward optimization
+- Monte Carlo simulation
 
 ### [1.0.0] - Planned
 - Production ready

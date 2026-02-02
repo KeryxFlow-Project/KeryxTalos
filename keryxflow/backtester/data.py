@@ -6,9 +6,17 @@ from pathlib import Path
 import pandas as pd
 
 from keryxflow.core.logging import get_logger
+from keryxflow.core.mtf_buffer import timeframe_to_seconds
 from keryxflow.exchange.client import ExchangeClient
 
 logger = get_logger(__name__)
+
+
+def _get_smallest_timeframe(timeframes: list[str]) -> str:
+    """Get the smallest timeframe from a list of timeframes."""
+    if not timeframes:
+        raise ValueError("No timeframes provided")
+    return min(timeframes, key=timeframe_to_seconds)
 
 
 class DataLoader:
@@ -181,10 +189,28 @@ class DataLoader:
             Resampled DataFrame
         """
         # Set datetime as index
-        df = df.set_index("datetime")
+        df_copy = df.copy()
+        df_copy = df_copy.set_index("datetime")
+
+        # Map timeframe strings to pandas resample format
+        tf_map = {
+            "1m": "1min",
+            "5m": "5min",
+            "15m": "15min",
+            "30m": "30min",
+            "1h": "1h",
+            "2h": "2h",
+            "4h": "4h",
+            "6h": "6h",
+            "8h": "8h",
+            "12h": "12h",
+            "1d": "1D",
+            "1w": "1W",
+        }
+        resample_str = tf_map.get(target_timeframe, target_timeframe)
 
         # Resample
-        resampled = df.resample(target_timeframe).agg(
+        resampled = df_copy.resample(resample_str).agg(
             {
                 "open": "first",
                 "high": "max",
@@ -201,3 +227,107 @@ class DataLoader:
         resampled = resampled.reset_index()
 
         return resampled
+
+    async def load_multi_timeframe(
+        self,
+        symbol: str,
+        start: datetime,
+        end: datetime,
+        timeframes: list[str],
+        base_timeframe: str | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        Load OHLCV data for multiple timeframes.
+
+        Fetches data at the base timeframe and resamples to higher timeframes.
+        This is more efficient than fetching each timeframe separately and
+        ensures data consistency.
+
+        Args:
+            symbol: Trading pair (e.g., "BTC/USDT")
+            start: Start datetime (UTC)
+            end: End datetime (UTC)
+            timeframes: List of timeframes to load (e.g., ["15m", "1h", "4h"])
+            base_timeframe: Base timeframe to fetch. If None, uses the smallest
+                           timeframe from the requested list.
+
+        Returns:
+            Dict mapping timeframe to DataFrame
+        """
+        # Auto-detect smallest timeframe if not specified
+        if base_timeframe is None:
+            base_timeframe = _get_smallest_timeframe(timeframes)
+
+        logger.info(
+            "loading_multi_timeframe_data",
+            symbol=symbol,
+            timeframes=timeframes,
+            base_timeframe=base_timeframe,
+        )
+
+        # Load base timeframe data
+        base_df = await self.load_from_exchange(
+            symbol=symbol,
+            start=start,
+            end=end,
+            timeframe=base_timeframe,
+        )
+
+        result: dict[str, pd.DataFrame] = {}
+
+        for tf in timeframes:
+            if tf == base_timeframe:
+                result[tf] = base_df.copy()
+            else:
+                # Resample to target timeframe
+                result[tf] = self.resample(base_df, tf)
+                logger.debug(
+                    "resampled_timeframe",
+                    symbol=symbol,
+                    from_tf=base_timeframe,
+                    to_tf=tf,
+                    candles=len(result[tf]),
+                )
+
+        logger.info(
+            "multi_timeframe_data_loaded",
+            symbol=symbol,
+            timeframes={tf: len(df) for tf, df in result.items()},
+        )
+
+        return result
+
+    def load_multi_timeframe_from_csv(
+        self,
+        path: str | Path,
+        timeframes: list[str],
+        base_timeframe: str | None = None,
+    ) -> dict[str, pd.DataFrame]:
+        """
+        Load multi-timeframe data from CSV.
+
+        Args:
+            path: Path to CSV with base timeframe data
+            timeframes: List of timeframes to generate
+            base_timeframe: Timeframe of the source CSV. If None, uses the
+                           smallest timeframe from the requested list.
+
+        Returns:
+            Dict mapping timeframe to DataFrame
+        """
+        # Auto-detect smallest timeframe if not specified
+        if base_timeframe is None:
+            base_timeframe = _get_smallest_timeframe(timeframes)
+
+        # Load base data
+        base_df = self.load_from_csv(path)
+
+        result: dict[str, pd.DataFrame] = {}
+
+        for tf in timeframes:
+            if tf == base_timeframe:
+                result[tf] = base_df.copy()
+            else:
+                result[tf] = self.resample(base_df, tf)
+
+        return result

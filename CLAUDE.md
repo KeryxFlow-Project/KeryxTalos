@@ -80,9 +80,11 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 ## Code Patterns
 
 - **Async everywhere**: All I/O operations use async/await with tenacity retries
-- **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`
+- **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton.
+- **Global singletons**: Use `get_event_bus()` and `get_settings()` for shared instances
 - **Type hints required**: All functions need complete type annotations
 - **Database**: SQLModel with aiosqlite (async SQLite)
+- **Event dispatch**: `publish()` queues async, `publish_sync()` dispatches immediately and waits
 
 ## Commit Format
 
@@ -91,7 +93,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 ```
 Types: feat, fix, refactor, test, docs, chore
 
-Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer
+Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer, notifications
 
 ## Safety Rules
 

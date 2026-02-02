@@ -21,6 +21,18 @@ class RiskSettings(BaseSettings):
     atr_multiplier: float = Field(default=2.0, ge=0.5, le=5.0)
 
 
+class MTFSettings(BaseSettings):
+    """Multi-Timeframe Analysis configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="KERYXFLOW_MTF_")
+
+    enabled: bool = False
+    timeframes: list[str] = ["15m", "1h", "4h"]
+    primary_timeframe: str = "1h"
+    filter_timeframe: str = "4h"
+    min_filter_confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+
+
 class OracleSettings(BaseSettings):
     """Oracle (Intelligence) configuration."""
 
@@ -52,6 +64,9 @@ class OracleSettings(BaseSettings):
         "https://decrypt.co/feed",
     ]
     news_lookback_hours: int = Field(default=4, ge=1, le=24)
+
+    # Multi-Timeframe Analysis
+    mtf: MTFSettings = Field(default_factory=MTFSettings)
 
 
 class SystemSettings(BaseSettings):
@@ -168,8 +183,7 @@ class Settings(BaseSettings):
     def has_binance_credentials(self) -> bool:
         """Check if Binance credentials are configured."""
         return bool(
-            self.binance_api_key.get_secret_value()
-            and self.binance_api_secret.get_secret_value()
+            self.binance_api_key.get_secret_value() and self.binance_api_secret.get_secret_value()
         )
 
     @property

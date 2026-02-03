@@ -8,6 +8,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.15.0] - 2026-02-03
+
+### Added
+
+#### Learning & Reflection System (`keryxflow/agent/`)
+
+- **`reflection.py`** - Reflection engine for learning from trades
+  - `ReflectionEngine` - Orchestrates all reflection types
+  - `PostMortemResult` - Analysis of individual closed trades
+  - `DailyReflectionResult` - End-of-day trading review
+  - `WeeklyReflectionResult` - Pattern identification and rule updates
+  - Integration with Claude for intelligent analysis
+  - Fallback to basic analysis when API unavailable
+
+- **`strategy.py`** - Strategy selection and adaptation
+  - `StrategyManager` - Manages trading strategy catalog
+  - `StrategyConfig` - Strategy configuration with parameters
+  - `StrategySelection` - Result of strategy selection
+  - `MarketRegime` - Classification (trending, ranging, volatile, etc.)
+  - 4 default strategies: trend following, mean reversion, breakout, momentum
+  - Automatic regime detection from price data
+  - Performance tracking and parameter adaptation
+
+- **`scheduler.py`** - Task scheduler for periodic operations
+  - `TaskScheduler` - Manages scheduled tasks
+  - `ScheduledTask` - Task definition with frequency and callback
+  - `TaskResult` - Execution result tracking
+  - Support for ONCE, HOURLY, DAILY, WEEKLY, MONTHLY frequencies
+  - Default tasks: daily reflection (23:00 UTC), weekly reflection (Sunday 23:30 UTC)
+
+#### Tests (`tests/test_agent/`)
+
+- `test_reflection.py` - 21 tests for reflection engine
+- `test_strategy.py` - 24 tests for strategy manager
+- `test_scheduler.py` - 22 tests for task scheduler
+- Total: 67 new tests (203 agent module tests total)
+
+### Changed
+
+- Updated `keryxflow/agent/__init__.py` - Exports for new modules
+- Updated `tests/conftest.py` - Singleton resets for new modules
+- Updated `CLAUDE.md` - Documentation for Phase 5
+
+### Technical Details
+
+- **Autonomous Learning** - Agent learns from past trades through reflections
+- **Strategy Adaptation** - Strategies selected based on market regime
+- **Scheduled Tasks** - Automated daily and weekly reflections
+- **Claude Integration** - Uses Claude API for intelligent analysis with fallback
+
+---
+
 ## [0.14.0] - 2026-02-03
 
 ### Added

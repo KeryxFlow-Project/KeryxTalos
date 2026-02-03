@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from keryxflow.core.database import get_session_factory, init_db
+from keryxflow.core.database import get_session_factory
 from keryxflow.core.models import TradeOutcome
 from keryxflow.memory.episodic import EpisodeContext, EpisodicMemory, SimilarityMatch
 

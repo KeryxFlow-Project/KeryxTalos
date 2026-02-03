@@ -1,6 +1,6 @@
 """Tests for Multi-Timeframe OHLCV Buffer."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pandas as pd
 import pytest

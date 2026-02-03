@@ -2,12 +2,12 @@
 """Simple runner for KeryxFlow - MVP demo."""
 
 import asyncio
-import signal
-import sys
-from datetime import datetime
 
 # Ensure we use the project's data directory
 import os
+import signal
+from datetime import datetime
+
 os.makedirs("data", exist_ok=True)
 os.environ.setdefault("KERYXFLOW_DB_URL", "sqlite+aiosqlite:///data/keryxflow.db")
 

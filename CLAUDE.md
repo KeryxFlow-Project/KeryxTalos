@@ -87,7 +87,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 - **Async everywhere**: All I/O operations use async/await with tenacity retries
 - **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton. Nested settings use prefixes (e.g., `KERYXFLOW_RISK_`, `KERYXFLOW_ORACLE_`).
-- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()` for shared instances
+- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()`, `get_cognitive_agent()` for shared instances
 - **Type hints required**: All functions need complete type annotations
 - **Database**: SQLModel with aiosqlite (async SQLite)
 - **Event dispatch**: `publish()` queues async, `publish_sync()` dispatches immediately and waits
@@ -96,7 +96,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 Tests use pytest-asyncio in auto mode. Important patterns:
 
-- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `risk._risk_manager`
+- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `cognitive._agent`, `risk._risk_manager`
 - **Async fixtures**: Use `@pytest_asyncio.fixture` for async fixtures, regular `@pytest.fixture` for sync
 - **Database isolation**: Each test gets a fresh SQLite database in `tmp_path`
 
@@ -169,6 +169,48 @@ result = await toolkit.execute("get_current_price", symbol="BTC/USDT")
 # Execute with guardrail validation (recommended for execution tools)
 executor = get_tool_executor()
 result = await executor.execute_guarded("place_order", symbol="BTC/USDT", side="buy", quantity=0.1)
+```
+
+## Cognitive Agent
+
+The Cognitive Agent (`keryxflow/agent/cognitive.py`) provides autonomous AI-first trading:
+
+- **CognitiveAgent** (`cognitive.py`): Autonomous trading agent using Claude's Tool Use API. Use `get_cognitive_agent()` singleton.
+- **Cognitive Cycle**: `Perceive → Remember → Analyze → Decide → Validate → Execute → Learn`
+- **Agent Mode**: Enable with `KERYXFLOW_AGENT_ENABLED=true`. When enabled, CognitiveAgent replaces SignalGenerator in TradingEngine.
+- **Fallback**: If Claude API fails, agent falls back to technical signals (configurable).
+
+**Key Classes:**
+- `CognitiveAgent` - Main agent class with `run_cycle()` and `run_loop()` methods
+- `CycleResult` - Result of a single agent cycle (status, decision, tool_results)
+- `AgentDecision` - Trading decision (HOLD, ENTRY_LONG, ENTRY_SHORT, EXIT, etc.)
+- `CycleStatus` - Cycle outcome (SUCCESS, NO_ACTION, FALLBACK, ERROR)
+
+**Configuration** (`config.py` → `AgentSettings`):
+```python
+KERYXFLOW_AGENT_ENABLED=true          # Enable agent mode
+KERYXFLOW_AGENT_MODEL=claude-sonnet-4-20250514  # Claude model
+KERYXFLOW_AGENT_CYCLE_INTERVAL=60     # Seconds between cycles
+KERYXFLOW_AGENT_MAX_TOOL_CALLS_PER_CYCLE=20
+KERYXFLOW_AGENT_FALLBACK_TO_TECHNICAL=true
+```
+
+**Usage:**
+```python
+from keryxflow.agent import get_cognitive_agent
+
+# Get agent instance
+agent = get_cognitive_agent()
+await agent.initialize()
+
+# Run a single cycle
+result = await agent.run_cycle(["BTC/USDT", "ETH/USDT"])
+
+# Or run continuously
+await agent.run_loop(max_cycles=100)
+
+# Get statistics
+stats = agent.get_stats()
 ```
 
 ## Safety Rules

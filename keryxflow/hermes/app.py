@@ -180,6 +180,7 @@ class KeryxFlowApp(App):
     async def _fetch_prices_once(self) -> None:
         """Fetch prices once and update widgets."""
         import asyncio
+
         import ccxt
 
         for symbol in self._symbols:

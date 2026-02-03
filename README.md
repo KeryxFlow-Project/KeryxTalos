@@ -470,6 +470,12 @@ For developers and curious minds:
 │                   TRADING ENGINE (Orchestrator)              │
 │      OHLCV Buffer • Signal Flow • Order Execution Loop       │
 ├─────────────────────────────────────────────────────────────┤
+│                    AGENT (AI-First Trading)                  │
+│    Cognitive Agent • Tools • Strategy • Reflection           │
+├─────────────────────────────────────────────────────────────┤
+│                      MEMORY (Learning)                       │
+│     Episodic Memory • Semantic Memory • Trade Episodes       │
+├─────────────────────────────────────────────────────────────┤
 │                      ORACLE (Intelligence)                   │
 │    Technical Analysis • News Feeds • Claude LLM Brain        │
 ├─────────────────────────────────────────────────────────────┤
@@ -548,6 +554,17 @@ keryxflow/
 │   │   ├── models.py        # Data models
 │   │   ├── repository.py    # Trade persistence
 │   │   └── safeguards.py    # Live trading safety checks
+│   ├── agent/               # AI-First Trading
+│   │   ├── cognitive.py     # Cognitive Agent (autonomous trading)
+│   │   ├── tools.py         # Tool framework
+│   │   ├── executor.py      # Safe tool executor
+│   │   ├── strategy.py      # Strategy selection
+│   │   ├── reflection.py    # Learning & reflection
+│   │   └── scheduler.py     # Task scheduling
+│   ├── memory/              # Trade memory
+│   │   ├── episodic.py      # Trade episodes
+│   │   ├── semantic.py      # Rules & patterns
+│   │   └── manager.py       # Memory manager
 │   ├── hermes/              # Terminal UI (Textual)
 │   ├── oracle/              # Intelligence (TA + LLM)
 │   ├── aegis/               # Risk Management
@@ -599,7 +616,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] **Live trading mode** - Real orders on Binance with safeguards
 - [x] **Notifications** - Telegram and Discord alerts
 - [x] **Parameter optimization** - `poetry run keryxflow-optimize` (grid search)
-- [ ] Multi-timeframe analysis
+- [x] **Multi-timeframe analysis** - Hierarchical trend filtering
+- [x] **Immutable guardrails** - Frozen safety limits
+- [x] **Memory system** - Trade episodes, rules, patterns
+- [x] **Agent tools** - 20 tools for Claude (perception, analysis, execution)
+- [x] **Cognitive Agent** - AI-first autonomous trading with Claude
+- [x] **Learning & Reflection** - Strategy selection, scheduled reflections
+- [ ] Trading session integration - Full agent-driven trading loop
 - [ ] Parallel optimization
 
 ---

@@ -1071,6 +1071,9 @@ poetry run keryxflow
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.15.0 | 2026-02-03 | Learning & Reflection - strategy, scheduler, reflection engine |
+| 0.14.0 | 2026-02-03 | Cognitive Agent - AI-first autonomous trading |
+| 0.13.0 | 2026-02-02 | Agent Tools - tool framework for Claude |
 | 0.12.0 | 2026-02-02 | Memory System - trade episodes, rules, patterns |
 | 0.11.0 | 2026-02-02 | Guardrails layer - immutable safety limits (fixes Issue #9) |
 | 0.10.0 | 2026-02-02 | Multi-timeframe analysis |
@@ -1088,21 +1091,11 @@ poetry run keryxflow
 
 ## Upcoming
 
-### [0.13.0] - Planned: Agent Tools
-- Tool framework for Claude (perception, analysis, execution)
-- Guarded execution tools (orders pass through guardrails)
-- Anthropic Tool Use API integration
-
-### [0.14.0] - Planned: Cognitive Agent
-- Claude as primary decision maker (not just validator)
-- Cognitive cycle: Perceive → Remember → Analyze → Decide → Execute → Learn
-- Agent mode toggle (backwards compatible)
-- Fallback to technical signals on API failure
-
-### [0.15.0] - Planned: Learning & Reflection
-- Daily/weekly reflection on trading performance
-- Automatic rule generation from patterns
-- Strategy adaptation based on market conditions
+### [0.16.0] - Planned: Trading Session Integration
+- Full integration of Cognitive Agent with TradingEngine
+- Session management (start, pause, resume, stop)
+- Agent-driven trading loop with all components connected
+- Performance monitoring and statistics
 
 ### [1.0.0] - Planned
 - Production ready AI-First architecture
@@ -1114,19 +1107,20 @@ poetry run keryxflow
 ## RFC & Architecture
 
 ### RFC #11: AI-First Trading Architecture
-**Status**: Phase 2 Complete | **Document**: `docs/ai-trading-architecture.md`
+**Status**: Phase 5 Complete | **Document**: `docs/ai-trading-architecture.md`
 
 Proposes evolution from "AI validates" to "AI operates":
-- Current: Technical indicators (60%) + Claude validates (40%)
-- Future: Claude decides autonomously within immutable guardrails
+- Previous: Technical indicators (60%) + Claude validates (40%)
+- Current: Claude decides autonomously within immutable guardrails
 
 **Implementation Plan**: `docs/plans/ai-first-implementation-plan.md`
 
 **Phases**:
 1. ✅ Guardrails Layer - **COMPLETE** (v0.11.0) - Issue #9 fixed
 2. ✅ Memory System - **COMPLETE** (v0.12.0) - Episodic, Semantic memory
-3. Agent Tools (2-3 weeks) - Tools for Claude to query data and execute
-4. Cognitive Agent (3-4 weeks) - Claude as primary decision maker
-5. Learning & Reflection (2-3 weeks) - Continuous improvement
+3. ✅ Agent Tools - **COMPLETE** (v0.13.0) - 20 tools for Claude
+4. ✅ Cognitive Agent - **COMPLETE** (v0.14.0) - Claude as decision maker
+5. ✅ Learning & Reflection - **COMPLETE** (v0.15.0) - Continuous improvement
+6. Trading Session Integration (Next) - Full agent-driven trading
 
 **Related Issues**: #9 (Position sizing - FIXED), #11 (RFC)

@@ -1,13 +1,12 @@
 """Tests for Multi-Timeframe Signal Generator."""
 
-from datetime import UTC, datetime
+from datetime import UTC
 
 import pandas as pd
 import pytest
 
 from keryxflow.oracle.mtf_signals import MTFSignalGenerator
-from keryxflow.oracle.signals import SignalSource, SignalStrength, SignalType
-from keryxflow.oracle.technical import TrendDirection
+from keryxflow.oracle.signals import SignalSource, SignalType
 
 
 @pytest.fixture

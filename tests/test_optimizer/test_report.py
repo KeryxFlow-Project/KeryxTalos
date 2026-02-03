@@ -3,8 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from keryxflow.backtester.report import BacktestResult
 from keryxflow.optimizer.engine import OptimizationResult
 from keryxflow.optimizer.report import OptimizationReport

@@ -8,6 +8,72 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.14.0] - 2026-02-03
+
+### Added
+
+#### Cognitive Agent - AI-First Autonomous Trading (`keryxflow/agent/cognitive.py`)
+
+- **`CognitiveAgent`** - Autonomous trading agent using Claude's Tool Use API
+  - Cognitive cycle: `Perceive → Remember → Analyze → Decide → Validate → Execute → Learn`
+  - Integration with TradingToolkit for tool execution
+  - Integration with Memory System for contextual decisions
+  - Fallback to technical signals when Claude API fails
+  - Rate limiting and error handling
+
+- **`CycleResult`** - Result of a single agent cycle
+  - Status tracking (SUCCESS, NO_ACTION, FALLBACK, ERROR, RATE_LIMITED)
+  - Decision with type, symbol, reasoning, and confidence
+  - Tool execution results and token usage tracking
+
+- **`AgentDecision`** - Trading decision structure
+  - Decision types: HOLD, ENTRY_LONG, ENTRY_SHORT, EXIT, ADJUST_STOP, ADJUST_TARGET
+  - Symbol, reasoning, confidence, and metadata
+
+- **`AgentStats`** - Statistics for agent performance
+  - Cycle counts (total, successful, fallback, error)
+  - Tool call tracking and token usage
+  - Decisions by type
+
+#### Configuration (`keryxflow/config.py`)
+
+- **`AgentSettings`** - Agent configuration
+  - `enabled` - Enable/disable agent mode (default: false)
+  - `model` - Claude model to use (default: claude-sonnet-4-20250514)
+  - `cycle_interval` - Seconds between cycles (default: 60)
+  - `max_tool_calls_per_cycle` - Max tool calls per cycle (default: 20)
+  - `fallback_to_technical` - Fall back to technical signals on failure (default: true)
+  - `max_consecutive_errors` - Errors before fallback (default: 3)
+
+#### TradingEngine Integration (`keryxflow/core/engine.py`)
+
+- **`agent_mode`** - Flag to enable agent-driven signal generation
+- When `agent_mode=True`, CognitiveAgent replaces SignalGenerator
+- When `agent_mode=False`, traditional technical signals (backwards compatible)
+- Agent cycle runs at configured interval alongside price updates
+
+#### Tests (`tests/test_agent/test_cognitive.py`)
+
+- 27 new tests for CognitiveAgent
+- Tests for CycleStatus, DecisionType, AgentDecision, CycleResult, AgentStats
+- Tests for initialization, cycle execution, fallback behavior
+- Tests for context building, decision parsing, statistics
+
+### Changed
+
+- Updated `tests/conftest.py` - Added `cognitive._agent` singleton reset
+- Updated `CLAUDE.md` - Added Cognitive Agent documentation
+- Total tests: 136 agent module tests
+
+### Technical Details
+
+- **AI-First Architecture** - Claude decides, guardrails validate
+- **Backwards Compatible** - `agent_mode=False` preserves existing behavior
+- **Graceful Degradation** - Falls back to technical signals on API failure
+- **Full Tool Use** - Uses all 20 tools through Anthropic Tool Use API
+
+---
+
 ## [0.13.0] - 2026-02-02
 
 ### Added

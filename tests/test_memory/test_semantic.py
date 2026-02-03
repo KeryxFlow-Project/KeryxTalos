@@ -2,7 +2,7 @@
 
 import pytest
 
-from keryxflow.core.database import get_session_factory, init_db
+from keryxflow.core.database import get_session_factory
 from keryxflow.core.models import PatternType, RuleSource, RuleStatus
 from keryxflow.memory.semantic import PatternMatch, RuleMatch, SemanticMemory
 

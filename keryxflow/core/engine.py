@@ -29,6 +29,7 @@ from keryxflow.oracle.signals import (
 )
 
 if TYPE_CHECKING:
+    from keryxflow.agent.cognitive import CognitiveAgent
     from keryxflow.notifications.manager import NotificationManager
 
 logger = get_logger(__name__)
@@ -168,6 +169,7 @@ class TradingEngine:
         risk_manager: RiskManager | None = None,
         notification_manager: "NotificationManager | None" = None,
         memory_manager: MemoryManager | None = None,
+        cognitive_agent: "CognitiveAgent | None" = None,
     ):
         """Initialize the trading engine."""
         self.settings = get_settings()
@@ -186,6 +188,14 @@ class TradingEngine:
 
         # Safeguards for live trading
         self._safeguards = LiveTradingSafeguards(self.settings)
+
+        # Agent mode support
+        self._agent_mode = self.settings.agent.enabled
+        self._cognitive_agent = cognitive_agent
+        if self._agent_mode and self._cognitive_agent is None:
+            from keryxflow.agent.cognitive import get_cognitive_agent
+
+            self._cognitive_agent = get_cognitive_agent()
 
         # Multi-Timeframe Analysis support
         self._mtf_enabled = self.settings.oracle.mtf.enabled
@@ -210,6 +220,7 @@ class TradingEngine:
         self._is_live_mode = not self.settings.is_paper_mode
         self._last_balance_sync: datetime | None = None
         self._balance_sync_interval = self.settings.live.sync_interval
+        self._last_agent_cycle: datetime | None = None
 
     async def start(self) -> None:
         """Start the trading engine."""
@@ -459,6 +470,11 @@ class TradingEngine:
         """Run analysis and generate signal for a symbol."""
         self._last_analysis[symbol] = datetime.now(UTC)
 
+        # If agent mode is enabled, run agent cycle instead
+        if self._agent_mode and self._cognitive_agent is not None:
+            await self._run_agent_cycle([symbol])
+            return
+
         # Get OHLCV data (single TF or MTF dict)
         if self._mtf_enabled:
             ohlcv = self._mtf_buffer.get_all_ohlcv(symbol)
@@ -503,6 +519,50 @@ class TradingEngine:
 
         except Exception as e:
             logger.error("analysis_failed", symbol=symbol, error=str(e))
+
+    async def _run_agent_cycle(self, symbols: list[str]) -> None:
+        """Run a cognitive agent cycle for the given symbols.
+
+        Args:
+            symbols: Symbols to analyze in this cycle
+        """
+        if self._cognitive_agent is None:
+            return
+
+        # Check cycle interval
+        now = datetime.now(UTC)
+        if self._last_agent_cycle is not None:
+            elapsed = (now - self._last_agent_cycle).total_seconds()
+            if elapsed < self.settings.agent.cycle_interval:
+                return
+
+        self._last_agent_cycle = now
+
+        try:
+            # Initialize agent if needed
+            if not self._cognitive_agent._initialized:
+                await self._cognitive_agent.initialize()
+
+            # Run the cycle
+            result = await self._cognitive_agent.run_cycle(symbols)
+
+            logger.info(
+                "agent_cycle_completed",
+                status=result.status.value,
+                decision=result.decision.decision_type.value if result.decision else None,
+                duration_ms=result.duration_ms,
+            )
+
+            # If agent errored too many times, disable agent mode temporarily
+            if self._cognitive_agent._stats.consecutive_errors >= self.settings.agent.max_consecutive_errors:
+                logger.warning(
+                    "agent_mode_disabled_due_to_errors",
+                    consecutive_errors=self._cognitive_agent._stats.consecutive_errors,
+                )
+                # Don't disable permanently, let it retry on next interval
+
+        except Exception as e:
+            logger.error("agent_cycle_failed", error=str(e))
 
     async def _process_signal(self, signal: TradingSignal) -> None:
         """Process an actionable signal through Aegis and execute if approved."""
@@ -944,12 +1004,20 @@ class TradingEngine:
             if self._last_balance_sync
             else None,
             "mtf_enabled": self._mtf_enabled,
+            "agent_mode": self._agent_mode,
         }
 
         if self._mtf_enabled:
             status["mtf_timeframes"] = self.settings.oracle.mtf.timeframes
             status["mtf_primary_timeframe"] = self.settings.oracle.mtf.primary_timeframe
             status["mtf_filter_timeframe"] = self.settings.oracle.mtf.filter_timeframe
+
+        if self._agent_mode and self._cognitive_agent is not None:
+            status["agent_stats"] = self._cognitive_agent.get_stats()
+            status["agent_cycle_interval"] = self.settings.agent.cycle_interval
+            status["last_agent_cycle"] = (
+                self._last_agent_cycle.isoformat() if self._last_agent_cycle else None
+            )
 
         return status
 

@@ -1,6 +1,5 @@
 """Tests for the result comparator module."""
 
-from datetime import UTC, datetime
 
 import pytest
 

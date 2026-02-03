@@ -15,6 +15,10 @@ def setup_test_database(tmp_path):
     os.environ["KERYXFLOW_DB_URL"] = f"sqlite+aiosqlite:///{db_path}"
 
     # Reset global instances before each test
+    import keryxflow.aegis.risk as risk_module
+    import keryxflow.agent.cognitive as cognitive_module
+    import keryxflow.agent.executor as executor_module
+    import keryxflow.agent.tools as tools_module
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
@@ -22,9 +26,6 @@ def setup_test_database(tmp_path):
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
     import keryxflow.memory.semantic as semantic_module
-    import keryxflow.agent.tools as tools_module
-    import keryxflow.agent.executor as executor_module
-    import keryxflow.aegis.risk as risk_module
 
     config_module._settings = None
     db_module._engine = None
@@ -36,6 +37,7 @@ def setup_test_database(tmp_path):
     manager_module._memory_manager = None
     tools_module._toolkit = None
     executor_module._executor = None
+    cognitive_module._agent = None
     risk_module._risk_manager = None
 
     yield

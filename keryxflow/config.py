@@ -69,6 +69,33 @@ class OracleSettings(BaseSettings):
     mtf: MTFSettings = Field(default_factory=MTFSettings)
 
 
+class AgentSettings(BaseSettings):
+    """Cognitive Agent configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="KERYXFLOW_AGENT_")
+
+    # Agent mode
+    enabled: bool = False  # When True, CognitiveAgent replaces SignalGenerator
+    model: str = "claude-sonnet-4-20250514"  # Claude model for agent decisions
+    max_tokens: int = 4096
+    temperature: float = 0.3  # Lower for more consistent trading decisions
+
+    # Cycle settings
+    cycle_interval: int = Field(default=60, ge=10, le=600)  # Seconds between cycles
+    max_tool_calls_per_cycle: int = Field(default=20, ge=5, le=50)
+    decision_timeout: int = Field(default=30, ge=10, le=120)  # Seconds
+
+    # Fallback settings
+    fallback_to_technical: bool = True  # Fall back to technical signals on API failure
+    max_consecutive_errors: int = Field(default=3, ge=1, le=10)
+
+    # Tool categories to enable
+    enable_perception: bool = True
+    enable_analysis: bool = True
+    enable_introspection: bool = True
+    enable_execution: bool = True  # Guarded tools
+
+
 class SystemSettings(BaseSettings):
     """System configuration."""
 
@@ -160,6 +187,7 @@ class Settings(BaseSettings):
     database: DatabaseSettings = Field(default_factory=DatabaseSettings)
     live: LiveSettings = Field(default_factory=LiveSettings)
     notifications: NotificationSettings = Field(default_factory=NotificationSettings)
+    agent: AgentSettings = Field(default_factory=AgentSettings)
 
     @field_validator("binance_api_key", "binance_api_secret", "anthropic_api_key")
     @classmethod

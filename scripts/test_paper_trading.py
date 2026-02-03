@@ -63,7 +63,7 @@ async def main():
 
         # Check balance after buy
         balance = await paper.get_balance()
-        print(f"\n[6] Balance after BUY:")
+        print("\n[6] Balance after BUY:")
         print(f"   USDT: ${balance['total'].get('USDT', 0):,.2f}")
         print(f"   BTC:  {balance['total'].get('BTC', 0):.8f}")
 
@@ -108,7 +108,7 @@ async def main():
 
         # Final balance
         balance = await paper.get_balance()
-        print(f"\n[11] Final balance:")
+        print("\n[11] Final balance:")
         for currency, amount in balance["total"].items():
             if amount > 0:
                 print(f"   {currency}: {amount:,.8f}" if currency != "USDT" else f"   {currency}: ${amount:,.2f}")

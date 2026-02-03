@@ -6,9 +6,9 @@ from pathlib import Path
 from keryxflow import __version__
 from keryxflow.config import get_settings
 from keryxflow.core.database import get_or_create_user_profile, get_session, init_db
+from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import get_event_bus
 from keryxflow.core.logging import get_logger, setup_logging
-from keryxflow.core.engine import TradingEngine
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.app import KeryxFlowApp

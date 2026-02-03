@@ -3,6 +3,7 @@
 from datetime import UTC, datetime
 
 from keryxflow.hermes.widgets.aegis import AegisWidget
+from keryxflow.hermes.widgets.agent import AgentWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.logs import LogsWidget
 from keryxflow.hermes.widgets.oracle import OracleWidget
@@ -454,3 +455,91 @@ class TestPositionsWidget:
             {"symbol": "ETH", "pnl": 0},
         ]
         assert widget.position_count == 2
+
+
+class TestAgentWidgetLogic:
+    """Tests for AgentWidget internal logic (no DOM required)."""
+
+    def test_init_defaults(self):
+        """Test AgentWidget initializes with defaults."""
+        widget = AgentWidget()
+        assert not widget._agent_enabled
+        assert widget._status == {}
+
+    def test_set_enabled(self):
+        """Test setting enabled state."""
+        widget = AgentWidget()
+        widget.set_enabled(True)
+        assert widget._agent_enabled is True
+
+        widget.set_enabled(False)
+        assert widget._agent_enabled is False
+
+    def test_is_enabled_property(self):
+        """Test is_enabled property."""
+        widget = AgentWidget()
+        assert not widget.is_enabled
+
+        widget._agent_enabled = True
+        assert widget.is_enabled
+
+    def test_is_running_property(self):
+        """Test is_running property."""
+        widget = AgentWidget()
+        assert not widget.is_running
+
+        widget._status = {"state": "running"}
+        assert widget.is_running
+
+        widget._status = {"state": "paused"}
+        assert not widget.is_running
+
+    def test_cycles_completed_property(self):
+        """Test cycles_completed property."""
+        widget = AgentWidget()
+        assert widget.cycles_completed == 0
+
+        widget._status = {
+            "stats": {"cycles_completed": 42}
+        }
+        assert widget.cycles_completed == 42
+
+    def test_set_status(self):
+        """Test setting status."""
+        widget = AgentWidget()
+        status = {
+            "state": "running",
+            "stats": {
+                "cycles_completed": 10,
+                "cycles_successful": 8,
+            }
+        }
+        widget.set_status(status)
+
+        assert widget._status == status
+        assert widget.is_running
+
+    def test_progress_bar_colors(self):
+        """Test progress bar color thresholds."""
+        widget = AgentWidget()
+
+        # High success - green
+        bar = widget._progress_bar(85)
+        assert "green" in bar
+
+        # Medium success - yellow
+        bar = widget._progress_bar(60)
+        assert "yellow" in bar
+
+        # Low success - red
+        bar = widget._progress_bar(30)
+        assert "red" in bar
+
+    def test_progress_bar_fill(self):
+        """Test progress bar fill calculation."""
+        widget = AgentWidget()
+
+        # 50% should fill 3 of 6 blocks
+        bar = widget._progress_bar(50, width=6)
+        assert bar.count("█") == 3
+        assert bar.count("░") == 3

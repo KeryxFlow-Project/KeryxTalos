@@ -87,7 +87,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 - **Async everywhere**: All I/O operations use async/await with tenacity retries
 - **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton. Nested settings use prefixes (e.g., `KERYXFLOW_RISK_`, `KERYXFLOW_ORACLE_`).
-- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()`, `get_cognitive_agent()` for shared instances
+- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()`, `get_cognitive_agent()`, `get_reflection_engine()`, `get_strategy_manager()`, `get_task_scheduler()` for shared instances
 - **Type hints required**: All functions need complete type annotations
 - **Database**: SQLModel with aiosqlite (async SQLite)
 - **Event dispatch**: `publish()` queues async, `publish_sync()` dispatches immediately and waits
@@ -96,7 +96,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 Tests use pytest-asyncio in auto mode. Important patterns:
 
-- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `cognitive._agent`, `risk._risk_manager`
+- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `cognitive._agent`, `reflection._reflection_engine`, `scheduler._scheduler`, `strategy._strategy_manager`, `risk._risk_manager`
 - **Async fixtures**: Use `@pytest_asyncio.fixture` for async fixtures, regular `@pytest.fixture` for sync
 - **Database isolation**: Each test gets a fresh SQLite database in `tmp_path`
 
@@ -211,6 +211,88 @@ await agent.run_loop(max_cycles=100)
 
 # Get statistics
 stats = agent.get_stats()
+```
+
+## Learning & Reflection
+
+The Learning & Reflection system provides continuous improvement capabilities:
+
+### Reflection Engine (`reflection.py`)
+
+Generates insights from trading activity using Claude for intelligent analysis:
+
+- **PostMortemResult**: Single trade analysis with lessons learned
+- **DailyReflectionResult**: End-of-day summary with key lessons, mistakes, and recommendations
+- **WeeklyReflectionResult**: Weekly review with patterns identified, rules created/updated
+
+**Usage:**
+```python
+from keryxflow.agent import get_reflection_engine
+
+engine = get_reflection_engine()
+await engine.initialize()
+
+# Post-mortem for a single trade
+result = await engine.post_mortem(episode)
+
+# Daily reflection
+daily = await engine.daily_reflection()
+
+# Weekly reflection
+weekly = await engine.weekly_reflection()
+```
+
+### Strategy Manager (`strategy.py`)
+
+Manages trading strategies and market regime detection:
+
+- **MarketRegime**: TRENDING_UP, TRENDING_DOWN, RANGING, HIGH_VOLATILITY, LOW_VOLATILITY, BREAKOUT, UNKNOWN
+- **StrategyType**: TREND_FOLLOWING, MEAN_REVERSION, BREAKOUT, MOMENTUM, SCALPING
+- **Default Strategies**: trend_following_basic, mean_reversion_rsi, breakout_bollinger, momentum_macd
+
+**Usage:**
+```python
+from keryxflow.agent import get_strategy_manager
+
+manager = get_strategy_manager()
+
+# Detect market regime from price history
+regime = manager.detect_market_regime(prices)
+
+# Select best strategy for current conditions
+selection = await manager.select_strategy(symbol="BTC/USDT", prices=prices)
+
+# Record trade result for strategy adaptation
+await manager.record_trade_result(strategy_id, pnl_percentage=2.5, won=True)
+```
+
+### Task Scheduler (`scheduler.py`)
+
+Schedules periodic tasks (reflections, analysis, maintenance):
+
+- **TaskFrequency**: ONCE, HOURLY, DAILY, WEEKLY, MONTHLY
+- **Default Tasks**: Daily reflection (23:00 UTC), Weekly reflection (Sunday 23:30 UTC)
+
+**Usage:**
+```python
+from keryxflow.agent import get_task_scheduler
+
+scheduler = get_task_scheduler()
+
+# Add custom task
+scheduler.add_task(
+    id="my_task",
+    name="My Analysis Task",
+    frequency=TaskFrequency.DAILY,
+    callback=my_async_function,
+    run_at_time=time(14, 0),  # 14:00 UTC
+)
+
+# Start scheduler loop
+await scheduler.start()
+
+# Run task immediately
+result = await scheduler.run_task_now("my_task")
 ```
 
 ## Safety Rules

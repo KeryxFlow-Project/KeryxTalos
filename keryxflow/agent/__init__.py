@@ -12,6 +12,11 @@ Tool Categories:
 Cognitive Agent:
 - CognitiveAgent: AI-first autonomous trading agent
 - Cycle: Perceive → Remember → Analyze → Decide → Validate → Execute → Learn
+
+Learning & Reflection:
+- ReflectionEngine: Post-mortem, daily, and weekly reflections
+- StrategyManager: Strategy selection and adaptation
+- TaskScheduler: Scheduled tasks for reflections
 """
 
 from keryxflow.agent.cognitive import (
@@ -24,6 +29,31 @@ from keryxflow.agent.cognitive import (
     get_cognitive_agent,
 )
 from keryxflow.agent.executor import ToolExecutor, get_tool_executor
+from keryxflow.agent.reflection import (
+    DailyReflectionResult,
+    PostMortemResult,
+    ReflectionEngine,
+    ReflectionType,
+    WeeklyReflectionResult,
+    get_reflection_engine,
+)
+from keryxflow.agent.scheduler import (
+    ScheduledTask,
+    TaskFrequency,
+    TaskResult,
+    TaskScheduler,
+    TaskStatus,
+    get_task_scheduler,
+    setup_default_tasks,
+)
+from keryxflow.agent.strategy import (
+    MarketRegime,
+    StrategyConfig,
+    StrategyManager,
+    StrategySelection,
+    StrategyType,
+    get_strategy_manager,
+)
 from keryxflow.agent.tools import (
     BaseTool,
     ToolCategory,
@@ -58,4 +88,26 @@ __all__ = [
     "AgentDecision",
     "DecisionType",
     "AgentStats",
+    # Reflection
+    "ReflectionEngine",
+    "get_reflection_engine",
+    "ReflectionType",
+    "PostMortemResult",
+    "DailyReflectionResult",
+    "WeeklyReflectionResult",
+    # Strategy
+    "StrategyManager",
+    "get_strategy_manager",
+    "StrategyConfig",
+    "StrategySelection",
+    "StrategyType",
+    "MarketRegime",
+    # Scheduler
+    "TaskScheduler",
+    "get_task_scheduler",
+    "setup_default_tasks",
+    "ScheduledTask",
+    "TaskResult",
+    "TaskFrequency",
+    "TaskStatus",
 ]

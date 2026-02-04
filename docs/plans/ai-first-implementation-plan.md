@@ -178,6 +178,37 @@ class CognitiveAgent:
 
 ---
 
+## Phase 7: Full TUI Integration & E2E Testing ✅ COMPLETE
+**Duration**: 1-2 weeks | **Dependency**: Phase 6 complete | **Version**: v0.17.0
+
+### Modified Files
+| File | Change |
+|------|--------|
+| `hermes/app.py` | Added AgentWidget to layout, keybinding "A" for toggle |
+| `hermes/widgets/help.py` | Added Agent keybinding to help modal |
+
+### New Files
+| File | Purpose |
+|------|---------|
+| `tests/test_hermes/test_app.py` | Tests for app agent integration (14 tests) |
+| `tests/integration/test_agent_session_e2e.py` | E2E integration tests (12 tests) |
+
+### Features
+- **TUI Layout Integration**: AgentWidget added to right column
+- **Session Controls**: "A" key toggles agent start/pause/resume
+- **Event Integration**: Session events update widgets in real-time
+- **E2E Testing**: Full integration tests for session lifecycle
+
+### Success Criteria
+- [x] AgentWidget integrated into Hermes app layout
+- [x] Keybinding "A" for agent toggle (start/pause/resume)
+- [x] Help modal updated with new keybinding
+- [x] 14 new app tests
+- [x] 12 new E2E integration tests
+- [x] 831 total tests passing
+
+---
+
 ## Critical Files
 
 ```
@@ -251,7 +282,8 @@ Before each phase goes to main:
 | 4. Agent | 3-4 weeks | ✅ COMPLETE (v0.14.0) |
 | 5. Learning | 2-3 weeks | ✅ COMPLETE (v0.15.0) |
 | 6. Session | 2-3 weeks | ✅ COMPLETE (v0.16.0) |
-| **Total** | **12-18 weeks** | 6/6 phases complete |
+| 7. TUI Integration | 1-2 weeks | ✅ COMPLETE (v0.17.0) |
+| **Total** | **13-20 weeks** | 7/7 phases complete |
 
 ---
 

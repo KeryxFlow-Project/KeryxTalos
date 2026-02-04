@@ -184,6 +184,9 @@ class HelpModal(ModalScreen[None]):
             yield Static("[bold cyan]Q[/]     Quit", classes="keybinding-row")
             yield Static("[bold cyan]P[/]     Panic (emergency stop)", classes="keybinding-row")
             yield Static("[bold cyan]Space[/] Pause/Resume trading", classes="keybinding-row")
+            yield Static(
+                "[bold cyan]A[/]     Toggle AI Agent (start/pause)", classes="keybinding-row"
+            )
             yield Static("[bold cyan]?[/]     Show this help", classes="keybinding-row")
             yield Static("[bold cyan]L[/]     Toggle logs panel", classes="keybinding-row")
             yield Static("[bold cyan]S[/]     Switch symbol", classes="keybinding-row")

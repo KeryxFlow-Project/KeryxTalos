@@ -132,9 +132,9 @@ class TestGlossaryIntegration:
         valid_categories = {"basics", "indicators", "risk", "orders", "analysis"}
 
         for term, entry in GLOSSARY.items():
-            assert entry.category in valid_categories, (
-                f"Term '{term}' has invalid category '{entry.category}'"
-            )
+            assert (
+                entry.category in valid_categories
+            ), f"Term '{term}' has invalid category '{entry.category}'"
 
     def test_search_empty_query(self):
         """Test search with empty-ish query returns nothing."""

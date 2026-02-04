@@ -125,7 +125,9 @@ class AgentWidget(Static):
         win_rate = stats.get("win_rate", 0)
         pnl = stats.get("total_pnl", 0)
         pnl_color = "green" if pnl >= 0 else "red"
-        trades_line.update(f"Trades:     {trades} ({win_rate:.0f}% WR) [{pnl_color}]${pnl:+,.2f}[/]")
+        trades_line.update(
+            f"Trades:     {trades} ({win_rate:.0f}% WR) [{pnl_color}]${pnl:+,.2f}[/]"
+        )
 
         # Tools line
         tools_line = self.query_one("#tools-line", Static)

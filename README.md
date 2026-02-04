@@ -24,7 +24,7 @@
 An AI-powered trading assistant that helps you accumulate Bitcoin.
 
 ```
-┌─ KERYXFLOW v0.9.0 ──────────────────────────────────────── BTC: $67,234.50 ─┐
+┌─ KERYXFLOW v0.17.0 ─────────────────────────────────────── BTC: $67,234.50 ─┐
 │                                                                              │
 │  ┌─ BTC/USDT ─────────────────────────┐  ┌─ POSITIONS ────────────────────┐ │
 │  │     ▁▂▃▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆       │  │  BTC   0.052  +$234.50  +3.2%  │ │
@@ -38,19 +38,20 @@ An AI-powered trading assistant that helps you accumulate Bitcoin.
 │  └────────────────────────────────────┘  │  Status:     ● ARMED           │ │
 │                                          │  Daily PnL:  +$278.30 (+2.1%)  │ │
 │  ┌─ ORACLE ───────────────────────────┐  │  Drawdown:   -0.8% of 5% max   │ │
-│  │  ▶ Context: BULLISH (0.72)         │  │  Risk/Trade: 1.0%              │ │
-│  │  ▶ News: ETF inflows continue...   │  │  Open:       2 of 3 max        │ │
-│  │  ▶ Signal: BTC LONG @ $67,200      │  └────────────────────────────────┘ │
-│  │    Confidence: 0.78 | RR: 2.4      │                                     │
-│  └────────────────────────────────────┘  ┌─ STATS ────────────────────────┐ │
-│                                          │  Win Rate:   62% (31/50)       │ │
-│  ┌─ LOGS ─────────────────────────────────│  Avg Win:    +$156.40          │
-│  │  14:32:01 [ORACLE] Signal: BTC LONG    │  Avg Loss:   -$89.20           │
-│  │  14:32:02 [AEGIS]  Approved: 0.05 BTC  │  Expectancy: +$42.30/trade     │
-│  │  14:32:03 [EXEC]   Filled @ $67,234    │  Sharpe:     1.84              │
-│  │  14:32:15 [ORACLE] News: ETF inflows   └────────────────────────────────┘ │
-│  └───────────────────────────────────────────────────────────────────────────│
-│  [P]anic  [Space]Pause  [L]ogs  [Q]uit                      Stack sats. ₿   │
+│  │  ▶ Context: BULLISH (0.72)         │  └────────────────────────────────┘ │
+│  │  ▶ News: ETF inflows continue...   │                                     │
+│  │  ▶ Signal: BTC LONG @ $67,200      │  ┌─ AGENT ────────────────────────┐ │
+│  │    Confidence: 0.78 | RR: 2.4      │  │  Mode:       ● RUNNING         │ │
+│  └────────────────────────────────────┘  │  Cycles:     42 (████░░ 85%)   │ │
+│                                          │  Trades:     5 (60% WR) +$150  │ │
+│  ┌─ LOGS ─────────────────────────────────│  Tokens:     12.5K             │
+│  │  14:32:01 [ORACLE] Signal: BTC LONG    └────────────────────────────────┘ │
+│  │  14:32:02 [AEGIS]  Approved: 0.05 BTC                                     │
+│  │  14:32:03 [EXEC]   Filled @ $67,234   ┌─ STATS ────────────────────────┐ │
+│  │  14:32:15 [AGENT]  Cycle complete      │  Win Rate:   62% (31/50)       │ │
+│  └────────────────────────────────────────│  Expectancy: +$42.30/trade     │
+│                                           └────────────────────────────────┘ │
+│  [P]anic  [A]gent  [Space]Pause  [L]ogs  [Q]uit              Stack sats. ₿   │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -268,6 +269,7 @@ symbols = ["BTC/USDT", "ETH/USDT"]
 | `q` | Quit |
 | `p` | **Panic** — close all positions immediately |
 | `Space` | Pause/Resume trading |
+| `a` | **Toggle Agent** — start/pause AI trading session |
 | `l` | Toggle logs panel |
 | `s` | Cycle through symbols |
 | `?` | Help / explain highlighted term |
@@ -465,13 +467,13 @@ For developers and curious minds:
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      HERMES (Interface)                      │
-│         Terminal UI • Real-time Charts • System Status       │
+│    Terminal UI • Agent Widget • Real-time Charts • Status    │
 ├─────────────────────────────────────────────────────────────┤
 │                   TRADING ENGINE (Orchestrator)              │
 │      OHLCV Buffer • Signal Flow • Order Execution Loop       │
 ├─────────────────────────────────────────────────────────────┤
 │                    AGENT (AI-First Trading)                  │
-│    Cognitive Agent • Tools • Strategy • Reflection           │
+│  Cognitive Agent • Session • Tools • Strategy • Reflection   │
 ├─────────────────────────────────────────────────────────────┤
 │                      MEMORY (Learning)                       │
 │     Episodic Memory • Semantic Memory • Trade Episodes       │
@@ -560,7 +562,8 @@ keryxflow/
 │   │   ├── executor.py      # Safe tool executor
 │   │   ├── strategy.py      # Strategy selection
 │   │   ├── reflection.py    # Learning & reflection
-│   │   └── scheduler.py     # Task scheduling
+│   │   ├── scheduler.py     # Task scheduling
+│   │   └── session.py       # Trading session management
 │   ├── memory/              # Trade memory
 │   │   ├── episodic.py      # Trade episodes
 │   │   ├── semantic.py      # Rules & patterns
@@ -622,7 +625,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] **Agent tools** - 20 tools for Claude (perception, analysis, execution)
 - [x] **Cognitive Agent** - AI-first autonomous trading with Claude
 - [x] **Learning & Reflection** - Strategy selection, scheduled reflections
-- [ ] Trading session integration - Full agent-driven trading loop
+- [x] **Trading session integration** - Full agent-driven trading loop
+- [x] **TUI Agent integration** - Agent widget and keybindings in Hermes
 - [ ] Parallel optimization
 
 ---

@@ -414,12 +414,14 @@ class TestPositionsWidget:
     def test_add_position(self):
         """Test adding a position."""
         widget = PositionsWidget()
-        widget.add_position({
-            "symbol": "BTC/USDT",
-            "quantity": 0.1,
-            "entry_price": 50000.0,
-            "pnl": 0.0,
-        })
+        widget.add_position(
+            {
+                "symbol": "BTC/USDT",
+                "quantity": 0.1,
+                "entry_price": 50000.0,
+                "pnl": 0.0,
+            }
+        )
 
         assert widget.position_count == 1
 
@@ -437,11 +439,13 @@ class TestPositionsWidget:
     def test_total_pnl(self):
         """Test total PnL calculation."""
         widget = PositionsWidget()
-        widget.set_positions([
-            {"symbol": "BTC/USDT", "pnl": 100.0},
-            {"symbol": "ETH/USDT", "pnl": 200.0},
-            {"symbol": "SOL/USDT", "pnl": -50.0},
-        ])
+        widget.set_positions(
+            [
+                {"symbol": "BTC/USDT", "pnl": 100.0},
+                {"symbol": "ETH/USDT", "pnl": 200.0},
+                {"symbol": "SOL/USDT", "pnl": -50.0},
+            ]
+        )
 
         assert widget.total_pnl == 250.0
 
@@ -499,9 +503,7 @@ class TestAgentWidgetLogic:
         widget = AgentWidget()
         assert widget.cycles_completed == 0
 
-        widget._status = {
-            "stats": {"cycles_completed": 42}
-        }
+        widget._status = {"stats": {"cycles_completed": 42}}
         assert widget.cycles_completed == 42
 
     def test_set_status(self):
@@ -512,7 +514,7 @@ class TestAgentWidgetLogic:
             "stats": {
                 "cycles_completed": 10,
                 "cycles_successful": 8,
-            }
+            },
         }
         widget.set_status(status)
 

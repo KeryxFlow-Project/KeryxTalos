@@ -85,7 +85,7 @@ Footer {
 
 /* Positions widget */
 #positions {
-    height: 35%;
+    height: 25%;
 }
 
 #positions .position-row {
@@ -102,7 +102,7 @@ Footer {
 
 /* Aegis widget */
 #aegis {
-    height: 30%;
+    height: 25%;
 }
 
 #aegis .status-armed {
@@ -120,7 +120,12 @@ Footer {
 
 /* Stats widget */
 #stats {
-    height: 35%;
+    height: 25%;
+}
+
+/* Agent widget */
+#agent {
+    height: 25%;
 }
 
 #stats .stat-row {

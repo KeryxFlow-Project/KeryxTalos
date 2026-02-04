@@ -8,6 +8,58 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.16.0] - 2026-02-03
+
+### Added
+
+#### Trading Session Integration (`keryxflow/agent/`)
+
+- **`session.py`** - Trading session management
+  - `TradingSession` - Manages autonomous trading sessions
+  - `SessionState` - State machine (IDLE, STARTING, RUNNING, PAUSED, STOPPING, STOPPED, ERROR)
+  - `SessionStats` - Session statistics (cycles, trades, PnL, tokens, errors)
+  - `get_trading_session()` - Singleton accessor
+  - Background agent loop with configurable cycle interval
+  - Event publishing for session state changes
+
+#### Hermes TUI (`keryxflow/hermes/widgets/`)
+
+- **`agent.py`** - Agent status widget for TUI
+  - `AgentWidget` - Displays Cognitive Agent and session status
+  - Session state display with color coding
+  - Cycles completed with success rate progress bar
+  - Trade statistics (count, win rate, PnL)
+  - Tool calls and tokens tracking
+
+#### New Event Types (`keryxflow/core/events.py`)
+
+- `AGENT_CYCLE_STARTED` - Agent cycle began
+- `AGENT_CYCLE_COMPLETED` - Agent cycle finished
+- `AGENT_CYCLE_FAILED` - Agent cycle failed
+- `SESSION_STATE_CHANGED` - Session state transition
+
+#### Tests
+
+- `test_session.py` - 26 tests for TradingSession
+- `test_widgets.py` - 8 new tests for AgentWidget
+- Total: 34 new tests (307 total tests)
+
+### Changed
+
+- Updated `keryxflow/agent/__init__.py` - Exports for session module
+- Updated `keryxflow/hermes/widgets/__init__.py` - Exports for AgentWidget
+- Updated `tests/conftest.py` - Singleton reset for session module
+- Updated `CLAUDE.md` - Documentation for Phase 6
+
+### Technical Details
+
+- **Session Management** - Start, pause, resume, stop trading sessions
+- **Background Loop** - Agent runs cycles in background task
+- **Graceful Shutdown** - Proper cleanup on session stop
+- **TUI Integration** - Real-time status display in Hermes
+
+---
+
 ## [0.15.0] - 2026-02-03
 
 ### Added

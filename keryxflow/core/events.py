@@ -58,6 +58,12 @@ class EventType(str, Enum):
     # News events
     NEWS_FETCHED = "news_fetched"
 
+    # Agent events
+    AGENT_CYCLE_STARTED = "agent_cycle_started"
+    AGENT_CYCLE_COMPLETED = "agent_cycle_completed"
+    AGENT_CYCLE_FAILED = "agent_cycle_failed"
+    SESSION_STATE_CHANGED = "session_state_changed"
+
 
 @dataclass
 class Event:

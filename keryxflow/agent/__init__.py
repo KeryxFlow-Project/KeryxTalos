@@ -46,6 +46,12 @@ from keryxflow.agent.scheduler import (
     get_task_scheduler,
     setup_default_tasks,
 )
+from keryxflow.agent.session import (
+    SessionState,
+    SessionStats,
+    TradingSession,
+    get_trading_session,
+)
 from keryxflow.agent.strategy import (
     MarketRegime,
     StrategyConfig,
@@ -110,4 +116,9 @@ __all__ = [
     "TaskResult",
     "TaskFrequency",
     "TaskStatus",
+    # Session
+    "TradingSession",
+    "get_trading_session",
+    "SessionState",
+    "SessionStats",
 ]

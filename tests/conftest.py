@@ -20,6 +20,7 @@ def setup_test_database(tmp_path):
     import keryxflow.agent.executor as executor_module
     import keryxflow.agent.reflection as reflection_module
     import keryxflow.agent.scheduler as scheduler_module
+    import keryxflow.agent.session as session_module
     import keryxflow.agent.strategy as strategy_module
     import keryxflow.agent.tools as tools_module
     import keryxflow.config as config_module
@@ -43,6 +44,7 @@ def setup_test_database(tmp_path):
     cognitive_module._agent = None
     reflection_module._reflection_engine = None
     scheduler_module._scheduler = None
+    session_module._session = None
     strategy_module._strategy_manager = None
     risk_module._risk_manager = None
 

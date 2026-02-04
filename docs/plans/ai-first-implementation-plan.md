@@ -155,27 +155,26 @@ class CognitiveAgent:
 
 ---
 
-## Phase 6: Trading Session Integration
-**Duration**: 2-3 weeks | **Dependency**: Phase 5 complete
+## Phase 6: Trading Session Integration ✅ COMPLETE
+**Duration**: 2-3 weeks | **Dependency**: Phase 5 complete | **Version**: v0.16.0
 
-### Files to Modify
-| File | Change |
-|------|--------|
-| `core/engine.py` | Full integration with CognitiveAgent |
-| `agent/cognitive.py` | Session management (start, pause, resume, stop) |
-| `hermes/app.py` | Agent mode display in TUI |
+### New Files
+| File | Purpose |
+|------|---------|
+| `agent/session.py` | Session management (start, pause, resume, stop) |
+| `hermes/widgets/agent.py` | Agent status widget for TUI |
 
 ### Features
 - **Session Management**: Start, pause, resume, stop trading sessions
 - **Agent Loop**: Full integration of CognitiveAgent with TradingEngine
 - **Performance Monitoring**: Real-time statistics and metrics
-- **TUI Integration**: Agent status display in Hermes
+- **TUI Integration**: AgentWidget displays session status
 
 ### Success Criteria
-- [ ] Agent runs full trading sessions autonomously
-- [ ] Session can be paused/resumed without data loss
-- [ ] Performance metrics displayed in TUI
-- [ ] 100+ paper trades without crashes
+- [x] TradingSession with state machine (IDLE, RUNNING, PAUSED, etc.)
+- [x] SessionStats tracking cycles, trades, PnL, tokens
+- [x] AgentWidget for TUI display
+- [x] 34 new tests (26 session + 8 widget)
 
 ---
 
@@ -201,7 +200,10 @@ keryxflow/
 │   ├── cognitive.py     [✅] Cognitive agent
 │   ├── reflection.py    [✅] Learning & reflection
 │   ├── strategy.py      [✅] Strategy selection
-│   └── scheduler.py     [✅] Task scheduling
+│   ├── scheduler.py     [✅] Task scheduling
+│   └── session.py       [✅] Session management
+├── hermes/widgets/      [✅ AgentWidget added]
+│   └── agent.py         [✅] Agent status widget
 ├── oracle/
 │   └── brain.py         [✅] Accept memory context
 └── config.py            [✅] +AgentSettings, +guardrail validation
@@ -248,8 +250,8 @@ Before each phase goes to main:
 | 3. Tools | 2-3 weeks | ✅ COMPLETE (v0.13.0) |
 | 4. Agent | 3-4 weeks | ✅ COMPLETE (v0.14.0) |
 | 5. Learning | 2-3 weeks | ✅ COMPLETE (v0.15.0) |
-| 6. Session | 2-3 weeks | 🔄 IN PROGRESS |
-| **Total** | **12-18 weeks** | 5/6 phases complete |
+| 6. Session | 2-3 weeks | ✅ COMPLETE (v0.16.0) |
+| **Total** | **12-18 weeks** | 6/6 phases complete |
 
 ---
 

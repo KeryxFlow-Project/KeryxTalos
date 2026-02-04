@@ -346,7 +346,8 @@ Active symbols: {symbols}
                     symbol=symbol,
                     technical_context={},
                 )
-                context["memory_context"][symbol] = memory_context
+                # Convert to dict for easier access
+                context["memory_context"][symbol] = memory_context.to_dict()
 
             except Exception as e:
                 logger.warning("context_build_error", symbol=symbol, error=str(e))
@@ -467,8 +468,8 @@ Active symbols: {symbols}
             parts.append("## Memory Context")
             for symbol, mem in context["memory_context"].items():
                 if mem:
-                    similar_count = len(mem.get("similar_trades", []))
-                    rules_count = len(mem.get("applicable_rules", []))
+                    similar_count = len(mem.get("similar_episodes", []))
+                    rules_count = len(mem.get("matching_rules", []))
                     parts.append(f"- {symbol}: {similar_count} similar trades, {rules_count} rules")
             parts.append("")
 

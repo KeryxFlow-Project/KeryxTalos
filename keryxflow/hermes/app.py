@@ -1,5 +1,7 @@
 """Main TUI application using Textual."""
 
+import asyncio
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -113,6 +115,32 @@ class KeryxFlowApp(App):
         """Async initialization after splash screen."""
         try:
             self._log_msg("Starting initialization...")
+
+            # Start event bus if not already running
+            # This ensures the task runs in Textual's event loop
+            if not self.event_bus.is_running:
+                self._log_msg("Starting event bus...")
+                await self.event_bus.start()
+                self._log_msg("Event bus started!")
+
+            # Connect exchange client if not already connected
+            # This ensures the connection happens in Textual's event loop
+            if self.exchange_client and not self.exchange_client.is_connected:
+                self._log_msg("Connecting to exchange...")
+                connected = await self.exchange_client.connect()
+                if connected:
+                    self._log_msg("Exchange connected!")
+                else:
+                    self._log_msg("Exchange connection failed!")
+
+            # Start trading engine if not already started
+            if self.trading_engine and not self.trading_engine._running:
+                self._log_msg("Starting trading engine...")
+                try:
+                    await self.trading_engine.start()
+                    self._log_msg("Trading engine started!")
+                except Exception as e:
+                    self._log_msg(f"Trading engine error: {e}")
 
             # Connect widgets
             self._log_msg("Connecting widgets...")
@@ -234,18 +262,30 @@ class KeryxFlowApp(App):
 
     async def _fetch_prices_once(self) -> None:
         """Fetch prices once and update widgets."""
-        import asyncio
+        if not self.exchange_client:
+            return
 
-        import ccxt
+        # Fetch prices in parallel with concurrency limit
+        semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
 
-        for symbol in self._symbols:
+        async def fetch_single(symbol: str) -> tuple[str, dict | None]:
+            async with semaphore:
+                try:
+                    ticker = await self.exchange_client.get_ticker(symbol)
+                    return (symbol, ticker)
+                except Exception as e:
+                    logger.warning("price_fetch_error", symbol=symbol, error=str(e))
+                    return (symbol, None)
+
+        # Fetch all prices in parallel
+        results = await asyncio.gather(*[fetch_single(s) for s in self._symbols])
+
+        # Process results
+        for symbol, ticker in results:
+            if ticker is None:
+                continue
+
             try:
-                # Use sync ccxt in thread to avoid event loop conflicts
-                def fetch_sync(sym: str = symbol):
-                    client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ticker(sym)
-
-                ticker = await asyncio.to_thread(fetch_sync)
                 price = ticker["last"]
                 self._log_msg(f"{symbol}: ${price:,.2f}")
 
@@ -514,6 +554,8 @@ class KeryxFlowApp(App):
 
     async def action_toggle_agent(self) -> None:
         """Toggle agent mode - start/pause the trading session."""
+        import traceback
+
         logs = self.query_one("#logs", LogsWidget)
         agent_widget = self.query_one("#agent", AgentWidget)
 
@@ -553,11 +595,20 @@ class KeryxFlowApp(App):
                 logs.add_entry("Failed to resume agent session", level="error")
         else:
             # Start the session
-            success = await self.trading_session.start()
-            if success:
-                logs.add_entry("Agent session started", level="success")
-            else:
-                logs.add_entry("Failed to start agent session", level="error")
+            try:
+                success = await self.trading_session.start()
+                if success:
+                    logs.add_entry("Agent session started", level="success")
+                else:
+                    # Show more details about the failure
+                    errors = self.trading_session.stats.errors
+                    if errors:
+                        logs.add_entry(f"Start failed: {errors[-1][:50]}", level="error")
+                    else:
+                        logs.add_entry("Failed to start agent session", level="error")
+            except Exception as e:
+                logs.add_entry(f"Agent error: {str(e)[:50]}", level="error")
+                logger.error("agent_start_error", error=str(e), tb=traceback.format_exc())
 
     def action_show_help(self) -> None:
         """Show help modal."""

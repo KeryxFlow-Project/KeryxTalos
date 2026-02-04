@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from typing import Any
 
 from keryxflow import __version__
 from keryxflow.config import get_settings
@@ -24,19 +25,26 @@ BANNER = """
 ║   █████╔╝ █████╗  ██████╔╝ ╚████╔╝  ╚███╔╝                    ║
 ║   ██╔═██╗ ██╔══╝  ██╔══██╗  ╚██╔╝   ██╔██╗                    ║
 ║   ██║  ██╗███████╗██║  ██║   ██║   ██╔╝ ██╗                   ║
-║   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝  FLOW            ║
+║   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝  FLOW             ║
 ║                                                               ║
-║   Your keys, your trades, your code.                         ║
+║   Your keys, your trades, your code.                          ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
 
+# Global state for cleanup
+_cleanup_state: dict[str, Any] = {}
 
-async def initialize() -> tuple[ExchangeClient, PaperTradingEngine]:
-    """Initialize all components before starting TUI."""
+
+def initialize_sync() -> dict[str, Any]:
+    """Initialize components synchronously (creates objects but doesn't connect).
+
+    The actual connection happens inside Textual's event loop.
+    """
     settings = get_settings()
     event_bus = get_event_bus()
 
+    # === INITIALIZATION ===
     print(BANNER)
     print(f"  Version: {__version__}")
     print(f"  Mode: {settings.system.mode.upper()} TRADING")
@@ -44,14 +52,53 @@ async def initialize() -> tuple[ExchangeClient, PaperTradingEngine]:
     print()
     print("─" * 65)
 
-    # Initialize database
-    print("\n  [1/4] Initializing database...")
-    await init_db()
-    logger.info("database_initialized")
+    # Initialize database (sync wrapper)
+    print("\n  [1/3] Initializing database...")
+    asyncio.run(_init_db_and_profile())
     print("        ✓ Database ready")
 
-    # Get or create user profile
-    print("\n  [2/4] Loading user profile...")
+    # Initialize paper trading (sync wrapper)
+    print("\n  [2/3] Initializing paper trading engine...")
+    paper = PaperTradingEngine(
+        initial_balance=10000.0,
+        slippage_pct=0.001,
+    )
+    asyncio.run(paper.initialize())
+    balance = asyncio.run(paper.get_balance())
+    usdt = balance["total"].get("USDT", 0)
+    print(f"        ✓ Balance: ${usdt:,.2f} USDT")
+
+    # Create exchange client (but DON'T connect yet - that happens in TUI)
+    print("\n  [3/3] Creating exchange client...")
+    sandbox = settings.system.mode == "paper"
+    client = ExchangeClient(sandbox=sandbox)
+    print("        ✓ Client ready (will connect in TUI)")
+
+    # Create trading engine (but DON'T start yet - that happens in TUI)
+    trading_engine = TradingEngine(
+        exchange_client=client,
+        paper_engine=paper,
+        event_bus=event_bus,
+    )
+
+    print()
+    print("─" * 65)
+    print("\n  Starting TUI...")
+    print()
+
+    return {
+        "event_bus": event_bus,
+        "client": client,
+        "paper": paper,
+        "trading_engine": trading_engine,
+    }
+
+
+async def _init_db_and_profile() -> None:
+    """Initialize database and load user profile."""
+    await init_db()
+    logger.info("database_initialized")
+
     async for session in get_session():
         profile = await get_or_create_user_profile(session)
         logger.info(
@@ -62,60 +109,32 @@ async def initialize() -> tuple[ExchangeClient, PaperTradingEngine]:
         print(f"        ✓ Experience: {profile.experience_level.value}")
         print(f"        ✓ Risk Profile: {profile.risk_profile.value}")
 
-    # Initialize paper trading
-    print("\n  [3/4] Initializing paper trading engine...")
-    paper = PaperTradingEngine(
-        initial_balance=10000.0,
-        slippage_pct=0.001,
-    )
-    await paper.initialize()
-    balance = await paper.get_balance()
-    usdt = balance["total"].get("USDT", 0)
-    print(f"        ✓ Balance: ${usdt:,.2f} USDT")
 
-    # Connect to exchange
-    print("\n  [4/4] Connecting to Binance...")
-    sandbox = settings.system.mode == "paper"
-    client = ExchangeClient(sandbox=sandbox)
-    connected = await client.connect()
+async def cleanup(state: dict[str, Any]) -> None:
+    """Clean up all components asynchronously."""
+    trading_engine = state.get("trading_engine")
+    client = state.get("client")
+    event_bus = state.get("event_bus")
 
-    if not connected:
-        print("        ✗ Connection failed!")
-        raise RuntimeError("Failed to connect to exchange")
-
-    print("        ✓ Connected!")
-
-    # Start event bus
-    await event_bus.start()
-
-    logger.info("keryxflow_initialized", mode=settings.system.mode)
-
-    print()
-    print("─" * 65)
-    print("\n  Starting TUI...")
-    print()
-
-    return client, paper
-
-
-async def shutdown(client: ExchangeClient) -> None:
-    """Gracefully shutdown all components."""
-    event_bus = get_event_bus()
+    if trading_engine and trading_engine._running:
+        await trading_engine.stop()
 
     logger.info("shutting_down")
 
-    # Disconnect from exchange
-    if client:
+    if client and client.is_connected:
         await client.disconnect()
 
-    # Stop event bus
-    await event_bus.stop()
+    if event_bus:
+        await event_bus.stop()
 
     logger.info("keryxflow_stopped")
+    print("\n  Stack sats. ₿\n")
 
 
 def run() -> None:
     """Main entry point."""
+    global _cleanup_state
+
     # Ensure data directories exist
     Path("data/logs").mkdir(parents=True, exist_ok=True)
 
@@ -127,33 +146,24 @@ def run() -> None:
         json_format=settings.env == "production",
     )
 
-    # Initialize components
-    client, paper = asyncio.run(initialize())
-
-    # Create and start trading engine (before TUI, where asyncio works correctly)
-    event_bus = get_event_bus()
-    trading_engine = TradingEngine(
-        exchange_client=client,
-        paper_engine=paper,
-        event_bus=event_bus,
-    )
-    asyncio.run(trading_engine.start())
-    print("        ✓ Trading engine started")
-
     try:
-        # Run the TUI
+        # Phase 1: Initialize (sync - creates objects but doesn't connect)
+        _cleanup_state = initialize_sync()
+
+        # Phase 2: Run TUI (sync - Textual manages its own event loop)
+        # Connection/startup happens inside Textual's event loop in on_mount()
         app = KeryxFlowApp(
-            event_bus=event_bus,
-            exchange_client=client,
-            paper_engine=paper,
-            trading_engine=trading_engine,
+            event_bus=_cleanup_state["event_bus"],
+            exchange_client=_cleanup_state["client"],
+            paper_engine=_cleanup_state["paper"],
+            trading_engine=_cleanup_state["trading_engine"],
         )
         app.run()
+
     finally:
-        # Cleanup
-        asyncio.run(trading_engine.stop())
-        asyncio.run(shutdown(client))
-        print("\n  Stack sats. ₿\n")
+        # Phase 3: Cleanup (async)
+        if _cleanup_state:
+            asyncio.run(cleanup(_cleanup_state))
 
 
 if __name__ == "__main__":

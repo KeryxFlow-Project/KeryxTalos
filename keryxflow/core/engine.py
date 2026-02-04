@@ -294,19 +294,16 @@ class TradingEngine:
 
     async def _preload_single_tf_ohlcv(self, symbols: list[str], candles_to_load: int) -> None:
         """Pre-load single timeframe OHLCV data."""
-        import asyncio
-
-        import ccxt
-
         for symbol in symbols:
             try:
                 logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
 
-                def fetch_ohlcv_sync(sym=symbol):
-                    client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ohlcv(sym, "1m", limit=candles_to_load)
-
-                ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
+                # Use the main exchange client instead of creating temporary ones
+                ohlcv = await self.exchange.get_ohlcv(
+                    symbol=symbol,
+                    timeframe="1m",
+                    limit=candles_to_load,
+                )
 
                 if ohlcv:
                     for candle in ohlcv:
@@ -331,10 +328,6 @@ class TradingEngine:
 
     async def _preload_mtf_ohlcv(self, symbols: list[str], candles_to_load: int) -> None:
         """Pre-load multi-timeframe OHLCV data."""
-        import asyncio
-
-        import ccxt
-
         timeframes = self.settings.oracle.mtf.timeframes
 
         for symbol in symbols:
@@ -347,11 +340,12 @@ class TradingEngine:
                         candles=candles_to_load,
                     )
 
-                    def fetch_ohlcv_sync(sym=symbol, timeframe=tf):
-                        client = ccxt.binance({"enableRateLimit": True})
-                        return client.fetch_ohlcv(sym, timeframe, limit=candles_to_load)
-
-                    ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
+                    # Use the main exchange client instead of creating temporary ones
+                    ohlcv = await self.exchange.get_ohlcv(
+                        symbol=symbol,
+                        timeframe=tf,
+                        limit=candles_to_load,
+                    )
 
                     if ohlcv:
                         for candle in ohlcv:
@@ -910,26 +904,9 @@ class TradingEngine:
         Returns:
             True if all safeguards pass, False otherwise
         """
-        import asyncio
-        from typing import Any
-
         try:
-            # Get current exchange balance using sync ccxt in thread
-            # (avoids async ccxt event loop issues)
-            settings = self.settings
-
-            def fetch_balance_sync() -> dict[str, Any]:
-                import ccxt
-
-                config: dict[str, Any] = {"enableRateLimit": True}
-                if settings.has_binance_credentials:
-                    config["apiKey"] = settings.binance_api_key.get_secret_value()
-                    config["secret"] = settings.binance_api_secret.get_secret_value()
-
-                client = ccxt.binance(config)
-                return client.fetch_balance()
-
-            balance = await asyncio.to_thread(fetch_balance_sync)
+            # Get current exchange balance using the main client
+            balance = await self.exchange.get_balance()
             usdt_balance = balance.get("free", {}).get("USDT", 0.0)
 
             # Get paper trade count (would come from database in real implementation)
@@ -972,25 +949,9 @@ class TradingEngine:
         Returns:
             Dict with currency balances
         """
-        import asyncio
-        from typing import Any
-
         try:
-            # Use sync ccxt in thread to avoid event loop issues
-            settings = self.settings
-
-            def fetch_balance_sync() -> dict[str, Any]:
-                import ccxt
-
-                config: dict[str, Any] = {"enableRateLimit": True}
-                if settings.has_binance_credentials:
-                    config["apiKey"] = settings.binance_api_key.get_secret_value()
-                    config["secret"] = settings.binance_api_secret.get_secret_value()
-
-                client = ccxt.binance(config)
-                return client.fetch_balance()
-
-            balance = await asyncio.to_thread(fetch_balance_sync)
+            # Use the main exchange client
+            balance = await self.exchange.get_balance()
             self._last_balance_sync = datetime.now(UTC)
 
             # Extract free balances

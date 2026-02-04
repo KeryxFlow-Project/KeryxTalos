@@ -234,18 +234,13 @@ class KeryxFlowApp(App):
 
     async def _fetch_prices_once(self) -> None:
         """Fetch prices once and update widgets."""
-        import asyncio
-
-        import ccxt
-
         for symbol in self._symbols:
             try:
-                # Use sync ccxt in thread to avoid event loop conflicts
-                def fetch_sync(sym: str = symbol):
-                    client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ticker(sym)
+                # Use the main exchange client (no temporary clients!)
+                if not self.exchange_client:
+                    continue
 
-                ticker = await asyncio.to_thread(fetch_sync)
+                ticker = await self.exchange_client.get_ticker(symbol)
                 price = ticker["last"]
                 self._log_msg(f"{symbol}: ${price:,.2f}")
 

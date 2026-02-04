@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING, Any
 from textual.app import ComposeResult
 from textual.widgets import DataTable, Static
 
-from keryxflow.config import get_settings
-
 if TYPE_CHECKING:
     from keryxflow.exchange.client import ExchangeClient
 
@@ -63,28 +61,13 @@ class BalanceWidget(Static):
 
     async def refresh_data(self) -> None:
         """Refresh balances from exchange."""
-        import asyncio
-
         table = self.query_one("#balance-table", DataTable)
         table.clear()
 
         if self._exchange_client:
             try:
-                # Fetch balance from exchange (use thread for sync ccxt)
-                settings = get_settings()
-
-                def fetch_balance_sync():
-                    import ccxt
-
-                    config: dict[str, Any] = {"enableRateLimit": True}
-                    if settings.has_binance_credentials:
-                        config["apiKey"] = settings.binance_api_key.get_secret_value()
-                        config["secret"] = settings.binance_api_secret.get_secret_value()
-
-                    client = ccxt.binance(config)
-                    return client.fetch_balance()
-
-                balance = await asyncio.to_thread(fetch_balance_sync)
+                # Use the main exchange client (no temporary clients!)
+                balance = await self._exchange_client.get_balance()
 
                 # Filter non-zero balances
                 self._balances = {
@@ -122,23 +105,14 @@ class BalanceWidget(Static):
 
     async def _get_usd_value(self, currency: str, amount: float) -> float:
         """Get USD value for a currency amount."""
-        import asyncio
-
         if currency in ("USDT", "USDC", "BUSD", "USD"):
             return amount
 
         if self._exchange_client:
             try:
-                # Try to get price from exchange (use thread for sync ccxt)
+                # Use the main exchange client to get ticker
                 symbol = f"{currency}/USDT"
-
-                def fetch_ticker_sync():
-                    import ccxt
-
-                    client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ticker(symbol)
-
-                ticker = await asyncio.to_thread(fetch_ticker_sync)
+                ticker = await self._exchange_client.get_ticker(symbol)
                 if ticker and ticker.get("last"):
                     return amount * ticker["last"]
             except Exception:

@@ -376,12 +376,12 @@ class GetTradingRulesTool(BaseTool):
                         "name": rule.name,
                         "description": rule.description,
                         "condition": rule.condition,
-                        "action": rule.action,
+                        "category": rule.category,
                         "source": rule.source.value,
                         "confidence": rule.confidence,
-                        "win_rate": rule.win_rate,
-                        "total_applications": rule.total_applications,
-                        "successful_applications": rule.successful_applications,
+                        "success_rate": rule.success_rate,
+                        "times_applied": rule.times_applied,
+                        "times_successful": rule.times_successful,
                     }
                 )
 

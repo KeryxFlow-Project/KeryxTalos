@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from typing import Any
 
 from keryxflow import __version__
 from keryxflow.config import get_settings
@@ -31,114 +32,120 @@ BANNER = """
 ╚═══════════════════════════════════════════════════════════════╝
 """
 
+# Global state for cleanup
+_cleanup_state: dict[str, Any] = {}
 
-async def main() -> None:
-    """Main async function - runs everything in a single event loop."""
+
+async def initialize() -> dict[str, Any]:
+    """Initialize all components asynchronously."""
     settings = get_settings()
     event_bus = get_event_bus()
-    client: ExchangeClient | None = None
-    trading_engine: TradingEngine | None = None
 
+    # === INITIALIZATION ===
+    print(BANNER)
+    print(f"  Version: {__version__}")
+    print(f"  Mode: {settings.system.mode.upper()} TRADING")
+    print(f"  Symbols: {', '.join(settings.system.symbols)}")
+    print()
+    print("─" * 65)
+
+    # Initialize database
+    print("\n  [1/4] Initializing database...")
+    await init_db()
+    logger.info("database_initialized")
+    print("        ✓ Database ready")
+
+    # Get or create user profile
+    print("\n  [2/4] Loading user profile...")
+    async for session in get_session():
+        profile = await get_or_create_user_profile(session)
+        logger.info(
+            "user_profile_loaded",
+            experience=profile.experience_level.value,
+            risk_profile=profile.risk_profile.value,
+        )
+        print(f"        ✓ Experience: {profile.experience_level.value}")
+        print(f"        ✓ Risk Profile: {profile.risk_profile.value}")
+
+    # Initialize paper trading
+    print("\n  [3/4] Initializing paper trading engine...")
+    paper = PaperTradingEngine(
+        initial_balance=10000.0,
+        slippage_pct=0.001,
+    )
+    await paper.initialize()
+    balance = await paper.get_balance()
+    usdt = balance["total"].get("USDT", 0)
+    print(f"        ✓ Balance: ${usdt:,.2f} USDT")
+
+    # Connect to exchange
+    print("\n  [4/4] Connecting to Binance...")
+    sandbox = settings.system.mode == "paper"
+    client = ExchangeClient(sandbox=sandbox)
+    connected = await client.connect()
+
+    if not connected:
+        print("        ✗ Connection failed!")
+        raise RuntimeError("Failed to connect to exchange")
+
+    print("        ✓ Connected!")
+
+    # Start event bus
+    await event_bus.start()
+    logger.info("keryxflow_initialized", mode=settings.system.mode)
+
+    print()
+    print("─" * 65)
+    print("\n  Starting TUI...")
+    print()
+
+    # === START TRADING ENGINE ===
+    print("\n  [5/5] Starting trading engine...")
+    trading_engine = TradingEngine(
+        exchange_client=client,
+        paper_engine=paper,
+        event_bus=event_bus,
+    )
     try:
-        # === INITIALIZATION ===
-        print(BANNER)
-        print(f"  Version: {__version__}")
-        print(f"  Mode: {settings.system.mode.upper()} TRADING")
-        print(f"  Symbols: {', '.join(settings.system.symbols)}")
-        print()
-        print("─" * 65)
+        await trading_engine.start()
+        print("        ✓ Trading engine started")
+    except Exception as e:
+        print(f"        ✗ Trading engine failed: {e}")
+        logger.error("trading_engine_start_failed", error=str(e))
 
-        # Initialize database
-        print("\n  [1/4] Initializing database...")
-        await init_db()
-        logger.info("database_initialized")
-        print("        ✓ Database ready")
+    return {
+        "event_bus": event_bus,
+        "client": client,
+        "paper": paper,
+        "trading_engine": trading_engine,
+    }
 
-        # Get or create user profile
-        print("\n  [2/4] Loading user profile...")
-        async for session in get_session():
-            profile = await get_or_create_user_profile(session)
-            logger.info(
-                "user_profile_loaded",
-                experience=profile.experience_level.value,
-                risk_profile=profile.risk_profile.value,
-            )
-            print(f"        ✓ Experience: {profile.experience_level.value}")
-            print(f"        ✓ Risk Profile: {profile.risk_profile.value}")
 
-        # Initialize paper trading
-        print("\n  [3/4] Initializing paper trading engine...")
-        paper = PaperTradingEngine(
-            initial_balance=10000.0,
-            slippage_pct=0.001,
-        )
-        await paper.initialize()
-        balance = await paper.get_balance()
-        usdt = balance["total"].get("USDT", 0)
-        print(f"        ✓ Balance: ${usdt:,.2f} USDT")
+async def cleanup(state: dict[str, Any]) -> None:
+    """Clean up all components asynchronously."""
+    trading_engine = state.get("trading_engine")
+    client = state.get("client")
+    event_bus = state.get("event_bus")
 
-        # Connect to exchange
-        print("\n  [4/4] Connecting to Binance...")
-        sandbox = settings.system.mode == "paper"
-        client = ExchangeClient(sandbox=sandbox)
-        connected = await client.connect()
+    if trading_engine:
+        await trading_engine.stop()
 
-        if not connected:
-            print("        ✗ Connection failed!")
-            raise RuntimeError("Failed to connect to exchange")
+    logger.info("shutting_down")
 
-        print("        ✓ Connected!")
+    if client:
+        await client.disconnect()
 
-        # Start event bus
-        await event_bus.start()
-        logger.info("keryxflow_initialized", mode=settings.system.mode)
-
-        print()
-        print("─" * 65)
-        print("\n  Starting TUI...")
-        print()
-
-        # === START TRADING ENGINE ===
-        print("\n  [5/5] Starting trading engine...")
-        trading_engine = TradingEngine(
-            exchange_client=client,
-            paper_engine=paper,
-            event_bus=event_bus,
-        )
-        try:
-            await trading_engine.start()
-            print("        ✓ Trading engine started")
-        except Exception as e:
-            print(f"        ✗ Trading engine failed: {e}")
-            logger.error("trading_engine_start_failed", error=str(e))
-
-        # === RUN TUI ===
-        app = KeryxFlowApp(
-            event_bus=event_bus,
-            exchange_client=client,
-            paper_engine=paper,
-            trading_engine=trading_engine,
-        )
-        await app.run_async()
-
-    finally:
-        # === CLEANUP (same event loop!) ===
-        if trading_engine:
-            await trading_engine.stop()
-
-        logger.info("shutting_down")
-
-        if client:
-            await client.disconnect()
-
+    if event_bus:
         await event_bus.stop()
-        logger.info("keryxflow_stopped")
 
-        print("\n  Stack sats. ₿\n")
+    logger.info("keryxflow_stopped")
+    print("\n  Stack sats. ₿\n")
 
 
 def run() -> None:
     """Main entry point."""
+    global _cleanup_state
+
     # Ensure data directories exist
     Path("data/logs").mkdir(parents=True, exist_ok=True)
 
@@ -150,8 +157,24 @@ def run() -> None:
         json_format=settings.env == "production",
     )
 
-    # Run everything in a single event loop
-    asyncio.run(main())
+    try:
+        # Phase 1: Initialize (async)
+        _cleanup_state = asyncio.run(initialize())
+
+        # Phase 2: Run TUI (sync - Textual manages its own event loop)
+        # This is more stable than run_async()
+        app = KeryxFlowApp(
+            event_bus=_cleanup_state["event_bus"],
+            exchange_client=_cleanup_state["client"],
+            paper_engine=_cleanup_state["paper"],
+            trading_engine=_cleanup_state["trading_engine"],
+        )
+        app.run()
+
+    finally:
+        # Phase 3: Cleanup (async)
+        if _cleanup_state:
+            asyncio.run(cleanup(_cleanup_state))
 
 
 if __name__ == "__main__":

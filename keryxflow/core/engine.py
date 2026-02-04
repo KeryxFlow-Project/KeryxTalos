@@ -304,7 +304,10 @@ class TradingEngine:
 
                 def fetch_ohlcv_sync(sym=symbol):
                     client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ohlcv(sym, "1m", limit=candles_to_load)
+                    try:
+                        return client.fetch_ohlcv(sym, "1m", limit=candles_to_load)
+                    finally:
+                        client.close()
 
                 ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
 
@@ -349,7 +352,10 @@ class TradingEngine:
 
                     def fetch_ohlcv_sync(sym=symbol, timeframe=tf):
                         client = ccxt.binance({"enableRateLimit": True})
-                        return client.fetch_ohlcv(sym, timeframe, limit=candles_to_load)
+                        try:
+                            return client.fetch_ohlcv(sym, timeframe, limit=candles_to_load)
+                        finally:
+                            client.close()
 
                     ohlcv = await asyncio.to_thread(fetch_ohlcv_sync)
 
@@ -927,7 +933,10 @@ class TradingEngine:
                     config["secret"] = settings.binance_api_secret.get_secret_value()
 
                 client = ccxt.binance(config)
-                return client.fetch_balance()
+                try:
+                    return client.fetch_balance()
+                finally:
+                    client.close()
 
             balance = await asyncio.to_thread(fetch_balance_sync)
             usdt_balance = balance.get("free", {}).get("USDT", 0.0)
@@ -988,7 +997,10 @@ class TradingEngine:
                     config["secret"] = settings.binance_api_secret.get_secret_value()
 
                 client = ccxt.binance(config)
-                return client.fetch_balance()
+                try:
+                    return client.fetch_balance()
+                finally:
+                    client.close()
 
             balance = await asyncio.to_thread(fetch_balance_sync)
             self._last_balance_sync = datetime.now(UTC)

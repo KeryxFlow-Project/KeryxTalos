@@ -1,5 +1,6 @@
 """Trading engine that orchestrates the full trading loop."""
 
+import asyncio
 from collections import defaultdict
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -265,11 +266,9 @@ class TradingEngine:
         positions = await self.paper.get_positions()
         self.risk.set_open_positions(len(positions))
 
-        # Pre-load historical OHLCV data for faster signal generation
-        await self._preload_ohlcv()
-
-        # Run initial analysis for all symbols
-        await self._initial_analysis()
+        # Pre-load historical OHLCV data in background (non-blocking)
+        # This allows TUI to start immediately while data loads
+        asyncio.create_task(self._background_preload())
 
         mode = "live" if self._is_live_mode else "paper"
         logger.info("trading_engine_started", mode=mode)
@@ -280,6 +279,19 @@ class TradingEngine:
                 mode=mode,
                 symbols=self.settings.system.symbols,
             )
+
+    async def _background_preload(self) -> None:
+        """Background task for preloading OHLCV data and running initial analysis.
+
+        This runs in the background so TUI can start immediately.
+        """
+        try:
+            logger.info("background_preload_started")
+            await self._preload_ohlcv()
+            await self._initial_analysis()
+            logger.info("background_preload_completed")
+        except Exception as e:
+            logger.error("background_preload_failed", error=str(e))
 
     async def _preload_ohlcv(self) -> None:
         """Pre-load historical OHLCV data for all symbols."""
@@ -293,45 +305,52 @@ class TradingEngine:
             await self._preload_single_tf_ohlcv(symbols, candles_to_load)
 
     async def _preload_single_tf_ohlcv(self, symbols: list[str], candles_to_load: int) -> None:
-        """Pre-load single timeframe OHLCV data."""
-        for symbol in symbols:
-            try:
-                logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
+        """Pre-load single timeframe OHLCV data (parallel with concurrency limit)."""
+        semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
 
-                # Use the main exchange client instead of creating temporary ones
-                ohlcv = await self.exchange.get_ohlcv(
-                    symbol=symbol,
-                    timeframe="1m",
-                    limit=candles_to_load,
-                )
+        async def load_symbol(symbol: str) -> None:
+            async with semaphore:
+                try:
+                    logger.info("preloading_ohlcv", symbol=symbol, candles=candles_to_load)
 
-                if ohlcv:
-                    for candle in ohlcv:
-                        timestamp, open_p, high, low, close, volume = candle
-                        self._ohlcv_buffer.add_candle(
-                            symbol=symbol,
-                            timestamp=timestamp,
-                            open_price=open_p,
-                            high=high,
-                            low=low,
-                            close=close,
-                            volume=volume or 0.0,
-                        )
-
-                    logger.info(
-                        "ohlcv_preloaded",
+                    # Use the main exchange client instead of creating temporary ones
+                    ohlcv = await self.exchange.get_ohlcv(
                         symbol=symbol,
-                        candles=self._ohlcv_buffer.candle_count(symbol),
+                        timeframe="1m",
+                        limit=candles_to_load,
                     )
-            except Exception as e:
-                logger.warning("ohlcv_preload_failed", symbol=symbol, error=str(e))
+
+                    if ohlcv:
+                        for candle in ohlcv:
+                            timestamp, open_p, high, low, close, volume = candle
+                            self._ohlcv_buffer.add_candle(
+                                symbol=symbol,
+                                timestamp=timestamp,
+                                open_price=open_p,
+                                high=high,
+                                low=low,
+                                close=close,
+                                volume=volume or 0.0,
+                            )
+
+                        logger.info(
+                            "ohlcv_preloaded",
+                            symbol=symbol,
+                            candles=self._ohlcv_buffer.candle_count(symbol),
+                        )
+                except Exception as e:
+                    logger.warning("ohlcv_preload_failed", symbol=symbol, error=str(e))
+
+        # Load all symbols in parallel
+        await asyncio.gather(*[load_symbol(s) for s in symbols])
 
     async def _preload_mtf_ohlcv(self, symbols: list[str], candles_to_load: int) -> None:
-        """Pre-load multi-timeframe OHLCV data."""
+        """Pre-load multi-timeframe OHLCV data (parallel with concurrency limit)."""
         timeframes = self.settings.oracle.mtf.timeframes
+        semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
 
-        for symbol in symbols:
-            for tf in timeframes:
+        async def load_symbol_tf(symbol: str, tf: str) -> None:
+            async with semaphore:
                 try:
                     logger.info(
                         "preloading_mtf_ohlcv",
@@ -374,6 +393,10 @@ class TradingEngine:
                         timeframe=tf,
                         error=str(e),
                     )
+
+        # Load all symbol/timeframe combinations in parallel
+        tasks = [load_symbol_tf(s, tf) for s in symbols for tf in timeframes]
+        await asyncio.gather(*tasks)
 
     async def _initial_analysis(self) -> None:
         """Run initial analysis for all symbols after OHLCV preload."""

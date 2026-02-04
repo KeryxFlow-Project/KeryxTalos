@@ -1,50 +1,9 @@
 """KeryxFlow main entrypoint."""
 
 import asyncio
-import logging
-import sys
-import warnings
 from pathlib import Path
 
-# Suppress aiohttp/ccxt unclosed session warnings
-# These occur because we use multiple asyncio.run() calls with Textual TUI
-# The resources are still cleaned up by garbage collection
-warnings.filterwarnings("ignore", message="Unclosed client session")
-warnings.filterwarnings("ignore", message="Unclosed connector")
-warnings.filterwarnings("ignore", message="binance requires")
-logging.getLogger("ccxt.base.exchange").setLevel(logging.CRITICAL)
-logging.getLogger("aiohttp.client").setLevel(logging.CRITICAL)
-
-
-class _StderrFilter:
-    """Filter to suppress ccxt/aiohttp cleanup messages on stderr."""
-
-    def __init__(self, stream):
-        self._stream = stream
-        self._suppress_patterns = [
-            "binance requires to release",
-            "Unclosed client session",
-            "Unclosed connector",
-            "client_session:",
-            "connections:",
-            "connector:",
-        ]
-
-    def write(self, text):
-        if not any(p in text for p in self._suppress_patterns):
-            self._stream.write(text)
-
-    def flush(self):
-        self._stream.flush()
-
-    def __getattr__(self, name):
-        return getattr(self._stream, name)
-
-
-# Apply stderr filter immediately to suppress cleanup messages
-sys.stderr = _StderrFilter(sys.__stderr__)
-
-from keryxflow import __version__
+from keryxflow import __version__  # Also applies stderr filter
 from keryxflow.config import get_settings
 from keryxflow.core.database import get_or_create_user_profile, get_session, init_db
 from keryxflow.core.engine import TradingEngine

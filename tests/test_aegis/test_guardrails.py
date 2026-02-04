@@ -307,7 +307,7 @@ class TestGuardrailEnforcer:
     def test_symbol_not_allowed(self, enforcer, portfolio):
         """Order for non-allowed symbol should be rejected."""
         result = enforcer.validate_order(
-            symbol="DOGE/USDT",  # Not in allowed list
+            symbol="SHIB/USDT",  # Not in allowed list (not in settings.toml)
             side="buy",
             quantity=0.01,
             entry_price=50000,

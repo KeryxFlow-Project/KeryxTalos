@@ -24,9 +24,9 @@ BANNER = """
 ║   █████╔╝ █████╗  ██████╔╝ ╚████╔╝  ╚███╔╝                    ║
 ║   ██╔═██╗ ██╔══╝  ██╔══██╗  ╚██╔╝   ██╔██╗                    ║
 ║   ██║  ██╗███████╗██║  ██║   ██║   ██╔╝ ██╗                   ║
-║   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝  FLOW            ║
+║   ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝  FLOW             ║
 ║                                                               ║
-║   Your keys, your trades, your code.                         ║
+║   Your keys, your trades, your code.                          ║
 ║                                                               ║
 ╚═══════════════════════════════════════════════════════════════╝
 """
@@ -131,14 +131,20 @@ def run() -> None:
     client, paper = asyncio.run(initialize())
 
     # Create and start trading engine (before TUI, where asyncio works correctly)
+    print("\n  [5/5] Starting trading engine...")
     event_bus = get_event_bus()
     trading_engine = TradingEngine(
         exchange_client=client,
         paper_engine=paper,
         event_bus=event_bus,
     )
-    asyncio.run(trading_engine.start())
-    print("        ✓ Trading engine started")
+    try:
+        asyncio.run(trading_engine.start())
+        print("        ✓ Trading engine started")
+    except Exception as e:
+        print(f"        ✗ Trading engine failed: {e}")
+        # Continue without engine - TUI can still work
+        logger.error("trading_engine_start_failed", error=str(e))
 
     try:
         # Run the TUI

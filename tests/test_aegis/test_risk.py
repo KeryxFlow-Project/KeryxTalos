@@ -114,7 +114,7 @@ class TestOrderApproval:
     def test_reject_symbol_not_allowed(self, risk_manager):
         """Test rejection for non-allowed symbol."""
         order = OrderRequest(
-            symbol="DOGE/USDT",  # Not in default allowed list
+            symbol="SHIB/USDT",  # Not in allowed list (not in settings.toml)
             side="buy",
             quantity=100.0,
             entry_price=0.1,

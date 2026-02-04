@@ -155,14 +155,18 @@ class GuardrailEnforcer:
         Returns:
             GuardrailCheckResult with allowed status and any violation details
         """
-        g = self.guardrails
+        from keryxflow.config import get_settings
 
-        # Check symbol allowed
-        if symbol not in g.ALLOWED_SYMBOLS:
+        g = self.guardrails
+        settings = get_settings()
+
+        # Check symbol allowed (use settings symbols, fallback to hardcoded)
+        allowed_symbols = tuple(settings.system.symbols) or g.ALLOWED_SYMBOLS
+        if symbol not in allowed_symbols:
             return GuardrailCheckResult(
                 allowed=False,
                 violation=GuardrailViolation.SYMBOL_NOT_ALLOWED,
-                message=f"Symbol '{symbol}' not in allowed list: {g.ALLOWED_SYMBOLS}",
+                message=f"Symbol '{symbol}' not in allowed list: {allowed_symbols[:5]}...",
             )
 
         # Check side allowed

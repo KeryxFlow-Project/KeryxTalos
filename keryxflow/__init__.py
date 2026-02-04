@@ -1,52 +1,55 @@
 """KeryxFlow - A hybrid AI & quantitative trading engine."""
 
-import atexit
 import sys
 import warnings
 
 __version__ = "0.17.0"
 
+# =============================================================================
+# SILENCE AIOHTTP/CCXT WARNINGS
+# These warnings are cosmetic and don't affect functionality.
+# They occur because ccxt uses aiohttp internally and the cleanup
+# messages are printed during garbage collection.
+# =============================================================================
 
-# Suppress aiohttp/ccxt unclosed session warnings
-# These occur because we use multiple asyncio.run() calls with Textual TUI
-# The resources are still cleaned up by garbage collection
+# Suppress Python warnings
 warnings.filterwarnings("ignore", message="Unclosed client session")
 warnings.filterwarnings("ignore", message="Unclosed connector")
 warnings.filterwarnings("ignore", message="binance requires")
 
+# Monkeypatch aiohttp to silence the __del__ warnings
+try:
+    import aiohttp
 
-class _StderrFilter:
-    """Filter to suppress ccxt/aiohttp cleanup messages on stderr."""
+    # Silence ClientSession.__del__ warning
+    _original_session_del = getattr(aiohttp.ClientSession, "__del__", None)
 
-    _suppress_patterns = [
-        "binance requires to release",
-        "Unclosed client session",
-        "Unclosed connector",
-        "client_session:",
-        "connections:",
-        "connector:",
-    ]
+    def _silent_session_del(self):
+        pass  # Do nothing - GC will clean up
 
-    def __init__(self, stream):
-        self._stream = stream
+    aiohttp.ClientSession.__del__ = _silent_session_del
 
-    def write(self, text):
-        if not any(p in text for p in self._suppress_patterns):
-            self._stream.write(text)
+    # Silence TCPConnector.__del__ warning
+    _original_connector_del = getattr(aiohttp.TCPConnector, "__del__", None)
 
-    def flush(self):
-        self._stream.flush()
+    def _silent_connector_del(self):
+        pass  # Do nothing - GC will clean up
 
-    def __getattr__(self, name):
-        return getattr(self._stream, name)
+    aiohttp.TCPConnector.__del__ = _silent_connector_del
 
+except ImportError:
+    pass  # aiohttp not installed
 
-def _apply_stderr_filter():
-    """Apply or reapply stderr filter."""
-    if not isinstance(sys.stderr, _StderrFilter):
-        sys.stderr = _StderrFilter(sys.__stderr__)
+# Monkeypatch ccxt to silence the destructor warning
+try:
+    import ccxt.async_support as ccxt_async
 
+    _original_exchange_del = getattr(ccxt_async.Exchange, "__del__", None)
 
-# Apply filter immediately and register to reapply at exit
-_apply_stderr_filter()
-atexit.register(_apply_stderr_filter)
+    def _silent_exchange_del(self):
+        pass  # Do nothing - GC will clean up
+
+    ccxt_async.Exchange.__del__ = _silent_exchange_del
+
+except (ImportError, AttributeError):
+    pass  # ccxt not installed or no __del__

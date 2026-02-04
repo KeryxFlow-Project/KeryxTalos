@@ -221,7 +221,45 @@ class Settings(BaseSettings):
 
 
 def load_settings() -> Settings:
-    """Load settings from environment and config files."""
+    """Load settings from environment and config files.
+
+    Priority: environment variables > settings.toml > defaults
+    """
+    import os
+    import tomllib
+
+    settings_file = Path("settings.toml")
+    if settings_file.exists():
+        with open(settings_file, "rb") as f:
+            toml_config = tomllib.load(f)
+
+        # Map TOML sections to nested settings
+        # Environment variables take priority over TOML
+        overrides: dict = {}
+
+        if "system" in toml_config:
+            system_config = toml_config["system"].copy()
+            # Allow env var to override TOML for mode
+            if os.environ.get("KERYXFLOW_MODE"):
+                system_config["mode"] = os.environ["KERYXFLOW_MODE"]
+            overrides["system"] = SystemSettings(**system_config)
+        if "risk" in toml_config:
+            overrides["risk"] = RiskSettings(**toml_config["risk"])
+        if "oracle" in toml_config:
+            overrides["oracle"] = OracleSettings(**toml_config["oracle"])
+        if "hermes" in toml_config:
+            overrides["hermes"] = HermesSettings(**toml_config["hermes"])
+        if "database" in toml_config:
+            overrides["database"] = DatabaseSettings(**toml_config["database"])
+        if "live" in toml_config:
+            overrides["live"] = LiveSettings(**toml_config["live"])
+        if "notifications" in toml_config:
+            overrides["notifications"] = NotificationSettings(**toml_config["notifications"])
+        if "agent" in toml_config:
+            overrides["agent"] = AgentSettings(**toml_config["agent"])
+
+        return Settings(**overrides)
+
     return Settings()
 
 

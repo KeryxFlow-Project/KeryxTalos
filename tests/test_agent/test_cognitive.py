@@ -187,10 +187,10 @@ class TestCognitiveAgent:
     @pytest.mark.asyncio
     async def test_initialize_without_api_key(self):
         """Test agent initialization without API key."""
-        agent = CognitiveAgent()
-
-        with patch("keryxflow.config.get_settings") as mock_settings:
+        with patch("keryxflow.agent.cognitive.get_settings") as mock_settings:
+            mock_settings.return_value.agent = MagicMock()
             mock_settings.return_value.anthropic_api_key.get_secret_value.return_value = ""
+            agent = CognitiveAgent()
             await agent.initialize()
 
         assert agent._initialized is True
@@ -199,14 +199,17 @@ class TestCognitiveAgent:
     @pytest.mark.asyncio
     async def test_run_cycle_no_client_fallback_disabled(self):
         """Test cycle returns error when no client and fallback disabled."""
-        agent = CognitiveAgent()
-        agent.settings.fallback_to_technical = False
-
-        with patch("keryxflow.config.get_settings") as mock_settings:
+        with patch("keryxflow.agent.cognitive.get_settings") as mock_settings:
+            mock_agent_settings = MagicMock()
+            mock_agent_settings.fallback_to_technical = False
+            mock_settings.return_value.agent = mock_agent_settings
             mock_settings.return_value.anthropic_api_key.get_secret_value.return_value = ""
+            mock_settings.return_value.system.symbols = ["BTC/USDT"]
+
+            agent = CognitiveAgent()
             await agent.initialize()
 
-        result = await agent.run_cycle(["BTC/USDT"])
+            result = await agent.run_cycle(["BTC/USDT"])
 
         assert result.status == CycleStatus.ERROR
         assert "not available" in result.error
@@ -214,35 +217,38 @@ class TestCognitiveAgent:
     @pytest.mark.asyncio
     async def test_run_cycle_fallback(self):
         """Test cycle falls back to technical signals."""
-        agent = CognitiveAgent()
-        agent.settings.fallback_to_technical = True
-
-        with patch("keryxflow.config.get_settings") as mock_settings:
+        with patch("keryxflow.agent.cognitive.get_settings") as mock_settings:
+            mock_agent_settings = MagicMock()
+            mock_agent_settings.fallback_to_technical = True
+            mock_agent_settings.max_consecutive_errors = 1
+            mock_settings.return_value.agent = mock_agent_settings
             mock_settings.return_value.anthropic_api_key.get_secret_value.return_value = ""
             mock_settings.return_value.system.symbols = ["BTC/USDT"]
+
+            agent = CognitiveAgent()
             await agent.initialize()
 
-        # Mock the executor
-        agent.executor.execute = AsyncMock(
-            return_value=ToolResult(
-                success=True,
-                data={
-                    "ohlcv": [
-                        [datetime.now(UTC).isoformat(), 50000, 51000, 49000, 50500, 1000]
-                        for _ in range(100)
-                    ]
-                },
+            # Mock the executor
+            agent.executor.execute = AsyncMock(
+                return_value=ToolResult(
+                    success=True,
+                    data={
+                        "ohlcv": [
+                            [datetime.now(UTC).isoformat(), 50000, 51000, 49000, 50500, 1000]
+                            for _ in range(100)
+                        ]
+                    },
+                )
             )
-        )
 
-        # Mock signal generator
-        with patch("keryxflow.oracle.signals.get_signal_generator") as mock_gen:
-            mock_signal = MagicMock()
-            mock_signal.signal_type.value = "hold"
-            mock_signal.confidence = 0.5
-            mock_gen.return_value.generate_signal = AsyncMock(return_value=mock_signal)
+            # Mock signal generator
+            with patch("keryxflow.oracle.signals.get_signal_generator") as mock_gen:
+                mock_signal = MagicMock()
+                mock_signal.signal_type.value = "hold"
+                mock_signal.confidence = 0.5
+                mock_gen.return_value.generate_signal = AsyncMock(return_value=mock_signal)
 
-            result = await agent.run_cycle(["BTC/USDT"])
+                result = await agent.run_cycle(["BTC/USDT"])
 
         assert result.status == CycleStatus.FALLBACK
         assert result.decision is not None
@@ -250,10 +256,11 @@ class TestCognitiveAgent:
     @pytest.mark.asyncio
     async def test_build_context(self):
         """Test building context for agent."""
-        agent = CognitiveAgent()
-
-        with patch("keryxflow.config.get_settings") as mock_settings:
+        with patch("keryxflow.agent.cognitive.get_settings") as mock_settings:
+            mock_settings.return_value.agent = MagicMock()
             mock_settings.return_value.anthropic_api_key.get_secret_value.return_value = ""
+
+            agent = CognitiveAgent()
             await agent.initialize()
 
         # Mock executor
@@ -264,10 +271,13 @@ class TestCognitiveAgent:
             )
         )
 
-        # Mock memory manager
-        agent.memory.build_context_for_decision = AsyncMock(
-            return_value={"similar_trades": [], "applicable_rules": []}
-        )
+        # Mock memory manager - return object with to_dict method
+        mock_memory_context = MagicMock()
+        mock_memory_context.to_dict.return_value = {
+            "similar_episodes": [],
+            "matching_rules": [],
+        }
+        agent.memory.build_context_for_decision = AsyncMock(return_value=mock_memory_context)
 
         context = await agent._build_context(["BTC/USDT"])
 
@@ -372,7 +382,7 @@ class TestCognitiveAgent:
                 "BTC/USDT": {"price": {"price": 50000.0}},
             },
             "memory_context": {
-                "BTC/USDT": {"similar_trades": [1, 2], "applicable_rules": [1]},
+                "BTC/USDT": {"similar_episodes": [1, 2], "matching_rules": [1]},
             },
         }
 

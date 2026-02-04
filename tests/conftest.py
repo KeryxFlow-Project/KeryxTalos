@@ -13,6 +13,8 @@ def setup_test_database(tmp_path):
     db_path = tmp_path / "test_keryxflow.db"
     # KERYXFLOW_DB_ prefix + url field
     os.environ["KERYXFLOW_DB_URL"] = f"sqlite+aiosqlite:///{db_path}"
+    # Force paper mode for tests
+    os.environ["KERYXFLOW_MODE"] = "paper"
 
     # Reset global instances before each test
     import keryxflow.aegis.risk as risk_module

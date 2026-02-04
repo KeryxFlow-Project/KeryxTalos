@@ -1,5 +1,6 @@
 """KeryxFlow - A hybrid AI & quantitative trading engine."""
 
+import atexit
 import sys
 import warnings
 
@@ -40,6 +41,12 @@ class _StderrFilter:
         return getattr(self._stream, name)
 
 
-# Apply filter immediately
-if not isinstance(sys.stderr, _StderrFilter):
-    sys.stderr = _StderrFilter(sys.__stderr__)
+def _apply_stderr_filter():
+    """Apply or reapply stderr filter."""
+    if not isinstance(sys.stderr, _StderrFilter):
+        sys.stderr = _StderrFilter(sys.__stderr__)
+
+
+# Apply filter immediately and register to reapply at exit
+_apply_stderr_filter()
+atexit.register(_apply_stderr_filter)

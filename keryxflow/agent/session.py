@@ -225,9 +225,11 @@ class TradingSession:
                     paper_engine=paper,
                     cognitive_agent=self._agent,
                 )
-
-            # Start the engine
-            await self._engine.start()
+                # Start the engine only if we created it
+                await self._engine.start()
+            elif not self._engine._running:
+                # Start the engine if it's not running
+                await self._engine.start()
 
             # Start agent loop as background task
             self._agent_task = asyncio.create_task(self._run_agent_loop())
@@ -246,9 +248,12 @@ class TradingSession:
             return True
 
         except Exception as e:
+            import traceback
+
             self._state = SessionState.ERROR
-            self._stats.errors.append(str(e))
-            logger.error("session_start_failed", error=str(e))
+            error_msg = f"{type(e).__name__}: {str(e)}"
+            self._stats.errors.append(error_msg)
+            logger.error("session_start_failed", error=error_msg, tb=traceback.format_exc())
             return False
 
     async def stop(self) -> bool:

@@ -514,6 +514,8 @@ class KeryxFlowApp(App):
 
     async def action_toggle_agent(self) -> None:
         """Toggle agent mode - start/pause the trading session."""
+        import traceback
+
         logs = self.query_one("#logs", LogsWidget)
         agent_widget = self.query_one("#agent", AgentWidget)
 
@@ -553,11 +555,20 @@ class KeryxFlowApp(App):
                 logs.add_entry("Failed to resume agent session", level="error")
         else:
             # Start the session
-            success = await self.trading_session.start()
-            if success:
-                logs.add_entry("Agent session started", level="success")
-            else:
-                logs.add_entry("Failed to start agent session", level="error")
+            try:
+                success = await self.trading_session.start()
+                if success:
+                    logs.add_entry("Agent session started", level="success")
+                else:
+                    # Show more details about the failure
+                    errors = self.trading_session.stats.errors
+                    if errors:
+                        logs.add_entry(f"Start failed: {errors[-1][:50]}", level="error")
+                    else:
+                        logs.add_entry("Failed to start agent session", level="error")
+            except Exception as e:
+                logs.add_entry(f"Agent error: {str(e)[:50]}", level="error")
+                logger.error("agent_start_error", error=str(e), tb=traceback.format_exc())
 
     def action_show_help(self) -> None:
         """Show help modal."""

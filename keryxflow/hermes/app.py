@@ -6,6 +6,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, Header
 
 from keryxflow import __version__
+from keryxflow.agent.session import TradingSession, get_trading_session
 from keryxflow.config import get_settings
 from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
@@ -13,6 +14,7 @@ from keryxflow.core.logging import get_logger
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.widgets.aegis import AegisWidget
+from keryxflow.hermes.widgets.agent import AgentWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
@@ -34,6 +36,7 @@ class KeryxFlowApp(App):
         Binding("q", "quit", "Quit", priority=True),
         Binding("p", "panic", "Panic", priority=True),
         Binding("space", "toggle_pause", "Pause/Resume"),
+        Binding("a", "toggle_agent", "Toggle Agent"),
         Binding("question_mark", "show_help", "Help"),
         Binding("l", "toggle_logs", "Toggle Logs"),
         Binding("s", "cycle_symbol", "Next Symbol"),
@@ -45,6 +48,7 @@ class KeryxFlowApp(App):
         exchange_client: ExchangeClient | None = None,
         paper_engine: PaperTradingEngine | None = None,
         trading_engine: TradingEngine | None = None,
+        trading_session: TradingSession | None = None,
     ) -> None:
         """Initialize the app."""
         super().__init__()
@@ -53,6 +57,7 @@ class KeryxFlowApp(App):
         self.exchange_client = exchange_client
         self.paper_engine = paper_engine
         self.trading_engine = trading_engine
+        self.trading_session = trading_session
         self._paused = False
         self._current_symbol_index = 0
         self._symbols = self.settings.system.symbols
@@ -72,6 +77,7 @@ class KeryxFlowApp(App):
                     yield PositionsWidget(id="positions")
                     yield AegisWidget(id="aegis")
                     yield StatsWidget(id="stats")
+                    yield AgentWidget(id="agent")
 
             yield LogsWidget(id="logs")
 
@@ -88,6 +94,8 @@ class KeryxFlowApp(App):
         self.event_bus.subscribe(EventType.ORDER_FILLED, self._on_trade)
         self.event_bus.subscribe(EventType.ORDER_APPROVED, self._on_order_approved)
         self.event_bus.subscribe(EventType.ORDER_REJECTED, self._on_order_rejected)
+        self.event_bus.subscribe(EventType.SESSION_STATE_CHANGED, self._on_session_state_changed)
+        self.event_bus.subscribe(EventType.AGENT_CYCLE_COMPLETED, self._on_agent_cycle)
 
         # Log startup
         try:
@@ -119,6 +127,7 @@ class KeryxFlowApp(App):
 
         except Exception as e:
             import traceback
+
             self._log_msg(f"ERROR: {e}")
             self._log_msg(traceback.format_exc()[:200])
 
@@ -142,6 +151,21 @@ class KeryxFlowApp(App):
             # Connect positions widget to paper engine
             positions = self.query_one("#positions", PositionsWidget)
             positions.set_paper_engine(self.paper_engine)
+
+        # Connect agent widget to trading session
+        agent_widget = self.query_one("#agent", AgentWidget)
+        if self.trading_session:
+            agent_widget.set_session(self.trading_session)
+            self._log_msg("Connected AGENT to trading session")
+        else:
+            # Check settings for agent mode
+            agent_enabled = getattr(self.settings, "agent", None)
+            if agent_enabled and getattr(agent_enabled, "enabled", False):
+                agent_widget.set_enabled(True)
+                self._log_msg("Agent mode enabled (no session)")
+            else:
+                agent_widget.set_enabled(False)
+                self._log_msg("Agent mode disabled")
 
         self._log_msg("Widgets connected")
 
@@ -186,9 +210,9 @@ class KeryxFlowApp(App):
         for symbol in self._symbols:
             try:
                 # Use sync ccxt in thread to avoid event loop conflicts
-                def fetch_sync():
+                def fetch_sync(sym: str = symbol):
                     client = ccxt.binance({"enableRateLimit": True})
-                    return client.fetch_ticker(symbol)
+                    return client.fetch_ticker(sym)
 
                 ticker = await asyncio.to_thread(fetch_sync)
                 price = ticker["last"]
@@ -244,6 +268,7 @@ class KeryxFlowApp(App):
             # Generate signal using engine's signal generator (in thread to avoid blocking)
             def generate_signal_sync():
                 import asyncio
+
                 loop = asyncio.new_event_loop()
                 try:
                     return loop.run_until_complete(
@@ -266,7 +291,9 @@ class KeryxFlowApp(App):
 
             # Log actionable signals
             if signal.signal_type.value in ("long", "short"):
-                self._log_msg(f"Signal: {signal.signal_type.value.upper()} {symbol} ({signal.confidence:.0%})")
+                self._log_msg(
+                    f"Signal: {signal.signal_type.value.upper()} {symbol} ({signal.confidence:.0%})"
+                )
 
         except Exception as e:
             logger.warning("oracle_update_error", error=str(e))
@@ -379,6 +406,50 @@ class KeryxFlowApp(App):
         reason = data.get("message", data.get("reason", "Unknown"))
         logs.add_entry(f"REJECTED: {symbol} - {reason}", level="warning")
 
+    async def _on_session_state_changed(self, event: Event) -> None:
+        """Handle session state change events."""
+        data = event.data
+        new_state = data.get("new_state", "unknown")
+        old_state = data.get("old_state", "unknown")
+
+        # Update agent widget
+        agent_widget = self.query_one("#agent", AgentWidget)
+        if self.trading_session:
+            agent_widget.set_status(self.trading_session.get_status())
+
+        # Log the state change
+        logs = self.query_one("#logs", LogsWidget)
+        if new_state == "running":
+            logs.add_entry(f"Agent session STARTED (was {old_state})", level="success")
+            self.notify("Agent Running", severity="information")
+        elif new_state == "paused":
+            logs.add_entry(f"Agent session PAUSED (was {old_state})", level="warning")
+            self.notify("Agent Paused", severity="warning")
+        elif new_state == "stopped":
+            logs.add_entry(f"Agent session STOPPED (was {old_state})", level="info")
+            self.notify("Agent Stopped", severity="information")
+        elif new_state == "error":
+            reason = data.get("reason", "Unknown error")
+            logs.add_entry(f"Agent session ERROR: {reason}", level="error")
+            self.notify(f"Agent Error: {reason}", severity="error")
+
+    async def _on_agent_cycle(self, _event: Event) -> None:
+        """Handle agent cycle completion events."""
+        # Update agent widget with latest stats
+        agent_widget = self.query_one("#agent", AgentWidget)
+        if self.trading_session:
+            agent_widget.set_status(self.trading_session.get_status())
+
+        # Refresh other widgets that may have been affected
+        positions = self.query_one("#positions", PositionsWidget)
+        await positions.refresh_data()
+
+        stats = self.query_one("#stats", StatsWidget)
+        await stats.refresh_data()
+
+        aegis = self.query_one("#aegis", AegisWidget)
+        await aegis.refresh_data()
+
     def action_quit(self) -> None:
         """Quit the application."""
         logger.info("tui_quit_requested")
@@ -406,6 +477,53 @@ class KeryxFlowApp(App):
             await self.event_bus.publish(Event(type=EventType.SYSTEM_RESUMED, data={}))
             logs.add_entry("Trading RESUMED", level="info")
             self.notify("Trading Resumed", severity="information")
+
+    async def action_toggle_agent(self) -> None:
+        """Toggle agent mode - start/pause the trading session."""
+        logs = self.query_one("#logs", LogsWidget)
+        agent_widget = self.query_one("#agent", AgentWidget)
+
+        if not self.trading_session:
+            # No session - try to create one if we have the necessary components
+            if self.trading_engine:
+                try:
+                    self.trading_session = get_trading_session(
+                        engine=self.trading_engine,
+                        event_bus=self.event_bus,
+                    )
+                    agent_widget.set_session(self.trading_session)
+                    logs.add_entry("Trading session created", level="info")
+                except Exception as e:
+                    logs.add_entry(f"Failed to create session: {e}", level="error")
+                    self.notify("Cannot create trading session", severity="error")
+                    return
+            else:
+                logs.add_entry("No trading engine available for agent mode", level="warning")
+                self.notify("Agent mode requires trading engine", severity="warning")
+                return
+
+        # Toggle session state
+        if agent_widget.is_running:
+            # Pause the session
+            success = await self.trading_session.pause()
+            if success:
+                logs.add_entry("Agent session paused", level="warning")
+            else:
+                logs.add_entry("Failed to pause agent session", level="error")
+        elif self.trading_session.state.value == "paused":
+            # Resume the session
+            success = await self.trading_session.resume()
+            if success:
+                logs.add_entry("Agent session resumed", level="success")
+            else:
+                logs.add_entry("Failed to resume agent session", level="error")
+        else:
+            # Start the session
+            success = await self.trading_session.start()
+            if success:
+                logs.add_entry("Agent session started", level="success")
+            else:
+                logs.add_entry("Failed to start agent session", level="error")
 
     def action_show_help(self) -> None:
         """Show help modal."""

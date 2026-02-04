@@ -322,6 +322,27 @@ await session.stop()
 status = session.get_status()
 ```
 
+### TUI Integration
+
+The Hermes TUI (`keryxflow/hermes/app.py`) provides real-time agent control:
+
+**Keybindings:**
+| Key | Action |
+|-----|--------|
+| `A` | Toggle Agent (start/pause/resume) |
+| `Q` | Quit |
+| `P` | Panic (emergency stop) |
+| `Space` | Pause/Resume trading |
+| `?` | Show help |
+| `L` | Toggle logs panel |
+| `S` | Switch symbol |
+
+**AgentWidget** (`hermes/widgets/agent.py`):
+- Displays session state (RUNNING, PAUSED, STOPPED, etc.)
+- Shows cycles completed with success rate
+- Displays trades count, win rate, and PnL
+- Shows tool calls and tokens used
+
 ## Safety Rules
 
 Changes to `aegis/` (risk management) require 100% test coverage. Never bypass risk checks, remove safety limits, or disable circuit breakers.

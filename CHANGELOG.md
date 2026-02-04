@@ -8,6 +8,59 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.17.0] - 2026-02-03
+
+### Added
+
+#### Full TUI Integration (`keryxflow/hermes/`)
+
+- **`app.py`** - AgentWidget integration
+  - Added AgentWidget to right column layout
+  - New keybinding "A" for agent toggle (start/pause/resume)
+  - Event handlers for SESSION_STATE_CHANGED and AGENT_CYCLE_COMPLETED
+  - `action_toggle_agent()` - Toggle agent session state
+  - `_on_session_state_changed()` - Handle session state changes
+  - `_on_agent_cycle()` - Handle agent cycle completions
+
+- **`widgets/help.py`** - Updated help modal
+  - Added "A" keybinding documentation
+
+#### End-to-End Integration Tests (`tests/integration/`)
+
+- **`test_agent_session_e2e.py`** - 12 E2E tests
+  - Session lifecycle (start/stop, pause/resume)
+  - Event flow verification
+  - Guardrail enforcement
+  - Widget integration
+  - SessionStats tracking
+
+#### App Tests (`tests/test_hermes/`)
+
+- **`test_app.py`** - 14 new tests
+  - App initialization
+  - Keybindings verification
+  - Symbol management
+  - Agent toggle action
+  - Session event handlers
+
+### Changed
+
+- **`keryxflow/hermes/app.py`**
+  - Import TradingSession and AgentWidget
+  - Added `trading_session` parameter to `__init__`
+  - Added `_connect_widgets()` agent connection
+  - Fixed B023 loop variable binding issue
+
+### Technical Details
+
+- **TUI Integration** - AgentWidget fully integrated into Hermes layout
+- **Session Control** - Press "A" to start, pause, or resume agent
+- **Event-Driven Updates** - Widgets update on session events
+- **E2E Testing** - 12 tests verify full integration flow
+- **Total Tests** - 831 tests passing
+
+---
+
 ## [0.16.0] - 2026-02-03
 
 ### Added

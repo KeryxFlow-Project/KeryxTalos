@@ -82,10 +82,7 @@ class BalanceWidget(Static):
                         config["secret"] = settings.binance_api_secret.get_secret_value()
 
                     client = ccxt.binance(config)
-                    try:
-                        return client.fetch_balance()
-                    finally:
-                        client.close()
+                    return client.fetch_balance()
 
                 balance = await asyncio.to_thread(fetch_balance_sync)
 
@@ -139,10 +136,7 @@ class BalanceWidget(Static):
                     import ccxt
 
                     client = ccxt.binance({"enableRateLimit": True})
-                    try:
-                        return client.fetch_ticker(symbol)
-                    finally:
-                        client.close()
+                    return client.fetch_ticker(symbol)
 
                 ticker = await asyncio.to_thread(fetch_ticker_sync)
                 if ticker and ticker.get("last"):

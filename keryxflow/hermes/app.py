@@ -243,10 +243,7 @@ class KeryxFlowApp(App):
                 # Use sync ccxt in thread to avoid event loop conflicts
                 def fetch_sync(sym: str = symbol):
                     client = ccxt.binance({"enableRateLimit": True})
-                    try:
-                        return client.fetch_ticker(sym)
-                    finally:
-                        client.close()
+                    return client.fetch_ticker(sym)
 
                 ticker = await asyncio.to_thread(fetch_sync)
                 price = ticker["last"]

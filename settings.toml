@@ -3,8 +3,29 @@
 
 [system]
 exchange = "binance"
-mode = "paper"                      # "paper" or "live"
-symbols = ["BTC/USDT", "ETH/USDT"]
+mode = "live"                      # "paper" or "live"
+symbols = [
+    "BTC/USDT",
+    "ETH/USDT",
+    "BNB/USDT",
+    "SOL/USDT",
+    "XRP/USDT",
+    "ADA/USDT",
+    "DOGE/USDT",
+    "AVAX/USDT",
+    "DOT/USDT",
+    "MATIC/USDT",
+    "LINK/USDT",
+    "UNI/USDT",
+    "ATOM/USDT",
+    "LTC/USDT",
+    "FIL/USDT",
+    "APT/USDT",
+    "ARB/USDT",
+    "OP/USDT",
+    "NEAR/USDT",
+    "INJ/USDT",
+]
 base_currency = "USDT"
 log_level = "INFO"
 
@@ -12,7 +33,7 @@ log_level = "INFO"
 model = "fixed_fractional"          # Position sizing model
 risk_per_trade = 0.01               # 1% of balance per trade
 max_daily_drawdown = 0.05           # 5% daily loss triggers kill switch
-max_open_positions = 3              # Maximum concurrent positions
+max_open_positions = 20             # Maximum concurrent positions (all symbols)
 min_risk_reward = 1.5               # Minimum risk/reward ratio
 stop_loss_type = "atr"              # "atr" or "fixed"
 atr_multiplier = 2.0                # ATR multiplier for dynamic stops

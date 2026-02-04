@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.agent import AgentWidget
+from keryxflow.hermes.widgets.balance import BalanceWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.logs import LogsWidget
 from keryxflow.hermes.widgets.oracle import OracleWidget
@@ -545,3 +546,68 @@ class TestAgentWidgetLogic:
         bar = widget._progress_bar(50, width=6)
         assert bar.count("█") == 3
         assert bar.count("░") == 3
+
+
+class TestBalanceWidgetLogic:
+    """Tests for BalanceWidget internal logic (no DOM required)."""
+
+    def test_init_defaults(self):
+        """Test BalanceWidget initializes with empty state."""
+        widget = BalanceWidget()
+        assert widget._balances == {}
+        assert widget._exchange_client is None
+        assert widget._total_usd == 0.0
+
+    def test_set_balances(self):
+        """Test setting balances manually."""
+        widget = BalanceWidget()
+        balances = {"BTC": 0.5, "ETH": 2.0, "USDT": 1000.0}
+        widget.set_balances(balances)
+
+        assert widget._balances == {"BTC": 0.5, "ETH": 2.0, "USDT": 1000.0}
+
+    def test_set_balances_filters_zero(self):
+        """Test set_balances filters zero values."""
+        widget = BalanceWidget()
+        balances = {"BTC": 0.5, "ETH": 0.0, "USDT": 1000.0}
+        widget.set_balances(balances)
+
+        assert "ETH" not in widget._balances
+        assert widget._balances == {"BTC": 0.5, "USDT": 1000.0}
+
+    def test_total_usd_property(self):
+        """Test total_usd property."""
+        widget = BalanceWidget()
+        assert widget.total_usd == 0.0
+
+        widget._total_usd = 5000.0
+        assert widget.total_usd == 5000.0
+
+    def test_has_usdt_property(self):
+        """Test has_usdt property."""
+        widget = BalanceWidget()
+        assert not widget.has_usdt
+
+        widget._balances = {"USDT": 100.0}
+        assert widget.has_usdt
+
+        widget._balances = {"USDT": 0.0}
+        assert not widget.has_usdt
+
+    def test_usdt_balance_property(self):
+        """Test usdt_balance property."""
+        widget = BalanceWidget()
+        assert widget.usdt_balance == 0
+
+        widget._balances = {"USDT": 500.0}
+        assert widget.usdt_balance == 500.0
+
+    def test_set_exchange_client(self):
+        """Test setting exchange client."""
+        from unittest.mock import MagicMock
+
+        widget = BalanceWidget()
+        mock_client = MagicMock()
+        widget.set_exchange_client(mock_client)
+
+        assert widget._exchange_client is mock_client

@@ -2,6 +2,7 @@
 
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.agent import AgentWidget
+from keryxflow.hermes.widgets.balance import BalanceWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
@@ -12,6 +13,7 @@ from keryxflow.hermes.widgets.stats import StatsWidget
 
 __all__ = [
     "AgentWidget",
+    "BalanceWidget",
     "ChartWidget",
     "PositionsWidget",
     "OracleWidget",

@@ -6,7 +6,7 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Footer, Header
 
 from keryxflow import __version__
-from keryxflow.agent.session import TradingSession, get_trading_session
+from keryxflow.agent.session import TradingSession
 from keryxflow.config import get_settings
 from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
@@ -15,6 +15,7 @@ from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.agent import AgentWidget
+from keryxflow.hermes.widgets.balance import BalanceWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
@@ -74,6 +75,7 @@ class KeryxFlowApp(App):
                     yield OracleWidget(id="oracle")
 
                 with Vertical(id="right-column"):
+                    yield BalanceWidget(id="balance")
                     yield PositionsWidget(id="positions")
                     yield AegisWidget(id="aegis")
                     yield StatsWidget(id="stats")
@@ -122,6 +124,17 @@ class KeryxFlowApp(App):
                     f"paper={self.paper_engine is not None}"
                 )
 
+            # Connect balance widget if we have exchange client (even without paper engine)
+            if self.exchange_client:
+                try:
+                    balance_widget = self.query_one("#balance", BalanceWidget)
+                    balance_widget.set_exchange_client(self.exchange_client)
+                    self._log_msg("Connected BALANCE to exchange client")
+                    # Initial balance refresh
+                    await balance_widget.refresh_data()
+                except Exception as e:
+                    self._log_msg(f"Balance widget setup error: {e}")
+
             # Start price feed timer
             self._start_price_feed()
 
@@ -151,6 +164,12 @@ class KeryxFlowApp(App):
             # Connect positions widget to paper engine
             positions = self.query_one("#positions", PositionsWidget)
             positions.set_paper_engine(self.paper_engine)
+
+        # Connect balance widget to exchange client
+        if self.exchange_client:
+            balance_widget = self.query_one("#balance", BalanceWidget)
+            balance_widget.set_exchange_client(self.exchange_client)
+            self._log_msg("Connected BALANCE to exchange client")
 
         # Connect agent widget to trading session
         agent_widget = self.query_one("#agent", AgentWidget)
@@ -185,6 +204,8 @@ class KeryxFlowApp(App):
 
         self._log_msg("Price loop started!")
         analysis_counter = 0
+        balance_counter = 0
+        balance_interval = int(self.settings.live.sync_interval / self.settings.hermes.refresh_rate)
 
         while True:
             if self._paused:
@@ -198,6 +219,16 @@ class KeryxFlowApp(App):
             if analysis_counter >= 3 and self.trading_engine:
                 analysis_counter = 0
                 await self._update_oracle()
+
+            # Refresh balance periodically (every sync_interval seconds)
+            balance_counter += 1
+            if balance_counter >= balance_interval:
+                balance_counter = 0
+                try:
+                    balance_widget = self.query_one("#balance", BalanceWidget)
+                    await balance_widget.refresh_data()
+                except Exception:
+                    pass
 
             await asyncio.sleep(self.settings.hermes.refresh_rate)
 
@@ -312,6 +343,9 @@ class KeryxFlowApp(App):
 
         stats = self.query_one("#stats", StatsWidget)
         await stats.refresh_data()
+
+        balance = self.query_one("#balance", BalanceWidget)
+        await balance.refresh_data()
 
     @property
     def current_symbol(self) -> str:
@@ -487,10 +521,10 @@ class KeryxFlowApp(App):
             # No session - try to create one if we have the necessary components
             if self.trading_engine:
                 try:
-                    self.trading_session = get_trading_session(
+                    self.trading_session = TradingSession(
                         engine=self.trading_engine,
-                        event_bus=self.event_bus,
                     )
+                    self.trading_session._event_bus = self.event_bus
                     agent_widget.set_session(self.trading_session)
                     logs.add_entry("Trading session created", level="info")
                 except Exception as e:

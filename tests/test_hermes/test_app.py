@@ -132,7 +132,7 @@ class TestKeryxFlowAppToggleAgent:
 
         with (
             patch.object(app, "query_one") as mock_query,
-            patch("keryxflow.hermes.app.get_trading_session", return_value=mock_session),
+            patch("keryxflow.hermes.app.TradingSession", return_value=mock_session),
             patch.object(app, "notify"),
         ):
             mock_query.side_effect = lambda selector, _cls: (

@@ -3,7 +3,7 @@
 
 [system]
 exchange = "binance"
-mode = "live"                      # "paper" or "live"
+mode = "paper"                      # "paper" or "live"
 symbols = [
     "BTC/USDT",
     "ETH/USDT",
@@ -70,7 +70,7 @@ news_lookback_hours = 4             # How far back to fetch news
 url = "sqlite+aiosqlite:///data/keryxflow.db"
 
 [hermes]
-refresh_rate = 1.0                  # TUI refresh rate in seconds
+refresh_rate = 3.0                  # TUI refresh rate in seconds
 chart_width = 60                    # Chart width in characters
 chart_height = 15                   # Chart height in characters
 max_log_lines = 100                 # Maximum log lines to display

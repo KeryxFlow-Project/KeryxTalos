@@ -1,5 +1,7 @@
 """Main TUI application using Textual."""
 
+import asyncio
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
@@ -113,6 +115,32 @@ class KeryxFlowApp(App):
         """Async initialization after splash screen."""
         try:
             self._log_msg("Starting initialization...")
+
+            # Start event bus if not already running
+            # This ensures the task runs in Textual's event loop
+            if not self.event_bus.is_running:
+                self._log_msg("Starting event bus...")
+                await self.event_bus.start()
+                self._log_msg("Event bus started!")
+
+            # Connect exchange client if not already connected
+            # This ensures the connection happens in Textual's event loop
+            if self.exchange_client and not self.exchange_client.is_connected:
+                self._log_msg("Connecting to exchange...")
+                connected = await self.exchange_client.connect()
+                if connected:
+                    self._log_msg("Exchange connected!")
+                else:
+                    self._log_msg("Exchange connection failed!")
+
+            # Start trading engine if not already started
+            if self.trading_engine and not self.trading_engine._running:
+                self._log_msg("Starting trading engine...")
+                try:
+                    await self.trading_engine.start()
+                    self._log_msg("Trading engine started!")
+                except Exception as e:
+                    self._log_msg(f"Trading engine error: {e}")
 
             # Connect widgets
             self._log_msg("Connecting widgets...")
@@ -234,13 +262,30 @@ class KeryxFlowApp(App):
 
     async def _fetch_prices_once(self) -> None:
         """Fetch prices once and update widgets."""
-        for symbol in self._symbols:
-            try:
-                # Use the main exchange client (no temporary clients!)
-                if not self.exchange_client:
-                    continue
+        if not self.exchange_client:
+            return
 
-                ticker = await self.exchange_client.get_ticker(symbol)
+        # Fetch prices in parallel with concurrency limit
+        semaphore = asyncio.Semaphore(5)  # Max 5 concurrent requests
+
+        async def fetch_single(symbol: str) -> tuple[str, dict | None]:
+            async with semaphore:
+                try:
+                    ticker = await self.exchange_client.get_ticker(symbol)
+                    return (symbol, ticker)
+                except Exception as e:
+                    logger.warning("price_fetch_error", symbol=symbol, error=str(e))
+                    return (symbol, None)
+
+        # Fetch all prices in parallel
+        results = await asyncio.gather(*[fetch_single(s) for s in self._symbols])
+
+        # Process results
+        for symbol, ticker in results:
+            if ticker is None:
+                continue
+
+            try:
                 price = ticker["last"]
                 self._log_msg(f"{symbol}: ${price:,.2f}")
 

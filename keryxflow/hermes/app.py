@@ -22,6 +22,7 @@ from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.help import HelpModal
 from keryxflow.hermes.widgets.logs import LogsWidget
 from keryxflow.hermes.widgets.oracle import OracleWidget
+from keryxflow.hermes.widgets.order_modal import OrderModal
 from keryxflow.hermes.widgets.positions import PositionsWidget
 from keryxflow.hermes.widgets.stats import StatsWidget
 
@@ -43,6 +44,8 @@ class KeryxFlowApp(App):
         Binding("question_mark", "show_help", "Help"),
         Binding("l", "toggle_logs", "Toggle Logs"),
         Binding("s", "cycle_symbol", "Next Symbol"),
+        Binding("b", "buy", "Buy"),
+        Binding("v", "sell", "Sell"),
     ]
 
     def __init__(
@@ -152,16 +155,19 @@ class KeryxFlowApp(App):
                     f"paper={self.paper_engine is not None}"
                 )
 
-            # Connect balance widget if we have exchange client (even without paper engine)
-            if self.exchange_client:
-                try:
-                    balance_widget = self.query_one("#balance", BalanceWidget)
+            # Connect balance widget to paper engine and/or exchange client
+            try:
+                balance_widget = self.query_one("#balance", BalanceWidget)
+                if self.paper_engine:
+                    balance_widget.set_paper_engine(self.paper_engine)
+                    self._log_msg("Connected BALANCE to paper engine")
+                if self.exchange_client:
                     balance_widget.set_exchange_client(self.exchange_client)
                     self._log_msg("Connected BALANCE to exchange client")
-                    # Initial balance refresh
-                    await balance_widget.refresh_data()
-                except Exception as e:
-                    self._log_msg(f"Balance widget setup error: {e}")
+                # Initial balance refresh
+                await balance_widget.refresh_data()
+            except Exception as e:
+                self._log_msg(f"Balance widget setup error: {e}")
 
             # Start price feed timer
             self._start_price_feed()
@@ -193,11 +199,13 @@ class KeryxFlowApp(App):
             positions = self.query_one("#positions", PositionsWidget)
             positions.set_paper_engine(self.paper_engine)
 
-        # Connect balance widget to exchange client
+        # Connect balance widget to paper engine and exchange client
+        balance_widget = self.query_one("#balance", BalanceWidget)
+        if self.paper_engine:
+            balance_widget.set_paper_engine(self.paper_engine)
         if self.exchange_client:
-            balance_widget = self.query_one("#balance", BalanceWidget)
             balance_widget.set_exchange_client(self.exchange_client)
-            self._log_msg("Connected BALANCE to exchange client")
+        self._log_msg("Connected BALANCE widget")
 
         # Connect agent widget to trading session
         agent_widget = self.query_one("#agent", AgentWidget)
@@ -631,6 +639,132 @@ class KeryxFlowApp(App):
         logs.add_entry(f"Switched to {self.current_symbol}")
 
         self.notify(f"Symbol: {self.current_symbol}")
+
+    def action_buy(self) -> None:
+        """Open buy order modal."""
+        self.run_worker(self._open_order_modal("buy"))
+
+    def action_sell(self) -> None:
+        """Open sell order modal."""
+        self.run_worker(self._open_order_modal("sell"))
+
+    async def _open_order_modal(self, side: str) -> None:
+        """Open the order modal for buy or sell."""
+        symbol = self.current_symbol
+        is_live_mode = self.settings.system.mode == "live"
+
+        # Get current price
+        chart = self.query_one("#chart", ChartWidget)
+        current_price = chart._current_price
+
+        if current_price <= 0:
+            self.notify("Aguarde o preço carregar", severity="warning")
+            return
+
+        # Get available balance based on mode
+        available_balance = 0.0
+        current_position = 0.0
+
+        # In live mode, use exchange client
+        if is_live_mode and self.exchange_client and self.exchange_client.is_connected:
+            try:
+                balance = await self.exchange_client.get_balance()
+                available_balance = balance.get("free", {}).get("USDT", 0.0)
+                # For live mode, we'd need to track positions differently
+                # For now, we'll use paper_engine positions as a fallback
+            except Exception as e:
+                self._log_msg(f"Balance error: {e}")
+
+        # Fallback to paper engine
+        if available_balance == 0.0 and self.paper_engine:
+            balance = await self.paper_engine.get_balance()
+            available_balance = balance.get("free", {}).get("USDT", 0.0)
+
+        # Get positions from paper engine
+        if self.paper_engine:
+            positions = await self.paper_engine.get_positions()
+            for pos in positions:
+                if pos.symbol == symbol:
+                    current_position = abs(pos.quantity)
+                    break
+
+        # For sell, check if we have a position
+        if side == "sell" and current_position <= 0:
+            self.notify("Sem posição para vender", severity="warning")
+            return
+
+        # For buy, check if we have balance
+        if side == "buy" and available_balance <= 0:
+            self.notify("Saldo insuficiente", severity="warning")
+            return
+
+        # Open modal
+        modal = OrderModal(
+            symbol=symbol,
+            side=side,
+            current_price=current_price,
+            available_balance=available_balance,
+            current_position=current_position,
+        )
+
+        result = await self.push_screen_wait(modal)
+
+        if result:
+            await self._execute_manual_order(result)
+
+    async def _execute_manual_order(self, order: dict) -> None:
+        """Execute a manual order."""
+        symbol = order["symbol"]
+        side = order["side"]
+        quantity = order["quantity"]
+        price = order["price"]
+
+        logs = self.query_one("#logs", LogsWidget)
+
+        if not self.paper_engine:
+            logs.add_entry("Paper engine não disponível", level="error")
+            return
+
+        try:
+            # Execute order on paper engine
+            result = await self.paper_engine.execute_market_order(
+                symbol=symbol,
+                side=side,
+                amount=quantity,
+                price=price,
+            )
+
+            if result.get("status") == "closed":
+                action = "Compra" if side == "buy" else "Venda"
+                logs.add_entry(
+                    f"✓ {action} executada: {quantity} {symbol} @ ${price:,.2f}",
+                    level="info",
+                )
+                self.notify(f"{action} executada!", severity="information")
+
+                # Refresh positions widget
+                positions = self.query_one("#positions", PositionsWidget)
+                await positions.refresh_data()
+
+                # Refresh balance widget
+                balance = self.query_one("#balance", BalanceWidget)
+                await balance.refresh_data()
+
+                # Update stats (record trade with 0 PnL for now, will update on close)
+                stats = self.query_one("#stats", StatsWidget)
+                stats.record_trade(0.0)
+
+            else:
+                logs.add_entry(
+                    f"✗ Ordem rejeitada: {result.get('error', 'Unknown')}",
+                    level="error",
+                )
+                self.notify("Ordem rejeitada", severity="error")
+
+        except Exception as e:
+            logger.error("manual_order_failed", error=str(e))
+            logs.add_entry(f"✗ Erro: {e}", level="error")
+            self.notify(f"Erro: {e}", severity="error")
 
 
 def run_app() -> None:

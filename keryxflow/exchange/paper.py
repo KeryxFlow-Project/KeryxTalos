@@ -535,3 +535,9 @@ def get_paper_engine(
             slippage_pct=slippage_pct,
         )
     return _paper_engine
+
+
+def set_paper_engine(engine: PaperTradingEngine) -> None:
+    """Set the global paper trading engine instance."""
+    global _paper_engine
+    _paper_engine = engine

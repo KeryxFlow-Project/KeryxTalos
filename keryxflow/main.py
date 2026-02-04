@@ -11,7 +11,7 @@ from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import get_event_bus
 from keryxflow.core.logging import get_logger, setup_logging
 from keryxflow.exchange.client import ExchangeClient
-from keryxflow.exchange.paper import PaperTradingEngine
+from keryxflow.exchange.paper import PaperTradingEngine, set_paper_engine
 from keryxflow.hermes.app import KeryxFlowApp
 
 logger = get_logger(__name__)
@@ -63,15 +63,17 @@ def initialize_sync() -> dict[str, Any]:
         initial_balance=10000.0,
         slippage_pct=0.001,
     )
+    set_paper_engine(paper)  # Register as global singleton
     asyncio.run(paper.initialize())
     balance = asyncio.run(paper.get_balance())
     usdt = balance["total"].get("USDT", 0)
     print(f"        ✓ Balance: ${usdt:,.2f} USDT")
 
     # Create exchange client (but DON'T connect yet - that happens in TUI)
+    # Always use production API for price data (testnet is often unreliable)
+    # The paper/live mode only controls whether orders go to paper engine or real exchange
     print("\n  [3/3] Creating exchange client...")
-    sandbox = settings.system.mode == "paper"
-    client = ExchangeClient(sandbox=sandbox)
+    client = ExchangeClient(sandbox=False)
     print("        ✓ Client ready (will connect in TUI)")
 
     # Create trading engine (but DON'T start yet - that happens in TUI)

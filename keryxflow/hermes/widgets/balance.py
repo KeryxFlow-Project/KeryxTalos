@@ -79,122 +79,93 @@ class BalanceWidget(Static):
         self.run_worker(self.refresh_data())
 
     async def refresh_data(self) -> None:
-        """Refresh balances from paper engine or exchange."""
-        from keryxflow.exchange.paper import get_paper_engine
-
-        table = self.query_one("#balance-table", DataTable)
-        
-        # DEBUG TRACE
-        self.notify("DEBUG: Refreshing balance...", timeout=2)
-        
-        # Ensure columns exist (handle race condition where refresh called before on_mount)
-        if not table.columns:
-            table.add_columns("Asset", "Amount", "≈ USD")
-            table.cursor_type = "row"
+        """Refresh balances with extensive debugging."""
+        try:
+            from keryxflow.exchange.paper import get_paper_engine
+            table = self.query_one("#balance-table", DataTable)
             
-        table.clear()
-
-        balance_data = None
-        is_live_mode = self._settings.system.mode == "live"
-
-        # In live mode, try exchange client first
-        if is_live_mode and self._exchange_client:
-            try:
-                logger.debug("balance_widget_fetching_live")
-                if self._exchange_client.is_connected:
-                    balance_data = await self._exchange_client.get_balance()
-                    logger.debug("balance_widget_live_data", data=str(balance_data)[:100])
-                else:
-                    logger.warning("balance_widget_exchange_not_connected")
-            except Exception as e:
-                logger.warning("balance_widget_exchange_error", error=str(e))
-
-        # In paper mode (or as fallback), try paper engine
-        if balance_data is None:
-            paper = self._paper_engine or get_paper_engine()
-            if paper:
+            # 1. Clear and Proof of Life
+            table.clear()
+            # table.add_row("DEBUG", "Starting...", "...") # Toggle this if needed
+            
+            # 2. Fetch Data
+            balance_data = None
+            is_live_mode = self._settings.system.mode == "live"
+            
+            # (Fetching logic omitted for brevity, keeping existing flow but wrapped safely)
+            if is_live_mode and self._exchange_client and self._exchange_client.is_connected:
                 try:
-                    logger.debug("balance_widget_fetching_paper")
-                    balance_data = await paper.get_balance()
-                    logger.debug("balance_widget_paper_data", data=str(balance_data)[:100])
-                except Exception as e:
-                    logger.warning("balance_widget_paper_error", error=str(e))
-
-        # Final fallback to exchange client if paper also failed
-        if balance_data is None and self._exchange_client and not is_live_mode:
-            try:
-                if self._exchange_client.is_connected:
                     balance_data = await self._exchange_client.get_balance()
-            except Exception as e:
-                logger.warning("balance_widget_fallback_error", error=str(e))
+                except Exception:
+                    pass
+            
+            if not balance_data:
+                paper = self._paper_engine or get_paper_engine()
+                if paper:
+                    balance_data = await paper.get_balance()
 
-        # Check if we have any data
-        total_balances = balance_data.get("total", {}) if balance_data else {}
-        has_data = any(v > 0 for v in total_balances.values())
+            if not balance_data and self._exchange_client and not is_live_mode and self._exchange_client.is_connected:
+                try:
+                    balance_data = await self._exchange_client.get_balance()
+                except Exception:
+                    pass
 
-        if balance_data and has_data:
-            try:
-                # Filter non-zero balances
-                self._balances = {
-                    currency: amount
-                    for currency, amount in total_balances.items()
-                    if amount > 0
-                }
+            # 3. Process Data
+            total_balances = balance_data.get("total", {}) if balance_data else {}
+            # Filter > 0
+            balances = {k: v for k, v in total_balances.items() if v > 0}
+            
+            if not balances:
+                table.add_row("—", "No Funds", "—")
+                return
+
+            # 4. Populate Table
+            rows_added = 0
+            self._total_usd = 0.0
+            
+            for currency, amount in balances.items():
+                if amount < 0.00000001: continue
                 
-                # DEBUG: Notify user of fetched balances
-                self.notify(f"DEBUG: Balances fetched: {self._balances}", timeout=10)
-
-                # Calculate USD values (approximate)
-                self._total_usd = 0.0
-                rows = []
-
-                for currency, amount in sorted(self._balances.items()):
-                    usd_value = await self._get_usd_value(currency, amount)
-                    self._total_usd += usd_value
-                    rows.append((currency, amount, usd_value))
-
-                # Filter rows to update
-                display_rows = []
-                for currency, amount, usd_value in rows:
-                    if amount >= 0.00000001:
-                         # Format amount nicely
-                        if amount >= 1:
-                            amount_str = f"{amount:,.4f}".rstrip("0").rstrip(".")
-                        else:
-                            amount_str = f"{amount:.8f}".rstrip("0").rstrip(".")
-                        display_rows.append((currency, amount_str, f"${usd_value:,.2f}"))
-
-                # Add rows to table
-                if not display_rows:
-                     table.add_row("—", "Empty balance", "—")
+                # Get USD Value (Simplified for now)
+                usd_value = 0.0
+                if currency in ("USDT", "USDC", "USD"):
+                    usd_value = amount
                 else:
-                    for currency, amount_str, usd_str in display_rows:
-                        table.add_row(currency, amount_str, usd_str)
+                    # Async call to get value
+                    try:
+                        usd_value = await self._get_usd_value(currency, amount)
+                    except Exception as e:
+                        logger.error(f"Error getting price for {currency}: {e}")
+                        usd_value = 0.0
 
-                # Update total
+                self._total_usd += usd_value
+                
+                # Format
+                formatted_amount = f"{amount:,.4f}" if amount >= 1 else f"{amount:.8f}"
+                formatted_amount = formatted_amount.rstrip("0").rstrip(".")
+                
+                table.add_row(currency, formatted_amount, f"${usd_value:,.2f}")
+                rows_added += 1
+
+            # Update Total
+            try:
                 total_line = self.query_one("#total-line", Static)
                 total_line.update(f"[bold]Total: [green]${self._total_usd:,.2f}[/][/]")
+            except Exception:
+                pass
 
-            except Exception as e:
-                logger.error("balance_widget_process_error", error=str(e))
-                table.add_row("Error", str(e)[:30], "—")
-        else:
-            # Show debug info about what's missing
-            mode = self._settings.system.mode
-            if not balance_data:
-                if not self._exchange_client and not self._paper_engine:
-                    table.add_row("—", "No source", "—")
-                elif mode == "live" and self._exchange_client:
-                    if not self._exchange_client.is_connected:
-                        table.add_row("—", "Not connected", "—")
-                    else:
-                        table.add_row("—", "No balance", "—")
-                else:
-                    table.add_row("—", "Fetching...", "—")
-            else:
-                # balance_data exists but is empty
-                table.add_row("—", "Empty balance", "—")
-                logger.debug("balance_widget_empty", raw=str(balance_data)[:200])
+            if rows_added == 0:
+                table.add_row("—", "All dust", "—")
+
+        except Exception as e:
+            # CATCH ALL ERRORS AND SHOW IN TABLE
+            try:
+                table = self.query_one("#balance-table", DataTable)
+                table.add_row("CRASH", str(e)[:30], "Check logs")
+                self.notify(f"Balance Widget Crash: {e}", severity="error", timeout=10)
+                logger.error("balance_widget_crash", error=str(e))
+            except Exception:
+                pass
 
     async def _get_usd_value(self, currency: str, amount: float) -> float:
         """Get USD value for a currency amount."""

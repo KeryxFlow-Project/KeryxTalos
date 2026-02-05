@@ -84,6 +84,9 @@ class BalanceWidget(Static):
 
         table = self.query_one("#balance-table", DataTable)
         
+        # DEBUG TRACE
+        self.notify("DEBUG: Refreshing balance...", timeout=2)
+        
         # Ensure columns exist (handle race condition where refresh called before on_mount)
         if not table.columns:
             table.add_columns("Asset", "Amount", "≈ USD")
@@ -137,6 +140,9 @@ class BalanceWidget(Static):
                     for currency, amount in total_balances.items()
                     if amount > 0
                 }
+                
+                # DEBUG: Notify user of fetched balances
+                self.notify(f"DEBUG: Balances fetched: {self._balances}", timeout=10)
 
                 # Calculate USD values (approximate)
                 self._total_usd = 0.0
@@ -192,18 +198,32 @@ class BalanceWidget(Static):
 
     async def _get_usd_value(self, currency: str, amount: float) -> float:
         """Get USD value for a currency amount."""
+        # TEMPORARY DEBUG: Return 0.0 to rule out connection hangs
+        return 0.0
+
         if currency in ("USDT", "USDC", "BUSD", "USD"):
             return amount
 
-        if self._exchange_client:
+        if self._exchange_client and self._exchange_client.is_connected:
             try:
                 # Use the main exchange client to get ticker
                 symbol = f"{currency}/USDT"
-                ticker = await self._exchange_client.get_ticker(symbol)
-                if ticker and ticker.get("last"):
-                    return amount * ticker["last"]
-            except Exception:
-                pass
+                # Add timeout to prevent hanging
+                import asyncio
+                try:
+                    ticker = await asyncio.wait_for(
+                        self._exchange_client.get_ticker(symbol), 
+                        timeout=2.0
+                    )
+                    if ticker and ticker.get("last"):
+                        return amount * ticker["last"]
+                except asyncio.TimeoutError:
+                    if self._settings.system.log_level == "DEBUG":
+                         self.notify(f"Timeout fetching price for {symbol}")
+                    return 0.0
+            except Exception as e:
+                # Silently fail for individual price updates to not break the whole table
+                return 0.0
 
         return 0.0
 

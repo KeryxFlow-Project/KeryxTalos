@@ -8,7 +8,13 @@ async def check_db():
     print(f"Checking DB at: {get_settings().database.url}")
     async for session in get_session():
         try:
-            result = await session.execute(text("SELECT * FROM paperbalance"))
+            # Check if table exists
+            tables = await session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='paper_balances'"))
+            if not tables.first():
+                print("FAILURE: Table 'paper_balances' does not exist.")
+                return
+
+            result = await session.execute(text("SELECT * FROM paper_balances"))
             rows = result.fetchall()
             print(f"Found {len(rows)} balance records:")
             for row in rows:

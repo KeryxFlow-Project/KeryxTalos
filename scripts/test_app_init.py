@@ -17,11 +17,11 @@ async def simulate_startup():
     async for session in get_session():
         try:
             # Try to query the table that was missing
-            result = await session.execute(text("SELECT count(*) FROM paperbalance"))
+            result = await session.execute(text("SELECT count(*) FROM paper_balances"))
             count = result.scalar()
-            print(f"SUCCESS: 'paperbalance' table exists. Row count: {count}")
+            print(f"SUCCESS: 'paper_balances' table exists. Row count: {count}")
         except Exception as e:
-            print(f"FAILURE: Could not query 'paperbalance': {e}")
+            print(f"FAILURE: Could not query 'paper_balances': {e}")
 
 if __name__ == "__main__":
     asyncio.run(simulate_startup())

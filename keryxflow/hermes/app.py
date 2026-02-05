@@ -9,6 +9,7 @@ from textual.widgets import Footer, Header
 
 from keryxflow import __version__
 from keryxflow.agent.session import TradingSession
+from keryxflow.core.database import get_or_create_user_profile, get_session, init_db
 from keryxflow.config import get_settings
 from keryxflow.core.engine import TradingEngine
 from keryxflow.core.database import get_or_create_user_profile, init_db
@@ -120,6 +121,15 @@ class KeryxFlowApp(App):
         try:
             self._log_msg("Starting initialization...")
 
+            # Initialize database
+            self._log_msg("Initializing database...")
+            await init_db()
+            self._log_msg("Database ready")
+
+            # Load user profile (ensure it exists)
+            async for session in get_session():
+                 await get_or_create_user_profile(session)
+            
             # Start event bus if not already running
             # This ensures the task runs in Textual's event loop
             if not self.event_bus.is_running:

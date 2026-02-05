@@ -1,0 +1,10 @@
+App mounted. Running verification steps...
+Calling refresh_data()...
+refresh_data() completed.
+
+--- RESULTS ---
+Widget internal balances: {}
+Table Row Count: 2
+Table Rows:
+  ['USDT', '69.7835', '$69.78']
+  ['BTC', '0.2220001', '$0.00']

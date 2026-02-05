@@ -79,14 +79,13 @@ class BalanceWidget(Static):
         self.run_worker(self.refresh_data())
 
     async def refresh_data(self) -> None:
-        """Refresh balances with extensive debugging."""
+        """Refresh balances."""
         try:
             from keryxflow.exchange.paper import get_paper_engine
             table = self.query_one("#balance-table", DataTable)
             
-            # 1. Clear and Proof of Life
+            # Clear table
             table.clear()
-            # table.add_row("DEBUG", "Starting...", "...") # Toggle this if needed
             
             # 2. Fetch Data
             balance_data = None
@@ -169,9 +168,6 @@ class BalanceWidget(Static):
 
     async def _get_usd_value(self, currency: str, amount: float) -> float:
         """Get USD value for a currency amount."""
-        # TEMPORARY DEBUG: Return 0.0 to rule out connection hangs
-        return 0.0
-
         if currency in ("USDT", "USDC", "BUSD", "USD"):
             return amount
 
@@ -179,21 +175,21 @@ class BalanceWidget(Static):
             try:
                 # Use the main exchange client to get ticker
                 symbol = f"{currency}/USDT"
-                # Add timeout to prevent hanging
+                
+                # Add timeout to prevent hanging, but keep it tight
                 import asyncio
                 try:
                     ticker = await asyncio.wait_for(
                         self._exchange_client.get_ticker(symbol), 
-                        timeout=2.0
+                        timeout=1.0 # 1s timeout
                     )
                     if ticker and ticker.get("last"):
                         return amount * ticker["last"]
                 except asyncio.TimeoutError:
-                    if self._settings.system.log_level == "DEBUG":
-                         self.notify(f"Timeout fetching price for {symbol}")
+                    # Log but just return 0 to avoid breaking the UI
                     return 0.0
-            except Exception as e:
-                # Silently fail for individual price updates to not break the whole table
+            except Exception:
+                # Silently fail for individual price updates
                 return 0.0
 
         return 0.0

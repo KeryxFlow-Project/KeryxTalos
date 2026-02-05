@@ -83,6 +83,12 @@ class BalanceWidget(Static):
         from keryxflow.exchange.paper import get_paper_engine
 
         table = self.query_one("#balance-table", DataTable)
+        
+        # Ensure columns exist (handle race condition where refresh called before on_mount)
+        if not table.columns:
+            table.add_columns("Asset", "Amount", "≈ USD")
+            table.cursor_type = "row"
+            
         table.clear()
 
         balance_data = None
@@ -141,19 +147,23 @@ class BalanceWidget(Static):
                     self._total_usd += usd_value
                     rows.append((currency, amount, usd_value))
 
-                # Add rows to table
+                # Filter rows to update
+                display_rows = []
                 for currency, amount, usd_value in rows:
-                    if amount >= 0.00000001:  # Filter dust
-                        # Format amount nicely
+                    if amount >= 0.00000001:
+                         # Format amount nicely
                         if amount >= 1:
                             amount_str = f"{amount:,.4f}".rstrip("0").rstrip(".")
                         else:
                             amount_str = f"{amount:.8f}".rstrip("0").rstrip(".")
-                        table.add_row(
-                            currency,
-                            amount_str,
-                            f"${usd_value:,.2f}",
-                        )
+                        display_rows.append((currency, amount_str, f"${usd_value:,.2f}"))
+
+                # Add rows to table
+                if not display_rows:
+                     table.add_row("—", "Empty balance", "—")
+                else:
+                    for currency, amount_str, usd_str in display_rows:
+                        table.add_row(currency, amount_str, usd_str)
 
                 # Update total
                 total_line = self.query_one("#total-line", Static)

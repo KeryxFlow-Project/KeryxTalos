@@ -3,7 +3,7 @@
 
 [system]
 exchange = "binance"
-mode = "paper"                      # "paper" or "live"
+mode = "live"                      # "paper" or "live"
 symbols = [
     "BTC/USDT",
     "ETH/USDT",

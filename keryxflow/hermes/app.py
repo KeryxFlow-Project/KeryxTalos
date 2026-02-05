@@ -9,10 +9,9 @@ from textual.widgets import Footer, Header
 
 from keryxflow import __version__
 from keryxflow.agent.session import TradingSession
-from keryxflow.core.database import get_or_create_user_profile, get_session, init_db
 from keryxflow.config import get_settings
 from keryxflow.core.engine import TradingEngine
-from keryxflow.core.database import get_or_create_user_profile, init_db
+from keryxflow.core.database import get_or_create_user_profile, get_session, init_db
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.exchange.client import ExchangeClient

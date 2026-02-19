@@ -106,7 +106,7 @@ class KeryxFlowApp(App):
             logs = self.query_one("#logs", LogsWidget)
             logs.add_entry("KeryxFlow starting...", level="info")
         except Exception:
-            logger.debug("logs_widget_not_ready_at_mount")
+            logger.debug("logs_widget_not_ready_at_mount", exc_info=True)
 
         # Initialize directly (skip splash for now)
         self.run_worker(self._initialize_after_splash)
@@ -178,7 +178,7 @@ class KeryxFlowApp(App):
             logs = self.query_one("#logs", LogsWidget)
             logs.add_entry(msg, level="info")
         except Exception:
-            pass
+            logger.debug("log_msg_widget_unavailable", exc_info=True)
 
     def _connect_widgets(self) -> None:
         """Connect widgets to engines."""
@@ -256,7 +256,7 @@ class KeryxFlowApp(App):
                     balance_widget = self.query_one("#balance", BalanceWidget)
                     await balance_widget.refresh_data()
                 except Exception:
-                    pass
+                    logger.debug("balance_refresh_error", exc_info=True)
 
             await asyncio.sleep(self.settings.hermes.refresh_rate)
 

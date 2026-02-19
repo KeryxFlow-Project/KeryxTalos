@@ -5,6 +5,10 @@ from typing import TYPE_CHECKING, Any
 from textual.app import ComposeResult
 from textual.widgets import DataTable, Static
 
+from keryxflow.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 if TYPE_CHECKING:
     from keryxflow.exchange.adapter import ExchangeAdapter
 
@@ -116,7 +120,7 @@ class BalanceWidget(Static):
                 if ticker and ticker.get("last"):
                     return amount * ticker["last"]
             except Exception:
-                pass
+                logger.debug("usd_value_lookup_failed", currency=currency, exc_info=True)
 
         return 0.0
 

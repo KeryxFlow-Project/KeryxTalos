@@ -203,8 +203,8 @@ class TestToolExecutor:
         toolkit.register(MockPerceptionTool())
         executor = ToolExecutor(toolkit=toolkit)
 
-        # Perception tools should work even with skip_guardrails=False
-        result = await executor.execute("mock_perception", skip_guardrails=False, value=42)
+        # Perception tools should work (no guardrail check needed)
+        result = await executor.execute("mock_perception", value=42)
         assert result.success is True
 
     @pytest.mark.asyncio
@@ -240,16 +240,14 @@ class TestToolExecutor:
         """Test tracking executions by category."""
         toolkit = TradingToolkit()
         toolkit.register(MockPerceptionTool())
-        toolkit.register(MockExecutionTool())
         executor = ToolExecutor(toolkit=toolkit)
 
         await executor.execute("mock_perception", value=1)
         await executor.execute("mock_perception", value=2)
-        await executor.execute("mock_execution", skip_guardrails=True, action="test")
+        await executor.execute("mock_perception", value=3)
 
         stats = executor.get_stats()
-        assert stats["executions_by_category"]["perception"] == 2
-        assert stats["executions_by_category"]["execution"] == 1
+        assert stats["executions_by_category"]["perception"] == 3
 
 
 class TestToolExecutorWithGuardrails:

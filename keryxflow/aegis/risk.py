@@ -339,6 +339,17 @@ class RiskManager:
                 technical_message=f"Daily drawdown {self.daily_drawdown:.2%} >= limit {self.profile.max_daily_drawdown:.2%}",
             )
 
+        # Check total drawdown from peak
+        drawdown_result = self._guardrail_enforcer.check_drawdown(self._portfolio_state)
+        if not drawdown_result.allowed:
+            self.activate_circuit_breaker("Total drawdown limit reached")
+            return ApprovalResult(
+                approved=False,
+                reason=RejectionReason.DAILY_DRAWDOWN_EXCEEDED,
+                simple_message=f"Total drawdown limit reached. {drawdown_result.message}",
+                technical_message=f"Guardrail: {drawdown_result.message}",
+            )
+
         # Check max positions
         if self._open_positions >= self.profile.max_open_positions:
             return ApprovalResult(
@@ -417,8 +428,8 @@ class RiskManager:
                         simple_message=f"Risk/reward {rr_result.ratio:.1f}:1 is below minimum {self.profile.min_risk_reward:.1f}:1",
                         technical_message=f"R:R ratio {rr_result.ratio:.2f} < min {self.profile.min_risk_reward}",
                     )
-            except ValueError:
-                pass  # Skip R:R check if calculation fails
+            except ValueError as e:
+                logger.warning("risk_reward_calculation_failed", error=str(e))
 
         # Check sufficient balance
         position_value = order.quantity * order.entry_price

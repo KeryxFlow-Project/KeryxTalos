@@ -257,19 +257,19 @@ class CircuitBreaker:
 
         # Publish event
         import asyncio
+
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(
-                    self.event_bus.publish(
-                        system_event(
-                            EventType.CIRCUIT_BREAKER_TRIPPED,
-                            f"Circuit breaker tripped: {details}",
-                        )
+            asyncio.get_running_loop()  # Verify event loop is running
+            asyncio.create_task(
+                self.event_bus.publish(
+                    system_event(
+                        EventType.CIRCUIT_BREAKER_TRIGGERED,
+                        f"Circuit breaker tripped: {details}",
                     )
                 )
+            )
         except RuntimeError:
-            pass  # No event loop running
+            logger.debug("no_event_loop_for_circuit_breaker_event")
 
     def trip_manual(self, reason: str = "Manual activation") -> None:
         """
@@ -328,7 +328,10 @@ class CircuitBreaker:
             Tuple of (can_trade, reason)
         """
         if self.is_tripped:
-            return (False, f"Circuit breaker active: {self.trip_reason.value if self.trip_reason else 'unknown'}")
+            return (
+                False,
+                f"Circuit breaker active: {self.trip_reason.value if self.trip_reason else 'unknown'}",
+            )
 
         if self.daily_drawdown >= self.config.warning_drawdown:
             return (True, f"Warning: Daily drawdown at {self.daily_drawdown:.1%}")

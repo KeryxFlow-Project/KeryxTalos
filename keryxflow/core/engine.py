@@ -222,6 +222,7 @@ class TradingEngine:
         self._last_balance_sync: datetime | None = None
         self._balance_sync_interval = self.settings.live.sync_interval
         self._last_agent_cycle: datetime | None = None
+        self._preload_task: asyncio.Task | None = None
 
     async def start(self) -> None:
         """Start the trading engine."""
@@ -268,7 +269,7 @@ class TradingEngine:
 
         # Pre-load historical OHLCV data in background (non-blocking)
         # This allows TUI to start immediately while data loads
-        asyncio.create_task(self._background_preload())
+        self._preload_task = asyncio.create_task(self._background_preload())
 
         mode = "live" if self._is_live_mode else "paper"
         logger.info("trading_engine_started", mode=mode)
@@ -425,6 +426,10 @@ class TradingEngine:
 
         self._running = False
 
+        # Cancel background preload task if running
+        if self._preload_task and not self._preload_task.done():
+            self._preload_task.cancel()
+
         # Unsubscribe from events
         self.event_bus.unsubscribe(EventType.PRICE_UPDATE, self._on_price_update)
         self.event_bus.unsubscribe(EventType.SYSTEM_PAUSED, self._on_pause)
@@ -576,7 +581,10 @@ class TradingEngine:
             )
 
             # If agent errored too many times, disable agent mode temporarily
-            if self._cognitive_agent._stats.consecutive_errors >= self.settings.agent.max_consecutive_errors:
+            if (
+                self._cognitive_agent._stats.consecutive_errors
+                >= self.settings.agent.max_consecutive_errors
+            ):
                 logger.warning(
                     "agent_mode_disabled_due_to_errors",
                     consecutive_errors=self._cognitive_agent._stats.consecutive_errors,
@@ -664,10 +672,10 @@ class TradingEngine:
             if self._is_live_mode:
                 result = await self._execute_live_order(order)
             else:
-                result = await self.paper.execute_order(
+                result = await self.paper.execute_market_order(
                     symbol=order.symbol,
                     side=order.side,
-                    quantity=order.quantity,
+                    amount=order.quantity,
                     price=order.entry_price,
                 )
 

@@ -80,11 +80,14 @@ class OrderExecutor(Protocol):
 
     async def execute_market_order(
         self, symbol: str, side: str, amount: float, price: float | None = None
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, Any]:
+        ...
 
-    def update_price(self, symbol: str, price: float) -> None: ...
+    def update_price(self, symbol: str, price: float) -> None:
+        ...
 
-    def get_price(self, symbol: str) -> float | None: ...
+    def get_price(self, symbol: str) -> float | None:
+        ...
 
 
 class OrderManager:
@@ -232,9 +235,8 @@ class OrderManager:
                 raise ValueError(f"No price available for {symbol}")
 
             # Check if limit would be filled
-            can_fill = (
-                (side == "buy" and current_price <= price)
-                or (side == "sell" and current_price >= price)
+            can_fill = (side == "buy" and current_price <= price) or (
+                side == "sell" and current_price >= price
             )
 
             if can_fill:
@@ -266,9 +268,7 @@ class OrderManager:
         else:
             # Live trading
             assert self._exchange_client is not None
-            result = await self._exchange_client.create_limit_order(
-                symbol, side, amount, price
-            )
+            result = await self._exchange_client.create_limit_order(symbol, side, amount, price)
             return Order(
                 id=result["id"],
                 symbol=symbol,
@@ -278,7 +278,7 @@ class OrderManager:
                 price=price,
                 status=OrderStatus.OPEN,
                 remaining=amount,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
                 is_paper=False,
             )
 
@@ -322,9 +322,8 @@ class OrderManager:
             if current_price is None:
                 continue
 
-            should_fill = (
-                (order.side == "buy" and current_price <= (order.price or 0))
-                or (order.side == "sell" and current_price >= (order.price or 0))
+            should_fill = (order.side == "buy" and current_price <= (order.price or 0)) or (
+                order.side == "sell" and current_price >= (order.price or 0)
             )
 
             if should_fill:

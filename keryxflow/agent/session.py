@@ -198,6 +198,7 @@ class TradingSession:
             )
             return False
 
+        old_state = self._state
         self._state = SessionState.STARTING
         self._stats = SessionStats()  # Reset stats
         self._stats.started_at = datetime.now(UTC)
@@ -237,7 +238,7 @@ class TradingSession:
             self._state = SessionState.RUNNING
 
             # Publish event
-            await self._publish_state_event()
+            await self._publish_state_event(old_state)
 
             logger.info(
                 "trading_session_started",
@@ -269,6 +270,7 @@ class TradingSession:
             )
             return False
 
+        old_state = self._state
         self._state = SessionState.STOPPING
 
         try:
@@ -289,7 +291,7 @@ class TradingSession:
             self._state = SessionState.STOPPED
 
             # Publish event
-            await self._publish_state_event()
+            await self._publish_state_event(old_state)
 
             logger.info(
                 "trading_session_stopped",
@@ -319,6 +321,7 @@ class TradingSession:
             )
             return False
 
+        old_state = self._state
         self._state = SessionState.PAUSED
         self._stats.paused_at = datetime.now(UTC)
 
@@ -328,7 +331,7 @@ class TradingSession:
         )
 
         # Publish state event
-        await self._publish_state_event()
+        await self._publish_state_event(old_state)
 
         logger.info("trading_session_paused", session_id=self._session_id)
         return True
@@ -346,6 +349,8 @@ class TradingSession:
             )
             return False
 
+        old_state = self._state
+
         # Calculate paused time
         if self._stats.paused_at:
             paused_duration = (datetime.now(UTC) - self._stats.paused_at).total_seconds()
@@ -360,7 +365,7 @@ class TradingSession:
         )
 
         # Publish state event
-        await self._publish_state_event()
+        await self._publish_state_event(old_state)
 
         logger.info("trading_session_resumed", session_id=self._session_id)
         return True
@@ -405,14 +410,15 @@ class TradingSession:
             except TimeoutError:
                 pass  # Continue loop
 
-    async def _publish_state_event(self) -> None:
+    async def _publish_state_event(self, old_state: SessionState | None = None) -> None:
         """Publish session state change event."""
         await self._event_bus.publish(
             Event(
                 type=EventType.SESSION_STATE_CHANGED,
                 data={
                     "session_id": self._session_id,
-                    "state": self._state.value,
+                    "new_state": self._state.value,
+                    "old_state": old_state.value if old_state else "unknown",
                     "stats": self._stats.to_dict(),
                 },
             )

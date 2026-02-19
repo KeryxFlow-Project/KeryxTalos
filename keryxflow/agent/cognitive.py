@@ -538,7 +538,9 @@ Active symbols: {symbols}
                 decision_type = DecisionType.ENTRY_LONG
         elif executed_close:
             decision_type = DecisionType.EXIT
-        elif "hold" in reasoning_lower or "wait" in reasoning_lower or "no action" in reasoning_lower:
+        elif (
+            "hold" in reasoning_lower or "wait" in reasoning_lower or "no action" in reasoning_lower
+        ):
             decision_type = DecisionType.HOLD
         else:
             decision_type = DecisionType.HOLD
@@ -557,9 +559,7 @@ Active symbols: {symbols}
             confidence=confidence,
         )
 
-    async def _run_fallback_cycle(
-        self, symbols: list[str], started_at: datetime
-    ) -> CycleResult:
+    async def _run_fallback_cycle(self, symbols: list[str], started_at: datetime) -> CycleResult:
         """Run a fallback cycle using technical signals.
 
         Args:
@@ -676,7 +676,7 @@ Active symbols: {symbols}
         """
         await self._event_bus.publish(
             Event(
-                type=EventType.SIGNAL_GENERATED,
+                type=EventType.AGENT_CYCLE_COMPLETED,
                 data={
                     "source": "cognitive_agent",
                     "cycle_result": result.to_dict(),

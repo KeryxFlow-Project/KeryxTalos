@@ -6,7 +6,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from keryxflow.config import get_settings
-from keryxflow.core.events import EventBus, get_event_bus
+from keryxflow.core.events import EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.oracle.feeds import NewsDigest, NewsSentiment
 from keryxflow.oracle.technical import TechnicalAnalysis, TrendDirection
@@ -139,10 +139,12 @@ Always respond with valid JSON only, no additional text."""
                 temperature=0.3,  # Lower temperature for more consistent analysis
             )
 
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", self.SYSTEM_PROMPT),
-                ("human", "{input}"),
-            ])
+            prompt = ChatPromptTemplate.from_messages(
+                [
+                    ("system", self.SYSTEM_PROMPT),
+                    ("human", "{input}"),
+                ]
+            )
 
             self._chain = prompt | self._llm
 
@@ -200,7 +202,11 @@ Always respond with valid JSON only, no additional text."""
             self._last_analysis_time = datetime.now(UTC)
 
             # Emit event
-            await self.event_bus.publish("oracle.analysis_complete", context.to_dict())
+            from keryxflow.core.events import Event
+
+            await self.event_bus.publish(
+                Event(type=EventType.LLM_ANALYSIS_COMPLETED, data=context.to_dict())
+            )
 
             logger.info(
                 "llm_analysis_complete",
@@ -248,7 +254,9 @@ Always respond with valid JSON only, no additional text."""
 
             for item in news.items[:5]:
                 age = f"{item.age_hours:.1f}h ago"
-                sentiment = f"[{item.sentiment.value}]" if item.sentiment != NewsSentiment.UNKNOWN else ""
+                sentiment = (
+                    f"[{item.sentiment.value}]" if item.sentiment != NewsSentiment.UNKNOWN else ""
+                )
                 parts.append(f"- [{age}] {item.title} {sentiment}")
 
             parts.append("")

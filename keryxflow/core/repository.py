@@ -201,6 +201,20 @@ class TradeRepository:
             result = await session.execute(statement)
             return list(result.scalars().all())
 
+    async def get_recent_trades(self, limit: int = 50) -> list[Trade]:
+        """Get the most recent trades.
+
+        Args:
+            limit: Maximum number of trades to return
+
+        Returns:
+            List of trades ordered by created_at descending
+        """
+        async with self._get_session() as session:
+            statement = select(Trade).order_by(col(Trade.created_at).desc()).limit(limit)
+            result = await session.execute(statement)
+            return list(result.scalars().all())
+
     async def count_paper_trades(self) -> int:
         """Count total paper trades.
 
@@ -278,9 +292,7 @@ class TradeRepository:
                     starting_balance=starting_balance,
                     ending_balance=ending_balance,
                     pnl=pnl,
-                    pnl_percentage=(
-                        (pnl / starting_balance) * 100 if starting_balance > 0 else 0
-                    ),
+                    pnl_percentage=((pnl / starting_balance) * 100 if starting_balance > 0 else 0),
                     total_trades=total_trades,
                     winning_trades=winning_trades,
                     losing_trades=losing_trades,

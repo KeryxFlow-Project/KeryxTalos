@@ -414,7 +414,7 @@ class TestTradingEngineLiveMode:
 
     @pytest.mark.asyncio
     async def test_verify_live_mode_with_credentials(
-        self, mock_exchange, mock_paper, event_bus
+        self, mock_exchange, mock_paper, event_bus, init_db
     ):
         """Test live mode verification with valid credentials."""
         engine = TradingEngine(
@@ -498,3 +498,57 @@ class TestTradingEngineLiveMode:
         mock_notifier.notify_system_start.assert_called_once()
 
         await engine.stop()
+
+    @pytest.mark.asyncio
+    async def test_verify_live_mode_queries_paper_trade_count_from_db(
+        self, mock_exchange, mock_paper, event_bus, tmp_path, mocker
+    ):
+        """Test that _verify_live_mode_safe queries DB for paper trade count."""
+        import keryxflow.core.database as db_module
+        from keryxflow.core.database import init_db as _init_db
+        from keryxflow.core.repository import get_trade_repository
+
+        # Point to a fresh temp database to ensure isolation
+        db_path = tmp_path / "test_paper_count.db"
+        engine_obj = TradingEngine(
+            exchange_client=mock_exchange,
+            paper_engine=mock_paper,
+            event_bus=event_bus,
+        )
+        engine_obj.settings.database.url = f"sqlite+aiosqlite:///{db_path}"
+
+        # Reset DB engine so it picks up new URL
+        db_module._engine = None
+        db_module._async_session_factory = None
+        await _init_db()
+
+        # Set up credentials so we get past that check
+        engine_obj.settings.binance_api_key = SecretStr("test_key")
+        engine_obj.settings.binance_api_secret = SecretStr("test_secret")
+        engine_obj.settings.env = "production"
+
+        # Spy on verify_ready_for_live to capture the paper_trade_count argument
+        spy = mocker.spy(engine_obj._safeguards, "verify_ready_for_live")
+
+        # With no paper trades in DB, count should be 0
+        await engine_obj._verify_live_mode_safe()
+        spy.assert_called_once()
+        assert spy.call_args.kwargs["paper_trade_count"] == 0
+
+        spy.reset_mock()
+
+        # Insert paper trades into the database
+        repo = get_trade_repository()
+        for _ in range(35):
+            await repo.create_trade(
+                symbol="BTC/USDT",
+                side="buy",
+                quantity=0.01,
+                entry_price=50000.0,
+                is_paper=True,
+            )
+
+        # Now the count should be 35 from DB
+        await engine_obj._verify_live_mode_safe()
+        spy.assert_called_once()
+        assert spy.call_args.kwargs["paper_trade_count"] == 35

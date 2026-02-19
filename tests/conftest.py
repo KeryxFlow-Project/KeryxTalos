@@ -28,6 +28,7 @@ def setup_test_database(tmp_path):
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
+    import keryxflow.core.repository as repository_module
     import keryxflow.exchange.paper as paper_module
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
@@ -49,11 +50,13 @@ def setup_test_database(tmp_path):
     session_module._session = None
     strategy_module._strategy_manager = None
     risk_module._risk_manager = None
+    repository_module._repository = None
 
     yield
 
     # Cleanup
     import contextlib
+
     if db_path.exists():
         with contextlib.suppress(PermissionError):
             db_path.unlink()
@@ -63,6 +66,7 @@ def setup_test_database(tmp_path):
 async def init_db():
     """Initialize the database tables."""
     from keryxflow.core.database import init_db as _init_db
+
     await _init_db()
 
 
@@ -70,6 +74,7 @@ async def init_db():
 async def db_session(init_db):
     """Get an async database session for testing."""
     from keryxflow.core.database import get_session_factory
+
     async_session = get_session_factory()
     async with async_session() as session:
         yield session

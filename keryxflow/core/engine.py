@@ -17,6 +17,7 @@ from keryxflow.config import get_settings
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
 from keryxflow.core.models import RiskProfile, TradeOutcome
+from keryxflow.core.repository import get_trade_repository
 from keryxflow.core.safeguards import LiveTradingSafeguards
 from keryxflow.exchange.client import ExchangeClient
 from keryxflow.exchange.paper import PaperTradingEngine
@@ -576,7 +577,10 @@ class TradingEngine:
             )
 
             # If agent errored too many times, disable agent mode temporarily
-            if self._cognitive_agent._stats.consecutive_errors >= self.settings.agent.max_consecutive_errors:
+            if (
+                self._cognitive_agent._stats.consecutive_errors
+                >= self.settings.agent.max_consecutive_errors
+            ):
                 logger.warning(
                     "agent_mode_disabled_due_to_errors",
                     consecutive_errors=self._cognitive_agent._stats.consecutive_errors,
@@ -932,9 +936,8 @@ class TradingEngine:
             balance = await self.exchange.get_balance()
             usdt_balance = balance.get("free", {}).get("USDT", 0.0)
 
-            # Get paper trade count (would come from database in real implementation)
-            # For now, we'll use a placeholder - this should be fetched from DB
-            paper_trade_count = 0  # TODO: Fetch from database
+            # Get paper trade count from database
+            paper_trade_count = await get_trade_repository().count_paper_trades()
 
             # Check circuit breaker status
             circuit_breaker_active = self.risk.is_circuit_breaker_active

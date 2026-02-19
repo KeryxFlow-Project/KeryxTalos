@@ -10,11 +10,12 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from keryxflow.config import get_settings
 from keryxflow.core.events import get_event_bus, price_update_event
 from keryxflow.core.logging import LogMessages, get_logger
+from keryxflow.exchange.adapter import ExchangeAdapter
 
 logger = get_logger(__name__)
 
 
-class ExchangeClient:
+class ExchangeClient(ExchangeAdapter):
     """
     Async wrapper for CCXT exchange connectivity.
 
@@ -168,15 +169,11 @@ class ExchangeClient:
             # Temporarily create a non-sandbox client for market data
             market_client = ccxt.binance({"enableRateLimit": True})
             try:
-                ohlcv = await market_client.fetch_ohlcv(
-                    symbol, timeframe, since=since, limit=limit
-                )
+                ohlcv = await market_client.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
             finally:
                 await market_client.close()
         else:
-            ohlcv = await self._exchange.fetch_ohlcv(
-                symbol, timeframe, since=since, limit=limit
-            )
+            ohlcv = await self._exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
 
         return ohlcv
 
@@ -308,6 +305,51 @@ class ExchangeClient:
         logger.info("order_cancelled", order_id=order_id, symbol=symbol)
         return result
 
+    async def place_order(
+        self,
+        symbol: str,
+        side: str,
+        type: str,
+        amount: float,
+        price: float | None = None,
+    ) -> dict[str, Any]:
+        """
+        Place an order on the exchange.
+
+        Args:
+            symbol: Trading pair
+            side: "buy" or "sell"
+            type: "market" or "limit"
+            amount: Amount to trade
+            price: Limit price (required for limit orders)
+
+        Returns:
+            Order result
+        """
+        if type == "market":
+            return await self.create_market_order(symbol, side, amount)
+        elif type == "limit":
+            if price is None:
+                raise ValueError("Price is required for limit orders")
+            return await self.create_limit_order(symbol, side, amount, price)
+        else:
+            raise ValueError(f"Unsupported order type: {type}")
+
+    async def get_open_orders(self, symbol: str) -> list[dict[str, Any]]:
+        """
+        Get open orders for a symbol.
+
+        Args:
+            symbol: Trading pair
+
+        Returns:
+            List of open orders
+        """
+        self._ensure_connected()
+        assert self._exchange is not None
+
+        return await self._exchange.fetch_open_orders(symbol)
+
     async def get_order(self, order_id: str, symbol: str) -> dict[str, Any]:
         """
         Get order status.
@@ -343,9 +385,7 @@ class ExchangeClient:
             symbols = self.settings.system.symbols
 
         self._running = True
-        self._price_task = asyncio.create_task(
-            self._price_feed_loop(symbols, interval)
-        )
+        self._price_task = asyncio.create_task(self._price_feed_loop(symbols, interval))
         logger.info("price_feed_started", symbols=symbols, interval=interval)
 
     async def stop_price_feed(self) -> None:
@@ -383,9 +423,7 @@ class ExchangeClient:
                         volume = ticker["volume"]
 
                         # Publish price update event
-                        await self.event_bus.publish(
-                            price_update_event(symbol, price, volume)
-                        )
+                        await self.event_bus.publish(price_update_event(symbol, price, volume))
 
                         msg = LogMessages.price_update(symbol, price)
                         logger.debug(msg.technical)
@@ -407,12 +445,23 @@ class ExchangeClient:
 
 
 # Global client instance
-_client: ExchangeClient | None = None
+_client: ExchangeAdapter | None = None
 
 
-def get_exchange_client(sandbox: bool = True) -> ExchangeClient:
-    """Get the global exchange client instance."""
+def get_exchange_client(sandbox: bool = True) -> ExchangeAdapter:
+    """Get the global exchange client instance.
+
+    Uses the KERYXFLOW_EXCHANGE setting to determine which adapter to create.
+    Currently supported: 'binance'.
+    """
     global _client
     if _client is None:
-        _client = ExchangeClient(sandbox=sandbox)
+        settings = get_settings()
+        exchange_name = settings.system.exchange.lower()
+        if exchange_name == "binance":
+            _client = ExchangeClient(sandbox=sandbox)
+        else:
+            raise ValueError(
+                f"Unsupported exchange: '{exchange_name}'. " f"Supported exchanges: binance"
+            )
     return _client

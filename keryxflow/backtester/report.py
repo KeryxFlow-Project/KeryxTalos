@@ -33,6 +33,8 @@ class BacktestResult:
     max_drawdown: float  # as decimal
     max_drawdown_duration: int  # in periods
     sharpe_ratio: float
+    sortino_ratio: float = 0.0
+    calmar_ratio: float = 0.0
 
     # Raw data
     trades: list["BacktestTrade"] = field(default_factory=list)
@@ -65,6 +67,8 @@ class BacktestResult:
                 "max_drawdown_pct": f"{self.max_drawdown * 100:.2f}%",
                 "max_drawdown_duration": self.max_drawdown_duration,
                 "sharpe_ratio": self.sharpe_ratio,
+                "sortino_ratio": self.sortino_ratio,
+                "calmar_ratio": self.calmar_ratio,
             },
         }
 
@@ -115,6 +119,8 @@ class BacktestReporter:
             f"  Max Drawdown:       {result.max_drawdown * 100:.2f}%",
             f"  DD Duration:        {result.max_drawdown_duration} periods",
             f"  Sharpe Ratio:       {result.sharpe_ratio:.2f}",
+            f"  Sortino Ratio:      {result.sortino_ratio:.2f}",
+            f"  Calmar Ratio:       {result.calmar_ratio:.2f}",
             "",
             "=" * 50,
         ]

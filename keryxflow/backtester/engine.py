@@ -582,6 +582,8 @@ class BacktestEngine:
             returns.append(ret)
 
         sharpe = self.quant.calculate_sharpe_ratio(returns) if returns else 0
+        sortino = self.quant.calculate_sortino_ratio(returns) if returns else 0
+        calmar = self.quant.calculate_calmar_ratio(self.equity_curve) if self.equity_curve else 0
 
         return BacktestResult(
             initial_balance=self.initial_balance,
@@ -598,6 +600,8 @@ class BacktestEngine:
             max_drawdown=max_dd,
             max_drawdown_duration=max_dd_duration,
             sharpe_ratio=sharpe,
+            sortino_ratio=sortino,
+            calmar_ratio=calmar,
             trades=self.trades,
             equity_curve=self.equity_curve,
         )

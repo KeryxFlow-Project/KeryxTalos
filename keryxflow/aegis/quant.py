@@ -399,6 +399,89 @@ class QuantEngine:
 
         return float(sharpe)
 
+    def calculate_sortino_ratio(
+        self,
+        returns: list[float],
+        risk_free_rate: float = 0.0,
+        periods_per_year: int = 252,
+    ) -> float:
+        """
+        Calculate Sortino ratio (uses downside deviation only).
+
+        Sortino = (mean_return - risk_free) / downside_std * sqrt(periods)
+
+        Args:
+            returns: List of period returns
+            risk_free_rate: Risk-free rate (annualized)
+            periods_per_year: Number of periods per year (252 for daily)
+
+        Returns:
+            Annualized Sortino ratio
+        """
+        if len(returns) < 2:
+            return 0.0
+
+        returns_arr = np.array(returns)
+        mean_return = np.mean(returns_arr)
+
+        # Downside deviation: std of returns below target (risk-free rate per period)
+        rf_period = risk_free_rate / periods_per_year
+        downside_returns = returns_arr[returns_arr < rf_period] - rf_period
+
+        if len(downside_returns) == 0:
+            return 0.0
+
+        downside_std = np.sqrt(np.mean(downside_returns**2))
+
+        if downside_std == 0:
+            return 0.0
+
+        sortino = (mean_return - rf_period) / downside_std * np.sqrt(periods_per_year)
+
+        return float(sortino)
+
+    def calculate_calmar_ratio(
+        self,
+        equity_curve: list[float],
+        periods_per_year: int = 252,
+    ) -> float:
+        """
+        Calculate Calmar ratio (annualized return / max drawdown).
+
+        Args:
+            equity_curve: List of equity values over time
+            periods_per_year: Number of periods per year (252 for daily)
+
+        Returns:
+            Calmar ratio
+        """
+        if len(equity_curve) < 2:
+            return 0.0
+
+        # Calculate total return
+        total_return = (equity_curve[-1] - equity_curve[0]) / equity_curve[0]
+
+        # Annualize return
+        num_periods = len(equity_curve) - 1
+        if num_periods <= 0:
+            return 0.0
+
+        years = num_periods / periods_per_year
+        if years <= 0:
+            return 0.0
+
+        annualized_return = (1 + total_return) ** (1 / years) - 1
+
+        # Get max drawdown
+        _, max_dd, _ = self.calculate_drawdown(equity_curve)
+
+        if max_dd == 0:
+            return 0.0
+
+        calmar = annualized_return / max_dd
+
+        return float(calmar)
+
     def calculate_expectancy(
         self,
         win_rate: float,

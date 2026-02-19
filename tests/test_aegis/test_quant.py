@@ -265,6 +265,77 @@ class TestExpectancy:
         assert exp == pytest.approx(-20.0)
 
 
+class TestSortinoRatio:
+    """Tests for Sortino ratio calculation."""
+
+    def test_sortino_positive_returns(self, quant):
+        """Test Sortino with mostly positive returns."""
+        returns = [0.01, 0.02, -0.005, 0.015, 0.01, -0.002, 0.008]
+
+        sortino = quant.calculate_sortino_ratio(returns, periods_per_year=252)
+
+        assert sortino > 0
+
+    def test_sortino_higher_than_sharpe_for_skewed_returns(self, quant):
+        """Sortino should be higher than Sharpe when few negative returns."""
+        returns = [0.01, 0.02, 0.015, -0.001, 0.01, 0.012, -0.002]
+
+        sharpe = quant.calculate_sharpe_ratio(returns, periods_per_year=252)
+        sortino = quant.calculate_sortino_ratio(returns, periods_per_year=252)
+
+        assert sortino >= sharpe
+
+    def test_sortino_insufficient_data(self, quant):
+        """Test Sortino with insufficient data."""
+        sortino = quant.calculate_sortino_ratio([0.01])
+        assert sortino == 0.0
+
+    def test_sortino_no_negative_returns(self, quant):
+        """Test Sortino when all returns are positive."""
+        returns = [0.01, 0.02, 0.015, 0.008]
+        sortino = quant.calculate_sortino_ratio(returns)
+        assert sortino == 0.0
+
+    def test_sortino_all_negative_returns(self, quant):
+        """Test Sortino with all negative returns."""
+        returns = [-0.01, -0.02, -0.015, -0.008]
+        sortino = quant.calculate_sortino_ratio(returns)
+        assert sortino < 0
+
+
+class TestCalmarRatio:
+    """Tests for Calmar ratio calculation."""
+
+    def test_calmar_positive(self, quant):
+        """Test Calmar with growth and drawdown."""
+        equity = [10000, 10500, 10200, 10800, 11000, 10600, 11200]
+
+        calmar = quant.calculate_calmar_ratio(equity, periods_per_year=252)
+
+        assert calmar > 0
+
+    def test_calmar_no_drawdown(self, quant):
+        """Test Calmar with no drawdown returns 0."""
+        equity = [10000, 10100, 10200, 10300, 10400]
+
+        calmar = quant.calculate_calmar_ratio(equity, periods_per_year=252)
+
+        assert calmar == 0.0
+
+    def test_calmar_losing_equity(self, quant):
+        """Test Calmar with declining equity."""
+        equity = [10000, 9500, 9000, 8500, 8000]
+
+        calmar = quant.calculate_calmar_ratio(equity, periods_per_year=252)
+
+        assert calmar < 0
+
+    def test_calmar_insufficient_data(self, quant):
+        """Test Calmar with insufficient data."""
+        assert quant.calculate_calmar_ratio([]) == 0.0
+        assert quant.calculate_calmar_ratio([10000]) == 0.0
+
+
 class TestSharpeRatio:
     """Tests for Sharpe ratio calculation."""
 

@@ -36,6 +36,7 @@ class PositionsWidget(Static):
         super().__init__(*args, **kwargs)
         self._positions: list[dict[str, Any]] = []
         self._paper_engine: "PaperTradingEngine | None" = None
+        self._trailing_stops: dict[str, float | None] = {}
 
     def set_paper_engine(self, paper_engine: "PaperTradingEngine") -> None:
         """Set the paper trading engine reference."""
@@ -49,7 +50,7 @@ class PositionsWidget(Static):
     def on_mount(self) -> None:
         """Called when widget is mounted."""
         table = self.query_one("#positions-table", DataTable)
-        table.add_columns("Symbol", "Qty", "Entry", "Current", "PnL", "PnL%")
+        table.add_columns("Symbol", "Qty", "Entry", "Current", "PnL", "PnL%", "Trail Stop")
         table.cursor_type = "row"
 
     async def refresh_data(self) -> None:
@@ -79,17 +80,22 @@ class PositionsWidget(Static):
                 pnl_pct = pos.get("pnl_pct", 0)
                 pnl_color = "green" if pnl >= 0 else "red"
 
+                symbol = pos.get("symbol", "")
+                trail_stop = self._trailing_stops.get(symbol)
+                trail_str = f"${trail_stop:,.2f}" if trail_stop is not None else "—"
+
                 table.add_row(
-                    pos.get("symbol", ""),
+                    symbol,
                     f"{pos.get('quantity', 0):.6f}",
                     f"${pos.get('entry_price', 0):,.2f}",
                     f"${pos.get('current_price', 0):,.2f}",
                     f"[{pnl_color}]${pnl:+,.2f}[/]",
                     f"[{pnl_color}]{pnl_pct:+.2f}%[/]",
+                    trail_str,
                 )
         else:
             # Show empty state
-            table.add_row("—", "—", "—", "—", "—", "—")
+            table.add_row("—", "—", "—", "—", "—", "—", "—")
 
     async def update_prices(self, price_data: dict[str, Any]) -> None:
         """Update position prices with new market data."""
@@ -123,6 +129,14 @@ class PositionsWidget(Static):
     def remove_position(self, symbol: str) -> None:
         """Remove a position by symbol."""
         self._positions = [p for p in self._positions if p.get("symbol") != symbol]
+
+    def set_trailing_stops(self, stops: dict[str, float | None]) -> None:
+        """Set trailing stop prices for display.
+
+        Args:
+            stops: Mapping of symbol to trailing stop price (or None if not active)
+        """
+        self._trailing_stops = stops
 
     @property
     def total_pnl(self) -> float:

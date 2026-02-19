@@ -216,10 +216,10 @@ class TradingSession:
             # Initialize engine if needed
             if self._engine is None:
                 from keryxflow.core.engine import TradingEngine
-                from keryxflow.exchange.client import get_exchange_client
+                from keryxflow.exchange import get_exchange_adapter
                 from keryxflow.exchange.paper import get_paper_engine
 
-                exchange = get_exchange_client()
+                exchange = get_exchange_adapter()
                 paper = get_paper_engine()
                 self._engine = TradingEngine(
                     exchange_client=exchange,

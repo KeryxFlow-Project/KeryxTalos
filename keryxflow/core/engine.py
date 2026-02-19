@@ -20,7 +20,7 @@ from keryxflow.core.logging import get_logger
 from keryxflow.core.models import RiskProfile, TradeOutcome
 from keryxflow.core.repository import get_trade_repository
 from keryxflow.core.safeguards import LiveTradingSafeguards
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange.adapter import ExchangeAdapter
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.memory.manager import MemoryManager, get_memory_manager
 from keryxflow.oracle.mtf_signals import get_mtf_signal_generator
@@ -165,7 +165,7 @@ class TradingEngine:
 
     def __init__(
         self,
-        exchange_client: ExchangeClient,
+        exchange_client: ExchangeAdapter,
         paper_engine: PaperTradingEngine,
         event_bus: EventBus | None = None,
         signal_generator: SignalGenerator | None = None,
@@ -1204,7 +1204,7 @@ _engine: TradingEngine | None = None
 
 
 def get_trading_engine(
-    exchange_client: ExchangeClient | None = None,
+    exchange_client: ExchangeAdapter | None = None,
     paper_engine: PaperTradingEngine | None = None,
 ) -> TradingEngine:
     """Get the global trading engine instance."""

@@ -10,7 +10,7 @@ from keryxflow.core.database import get_or_create_user_profile, get_session, ini
 from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import get_event_bus
 from keryxflow.core.logging import get_logger, setup_logging
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange import get_exchange_adapter
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.app import KeryxFlowApp
 
@@ -71,8 +71,8 @@ def initialize_sync() -> dict[str, Any]:
     # Create exchange client (but DON'T connect yet - that happens in TUI)
     print("\n  [3/3] Creating exchange client...")
     sandbox = settings.system.mode == "paper"
-    client = ExchangeClient(sandbox=sandbox)
-    print("        ✓ Client ready (will connect in TUI)")
+    client = get_exchange_adapter(sandbox=sandbox)
+    print(f"        ✓ {settings.system.exchange.capitalize()} client ready (will connect in TUI)")
 
     # Create trading engine (but DON'T start yet - that happens in TUI)
     trading_engine = TradingEngine(

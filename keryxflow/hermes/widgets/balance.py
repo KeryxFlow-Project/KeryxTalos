@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.widgets import DataTable, Static
 
 if TYPE_CHECKING:
-    from keryxflow.exchange.client import ExchangeClient
+    from keryxflow.exchange.adapter import ExchangeAdapter
 
 
 class BalanceWidget(Static):
@@ -40,10 +40,10 @@ class BalanceWidget(Static):
         """Initialize the balance widget."""
         super().__init__(*args, **kwargs)
         self._balances: dict[str, float] = {}
-        self._exchange_client: "ExchangeClient | None" = None
+        self._exchange_client: "ExchangeAdapter | None" = None
         self._total_usd: float = 0.0
 
-    def set_exchange_client(self, client: "ExchangeClient") -> None:
+    def set_exchange_client(self, client: "ExchangeAdapter") -> None:
         """Set the exchange client reference."""
         self._exchange_client = client
 

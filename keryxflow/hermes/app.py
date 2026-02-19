@@ -13,7 +13,7 @@ from keryxflow.config import get_settings
 from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange.adapter import ExchangeAdapter
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.agent import AgentWidget
@@ -48,7 +48,7 @@ class KeryxFlowApp(App):
     def __init__(
         self,
         event_bus: EventBus | None = None,
-        exchange_client: ExchangeClient | None = None,
+        exchange_client: ExchangeAdapter | None = None,
         paper_engine: PaperTradingEngine | None = None,
         trading_engine: TradingEngine | None = None,
         trading_session: TradingSession | None = None,

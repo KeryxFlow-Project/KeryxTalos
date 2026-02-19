@@ -76,9 +76,9 @@ class GetCurrentPriceTool(BaseTool):
                     )
 
             # Fall back to fetching from exchange
-            from keryxflow.exchange.client import get_exchange_client
+            from keryxflow.exchange import get_exchange_adapter
 
-            client = get_exchange_client()
+            client = get_exchange_adapter()
             ticker = await client.fetch_ticker(symbol)
 
             return ToolResult(
@@ -153,9 +153,9 @@ class GetOHLCVTool(BaseTool):
         limit = min(kwargs.get("limit", 100), 500)
 
         try:
-            from keryxflow.exchange.client import get_exchange_client
+            from keryxflow.exchange import get_exchange_adapter
 
-            client = get_exchange_client()
+            client = get_exchange_adapter()
             ohlcv = await client.fetch_ohlcv(symbol, timeframe, limit=limit)
 
             # Format the data
@@ -231,9 +231,9 @@ class GetOrderBookTool(BaseTool):
         limit = min(kwargs.get("limit", 20), 100)
 
         try:
-            from keryxflow.exchange.client import get_exchange_client
+            from keryxflow.exchange import get_exchange_adapter
 
-            client = get_exchange_client()
+            client = get_exchange_adapter()
             order_book = await client.fetch_order_book(symbol, limit=limit)
 
             # Calculate metrics

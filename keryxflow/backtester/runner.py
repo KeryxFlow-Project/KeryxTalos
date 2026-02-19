@@ -13,7 +13,7 @@ from keryxflow.backtester.engine import BacktestEngine
 from keryxflow.backtester.report import BacktestReporter, BacktestResult
 from keryxflow.core.logging import get_logger
 from keryxflow.core.models import RiskProfile
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange import get_exchange_adapter
 
 if TYPE_CHECKING:
     from keryxflow.backtester.monte_carlo import MonteCarloResult
@@ -89,7 +89,7 @@ async def run_backtest(
                 logger.warning("csv_not_found", symbol=symbol, path=str(csv_path))
     else:
         # Load from exchange
-        exchange = ExchangeClient()
+        exchange = get_exchange_adapter()
         await exchange.connect()
 
         try:

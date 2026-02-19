@@ -106,8 +106,10 @@ class ApiSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="KERYXFLOW_API_")
 
     enabled: bool = False
+    host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
     token: str = ""
+    cors_origins: list[str] = ["*"]
 
 
 class SystemSettings(BaseSettings):

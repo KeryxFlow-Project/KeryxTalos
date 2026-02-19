@@ -49,6 +49,11 @@ uvicorn = {version = ">=0.27", extras = ["standard"]}
 # Interface
 textual = "^0.50"
 
+# API
+fastapi = ">=0.109,<1.0"
+uvicorn = {version = ">=0.27", extras = ["standard"]}
+websockets = ">=12.0"
+
 # Utils
 python-dotenv = "^1.0"
 structlog = "^24.0"

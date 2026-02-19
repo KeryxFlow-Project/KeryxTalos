@@ -186,7 +186,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.api.cors_origins,
-        allow_credentials=True,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -267,7 +267,7 @@ def create_app() -> FastAPI:
         except WebSocketDisconnect:
             pass
         except Exception:
-            pass
+            logger.warning("websocket_error", exc_info=True)
         finally:
             for event_type in EventType:
                 event_bus.unsubscribe(event_type, _enqueue)

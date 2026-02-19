@@ -56,6 +56,12 @@ def setup_test_database(tmp_path):
     notification_manager_module._notification_manager = None
     trailing_module._trailing_stop_manager = None
 
+    import keryxflow.api.server as api_server_module
+
+    api_server_module._paused = False
+    api_server_module._server = None
+    api_server_module._server_task = None
+
     yield
 
     # Cleanup

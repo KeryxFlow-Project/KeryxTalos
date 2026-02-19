@@ -42,6 +42,8 @@ class EventType(str, Enum):
     RISK_ALERT = "risk_alert"
     CIRCUIT_BREAKER_TRIGGERED = "circuit_breaker_triggered"
     DRAWDOWN_WARNING = "drawdown_warning"
+    STOP_LOSS_TRAILED = "stop_loss_trailed"
+    STOP_LOSS_BREAKEVEN = "stop_loss_breakeven"
 
     # System events
     SYSTEM_STARTED = "system_started"

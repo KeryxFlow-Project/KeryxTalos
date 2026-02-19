@@ -18,6 +18,7 @@ def setup_test_database(tmp_path):
 
     # Reset global instances before each test
     import keryxflow.aegis.risk as risk_module
+    import keryxflow.aegis.trailing as trailing_module
     import keryxflow.agent.cognitive as cognitive_module
     import keryxflow.agent.executor as executor_module
     import keryxflow.agent.reflection as reflection_module
@@ -53,6 +54,7 @@ def setup_test_database(tmp_path):
     risk_module._risk_manager = None
     repository_module._repository = None
     notification_manager_module._notification_manager = None
+    trailing_module._trailing_stop_manager = None
 
     yield
 

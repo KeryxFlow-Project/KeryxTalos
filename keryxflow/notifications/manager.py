@@ -106,7 +106,9 @@ class NotificationManager:
         emoji = "🟢" if side == "buy" else "🔴"
         title = f"{emoji} Order Filled: {side.upper()} {symbol}"
 
-        body = f"Executed {side.upper()} order for {quantity} {symbol.split('/')[0]} @ ${price:,.2f}"
+        body = (
+            f"Executed {side.upper()} order for {quantity} {symbol.split('/')[0]} @ ${price:,.2f}"
+        )
 
         metadata = {
             "Symbol": symbol,
@@ -242,6 +244,8 @@ class NotificationManager:
         self._event_bus.subscribe(EventType.ORDER_FILLED, self._handle_order_filled)
         self._event_bus.subscribe(EventType.CIRCUIT_BREAKER_TRIGGERED, self._handle_circuit_breaker)
         self._event_bus.subscribe(EventType.PANIC_TRIGGERED, self._handle_panic)
+        self._event_bus.subscribe(EventType.POSITION_OPENED, self._handle_position_opened)
+        self._event_bus.subscribe(EventType.POSITION_CLOSED, self._handle_position_closed)
 
         self._subscribed = True
         logger.info("notification_manager_subscribed")
@@ -276,6 +280,29 @@ class NotificationManager:
             )
         )
 
+    async def _handle_position_opened(self, event: Event) -> None:
+        """Handle position opened event."""
+        data = event.data or {}
+        await self.notify_position_opened(
+            symbol=data.get("symbol", "UNKNOWN"),
+            side=data.get("side", "long"),
+            quantity=data.get("quantity", 0.0),
+            entry_price=data.get("entry_price", 0.0),
+        )
+
+    async def _handle_position_closed(self, event: Event) -> None:
+        """Handle position closed event."""
+        data = event.data or {}
+        await self.notify_position_closed(
+            symbol=data.get("symbol", "UNKNOWN"),
+            side=data.get("side", "long"),
+            quantity=data.get("quantity", 0.0),
+            entry_price=data.get("entry_price", 0.0),
+            exit_price=data.get("exit_price", 0.0),
+            pnl=data.get("pnl", 0.0),
+            pnl_pct=data.get("pnl_pct", 0.0),
+        )
+
     async def test_all(self) -> dict[str, bool]:
         """Test all notification providers.
 
@@ -298,8 +325,128 @@ class NotificationManager:
 
         return results
 
+    async def notify_position_opened(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        entry_price: float,
+    ) -> None:
+        """Send position opened notification.
+
+        Args:
+            symbol: Trading symbol
+            side: Position side (long/short)
+            quantity: Position quantity
+            entry_price: Entry price
+        """
+        emoji = "🟢" if side == "long" else "🔴"
+        title = f"{emoji} Position Opened: {side.upper()} {symbol}"
+
+        body = f"Opened {side.upper()} position for {quantity} {symbol.split('/')[0]} @ ${entry_price:,.2f}"
+
+        message = NotificationMessage(
+            title=title,
+            body=body,
+            level=NotificationLevel.SUCCESS,
+            notification_type=NotificationType.POSITION_OPENED,
+            metadata={
+                "Symbol": symbol,
+                "Side": side.upper(),
+                "Quantity": f"{quantity:.8f}",
+                "Entry Price": f"${entry_price:,.2f}",
+            },
+        )
+
+        await self.notify(message)
+
+    async def notify_position_closed(
+        self,
+        symbol: str,
+        side: str,
+        quantity: float,
+        entry_price: float,
+        exit_price: float,
+        pnl: float,
+        pnl_pct: float,
+    ) -> None:
+        """Send position closed notification.
+
+        Args:
+            symbol: Trading symbol
+            side: Position side (long/short)
+            quantity: Position quantity
+            entry_price: Entry price
+            exit_price: Exit price
+            pnl: Realized PnL
+            pnl_pct: PnL percentage
+        """
+        pnl_emoji = "📈" if pnl >= 0 else "📉"
+        result = "WIN" if pnl >= 0 else "LOSS"
+        title = f"{pnl_emoji} Position Closed: {result} {symbol}"
+
+        body = (
+            f"Closed {side.upper()} position for {quantity} {symbol.split('/')[0]}\n"
+            f"Entry: ${entry_price:,.2f} → Exit: ${exit_price:,.2f}\n"
+            f"PnL: ${pnl:,.2f} ({pnl_pct:+.2f}%)"
+        )
+
+        level = NotificationLevel.SUCCESS if pnl >= 0 else NotificationLevel.WARNING
+
+        message = NotificationMessage(
+            title=title,
+            body=body,
+            level=level,
+            notification_type=NotificationType.POSITION_CLOSED,
+            metadata={
+                "Symbol": symbol,
+                "Side": side.upper(),
+                "Entry": f"${entry_price:,.2f}",
+                "Exit": f"${exit_price:,.2f}",
+                "PnL": f"${pnl:,.2f} ({pnl_pct:+.2f}%)",
+            },
+        )
+
+        await self.notify(message)
+
     async def close(self) -> None:
         """Close all notifiers."""
         for notifier in self._notifiers:
             if hasattr(notifier, "close"):
                 await notifier.close()
+
+
+_notification_manager: NotificationManager | None = None
+
+
+def get_notification_manager() -> NotificationManager:
+    """Get the global NotificationManager singleton.
+
+    Creates and configures the manager from settings on first call.
+
+    Returns:
+        The shared NotificationManager instance
+    """
+    global _notification_manager
+    if _notification_manager is None:
+        from keryxflow.config import get_settings
+        from keryxflow.core.events import get_event_bus
+        from keryxflow.notifications.discord import DiscordNotifier
+        from keryxflow.notifications.telegram import TelegramNotifier
+
+        settings = get_settings().notifications
+        telegram = TelegramNotifier(
+            bot_token=settings.telegram_token,
+            chat_id=settings.telegram_chat_id,
+            enabled=settings.telegram_enabled,
+        )
+        discord = DiscordNotifier(
+            webhook_url=settings.discord_webhook,
+            enabled=settings.discord_enabled,
+        )
+        _notification_manager = NotificationManager(
+            event_bus=get_event_bus(),
+            telegram=telegram,
+            discord=discord,
+        )
+    return _notification_manager

@@ -166,9 +166,8 @@ class TrailingStopManager:
     def _emit_event(self, event_type: EventType, **data: Any) -> None:
         """Emit an event via the event bus (fire-and-forget)."""
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(self.event_bus.publish_sync(Event(type=event_type, data=data)))
+            loop = asyncio.get_running_loop()
+            loop.create_task(self.event_bus.publish_sync(Event(type=event_type, data=data)))
         except RuntimeError:
             pass  # No event loop running
 

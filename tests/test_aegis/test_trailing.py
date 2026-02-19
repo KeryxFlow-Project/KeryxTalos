@@ -144,6 +144,54 @@ class TestBreakevenActivation:
         assert manager._positions["BTC/USDT"].breakeven_activated is True
 
 
+class TestUpdateUntracked:
+    """Tests for update_price on untracked symbols."""
+
+    def test_update_untracked_symbol_is_noop(self, manager):
+        """update_price on untracked symbol does nothing."""
+        manager.update_price("BTC/USDT", 50000.0)  # Should not raise
+        assert manager.get_stop_level("BTC/USDT") is None
+
+
+class TestBreakevenNoOpWhenStopAlreadyAboveEntry:
+    """Tests for breakeven when trailing stop already above entry."""
+
+    def test_breakeven_noop_when_stop_above_entry(self, manager):
+        """Breakeven activation is a no-op if trailing stop already above entry."""
+        # Use a large trailing pct so we can control precisely
+        manager.trailing_stop_pct = 1.0
+        manager.breakeven_trigger_pct = 5.0
+        manager.start_tracking("BTC/USDT", entry_price=50000.0)
+        # initial stop: 50000 * 0.99 = 49500
+
+        # Move price up a lot so trailing stop > entry
+        manager.update_price("BTC/USDT", 55000.0)
+        # stop: 55000 * 0.99 = 54450, breakeven trigger: 50000 * 1.05 = 52500
+        # breakeven activates but stop is already at 54450 > 50000, so no change
+        stop = manager.get_stop_level("BTC/USDT")
+        assert stop == pytest.approx(54450.0)
+        assert manager._positions["BTC/USDT"].breakeven_activated is True
+
+
+class TestSingleton:
+    """Tests for singleton accessor."""
+
+    def test_get_trailing_stop_manager_returns_instance(self):
+        """get_trailing_stop_manager returns a TrailingStopManager."""
+        from keryxflow.aegis.trailing import get_trailing_stop_manager
+
+        mgr = get_trailing_stop_manager()
+        assert isinstance(mgr, TrailingStopManager)
+
+    def test_get_trailing_stop_manager_returns_same_instance(self):
+        """get_trailing_stop_manager returns the same instance on subsequent calls."""
+        from keryxflow.aegis.trailing import get_trailing_stop_manager
+
+        mgr1 = get_trailing_stop_manager()
+        mgr2 = get_trailing_stop_manager()
+        assert mgr1 is mgr2
+
+
 class TestReset:
     """Tests for reset functionality."""
 

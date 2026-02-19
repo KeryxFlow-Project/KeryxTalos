@@ -106,7 +106,7 @@ class KeryxFlowApp(App):
             logs = self.query_one("#logs", LogsWidget)
             logs.add_entry("KeryxFlow starting...", level="info")
         except Exception:
-            pass
+            logger.debug("logs_widget_not_ready_at_mount")
 
         # Initialize directly (skip splash for now)
         self.run_worker(self._initialize_after_splash)
@@ -330,7 +330,12 @@ class KeryxFlowApp(App):
             symbol = self.current_symbol
 
             # Get OHLCV data from engine buffer
-            ohlcv = self.trading_engine._ohlcv_buffer.get_ohlcv(symbol)
+            if self.trading_engine._ohlcv_buffer is not None:
+                ohlcv = self.trading_engine._ohlcv_buffer.get_ohlcv(symbol)
+            elif self.trading_engine._mtf_buffer is not None:
+                ohlcv = self.trading_engine._mtf_buffer.get_primary_ohlcv(symbol)
+            else:
+                return
             if ohlcv is None or len(ohlcv) < 50:
                 return
 

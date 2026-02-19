@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -64,13 +64,16 @@ class EventType(str, Enum):
     AGENT_CYCLE_FAILED = "agent_cycle_failed"
     SESSION_STATE_CHANGED = "session_state_changed"
 
+    # Tool events
+    TOOL_EXECUTED = "tool_executed"
+
 
 @dataclass
 class Event:
     """Base event class."""
 
     type: EventType
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(UTC))
     data: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):

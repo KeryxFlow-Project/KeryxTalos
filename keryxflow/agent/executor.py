@@ -98,7 +98,6 @@ class ToolExecutor:
     async def execute(
         self,
         tool_name: str,
-        skip_guardrails: bool = False,
         **kwargs: Any,
     ) -> ToolResult:
         """Execute a tool by name with automatic guardrail checking.
@@ -111,7 +110,6 @@ class ToolExecutor:
 
         Args:
             tool_name: Name of the tool to execute
-            skip_guardrails: Skip guardrail check (DANGEROUS - use with caution)
             **kwargs: Parameters to pass to the tool
 
         Returns:
@@ -144,7 +142,7 @@ class ToolExecutor:
                 return ToolResult(success=False, error=error)
 
             # Check guardrails for execution tools
-            if tool.is_guarded and not skip_guardrails:
+            if tool.is_guarded:
                 guardrail_result = await self._check_guardrails(tool, kwargs)
                 guardrail_passed = guardrail_result.success
 
@@ -238,7 +236,7 @@ class ToolExecutor:
         """Execute a guarded tool with explicit guardrail checking.
 
         This method is specifically for execution tools and will always
-        check guardrails regardless of the skip_guardrails flag.
+        check guardrails.
 
         Args:
             tool_name: Name of the tool to execute
@@ -258,7 +256,7 @@ class ToolExecutor:
                 category=tool.category.value,
             )
 
-        return await self.execute(tool_name, skip_guardrails=False, **kwargs)
+        return await self.execute(tool_name, **kwargs)
 
     async def _check_guardrails(
         self,
@@ -274,10 +272,23 @@ class ToolExecutor:
         Returns:
             ToolResult indicating whether guardrails passed
         """
-        # Only check for order placement tool
+        from keryxflow.aegis.risk import get_risk_manager
+
+        risk_manager = get_risk_manager()
+
+        # Check circuit breaker for all execution tools that open positions.
+        # Close/cancel operations should always be allowed (exit during crisis).
+        close_tools = {"close_position", "close_all_positions", "cancel_order"}
+        if tool.name not in close_tools and risk_manager.is_circuit_breaker_active:
+            return ToolResult(
+                success=False,
+                error="Circuit breaker active: trading is paused for safety",
+                metadata={"circuit_breaker": True},
+            )
+
+        # Full guardrail validation for order placement
         if tool.name == "place_order":
             from keryxflow.aegis.guardrails import get_guardrail_enforcer
-            from keryxflow.aegis.risk import get_risk_manager
 
             symbol = params.get("symbol")
             side = params.get("side")
@@ -302,7 +313,6 @@ class ToolExecutor:
                 # Can't validate without price, let the tool handle it
                 return ToolResult(success=True)
 
-            risk_manager = get_risk_manager()
             enforcer = get_guardrail_enforcer()
 
             result = enforcer.validate_order(
@@ -324,8 +334,6 @@ class ToolExecutor:
                     },
                 )
 
-        # For other execution tools, allow by default
-        # (they have their own internal validation)
         return ToolResult(success=True)
 
     def _check_rate_limit(self) -> bool:
@@ -371,7 +379,7 @@ class ToolExecutor:
             **data: Event data
         """
         event = Event(
-            type=EventType.SYSTEM_STARTED,  # Using as generic event
+            type=EventType.TOOL_EXECUTED,
             data={"event_type": event_type, **data},
         )
         await self._event_bus.publish(event)

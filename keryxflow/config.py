@@ -134,6 +134,7 @@ class SystemSettings(BaseSettings):
     symbols: list[str] = ["BTC/USDT", "ETH/USDT"]
     base_currency: str = "USDT"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
+    demo_mode: bool = False
 
 
 class HermesSettings(BaseSettings):

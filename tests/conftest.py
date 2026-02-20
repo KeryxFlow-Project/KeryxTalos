@@ -20,7 +20,6 @@ def setup_test_database(tmp_path):
     import keryxflow.aegis.risk as risk_module
     import keryxflow.agent.cognitive as cognitive_module
     import keryxflow.agent.executor as executor_module
-    import keryxflow.agent.orchestrator as orchestrator_module
     import keryxflow.agent.reflection as reflection_module
     import keryxflow.agent.scheduler as scheduler_module
     import keryxflow.agent.session as session_module
@@ -29,7 +28,7 @@ def setup_test_database(tmp_path):
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
-    import keryxflow.exchange.client as client_module
+    import keryxflow.exchange.demo as demo_module
     import keryxflow.exchange.paper as paper_module
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
@@ -39,7 +38,7 @@ def setup_test_database(tmp_path):
     db_module._engine = None
     db_module._async_session_factory = None
     events_module._event_bus = None
-    client_module._client = None
+    demo_module._demo_client = None
     paper_module._paper_engine = None
     episodic_module._episodic_memory = None
     semantic_module._semantic_memory = None
@@ -47,7 +46,6 @@ def setup_test_database(tmp_path):
     tools_module._toolkit = None
     executor_module._executor = None
     cognitive_module._agent = None
-    orchestrator_module._orchestrator = None
     reflection_module._reflection_engine = None
     scheduler_module._scheduler = None
     session_module._session = None
@@ -58,6 +56,7 @@ def setup_test_database(tmp_path):
 
     # Cleanup
     import contextlib
+
     if db_path.exists():
         with contextlib.suppress(PermissionError):
             db_path.unlink()
@@ -67,6 +66,7 @@ def setup_test_database(tmp_path):
 async def init_db():
     """Initialize the database tables."""
     from keryxflow.core.database import init_db as _init_db
+
     await _init_db()
 
 
@@ -74,6 +74,7 @@ async def init_db():
 async def db_session(init_db):
     """Get an async database session for testing."""
     from keryxflow.core.database import get_session_factory
+
     async_session = get_session_factory()
     async with async_session() as session:
         yield session

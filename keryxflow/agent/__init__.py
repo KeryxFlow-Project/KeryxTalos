@@ -52,6 +52,7 @@ from keryxflow.agent.session import (
     TradingSession,
     get_trading_session,
 )
+from keryxflow.agent.strategy_gen import StrategyGenerator, get_strategy_generator
 from keryxflow.agent.strategy import (
     MarketRegime,
     StrategyConfig,
@@ -116,6 +117,9 @@ __all__ = [
     "TaskResult",
     "TaskFrequency",
     "TaskStatus",
+    # Strategy Generator
+    "StrategyGenerator",
+    "get_strategy_generator",
     # Session
     "TradingSession",
     "get_trading_session",

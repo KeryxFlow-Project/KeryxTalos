@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -107,9 +108,9 @@ def _get_session_status() -> dict[str, Any]:
 @router.get("/dashboard", response_class=HTMLResponse)
 async def dashboard(request: Request) -> HTMLResponse:
     """Render the main dashboard page."""
-    balance, positions, recent_trades = await _get_balance(), [], []
-    positions = await _get_positions()
-    recent_trades = await _get_recent_trades()
+    balance, positions, recent_trades = await asyncio.gather(
+        _get_balance(), _get_positions(), _get_recent_trades()
+    )
     risk_status = _get_risk_status()
     session_status = _get_session_status()
 

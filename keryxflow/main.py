@@ -1,6 +1,8 @@
 """KeryxFlow main entrypoint."""
 
+import argparse
 import asyncio
+import os
 from pathlib import Path
 from typing import Any
 
@@ -10,7 +12,7 @@ from keryxflow.core.database import get_or_create_user_profile, get_session, ini
 from keryxflow.core.engine import TradingEngine
 from keryxflow.core.events import get_event_bus
 from keryxflow.core.logging import get_logger, setup_logging
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange.client import get_exchange_client
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.app import KeryxFlowApp
 
@@ -47,7 +49,10 @@ def initialize_sync() -> dict[str, Any]:
     # === INITIALIZATION ===
     print(BANNER)
     print(f"  Version: {__version__}")
-    print(f"  Mode: {settings.system.mode.upper()} TRADING")
+    if settings.is_demo_mode:
+        print("  Mode: DEMO (synthetic data, no exchange)")
+    else:
+        print(f"  Mode: {settings.system.mode.upper()} TRADING")
     print(f"  Symbols: {', '.join(settings.system.symbols)}")
     print()
     print("─" * 65)
@@ -71,8 +76,11 @@ def initialize_sync() -> dict[str, Any]:
     # Create exchange client (but DON'T connect yet - that happens in TUI)
     print("\n  [3/3] Creating exchange client...")
     sandbox = settings.system.mode == "paper"
-    client = ExchangeClient(sandbox=sandbox)
-    print("        ✓ Client ready (will connect in TUI)")
+    client = get_exchange_client(sandbox=sandbox)
+    if settings.is_demo_mode:
+        print("        ✓ Demo client ready (synthetic data)")
+    else:
+        print("        ✓ Client ready (will connect in TUI)")
 
     # Create trading engine (but DON'T start yet - that happens in TUI)
     trading_engine = TradingEngine(
@@ -134,6 +142,19 @@ async def cleanup(state: dict[str, Any]) -> None:
 def run() -> None:
     """Main entry point."""
     global _cleanup_state
+
+    # Parse CLI arguments before anything else
+    parser = argparse.ArgumentParser(description="KeryxFlow Trading Engine")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Run in demo mode with synthetic data (no exchange needed)",
+    )
+    args = parser.parse_args()
+
+    # Set env var before settings are loaded
+    if args.demo:
+        os.environ["KERYXFLOW_DEMO_MODE"] = "true"
 
     # Ensure data directories exist
     Path("data/logs").mkdir(parents=True, exist_ok=True)

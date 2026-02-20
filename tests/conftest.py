@@ -28,6 +28,7 @@ def setup_test_database(tmp_path):
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
+    import keryxflow.exchange.client as client_module
     import keryxflow.exchange.paper as paper_module
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
@@ -37,6 +38,7 @@ def setup_test_database(tmp_path):
     db_module._engine = None
     db_module._async_session_factory = None
     events_module._event_bus = None
+    client_module._client = None
     paper_module._paper_engine = None
     episodic_module._episodic_memory = None
     semantic_module._semantic_memory = None

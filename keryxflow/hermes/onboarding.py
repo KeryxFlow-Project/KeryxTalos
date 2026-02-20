@@ -449,24 +449,53 @@ class QuickSetupWizard(ModalScreen[dict[str, Any] | None]):
 
     def compose(self) -> ComposeResult:
         """Create the setup content."""
+        from keryxflow.config import get_settings
+
+        settings = get_settings()
+
         with Container():
-            yield Static("Paper Trading Mode", classes="title")
+            if settings.is_demo_mode:
+                yield Static("Demo Mode", classes="title")
 
-            yield Static(
-                "KeryxFlow is starting in [bold]paper trading[/] mode.\n\n"
-                "This means:\n"
-                "  - No real money is at risk\n"
-                "  - Trades are simulated\n"
-                "  - You can learn safely\n\n"
-                "To connect to a real exchange later,\n"
-                "add your API keys to the .env file.",
-                classes="info",
-            )
+                yield Static(
+                    "KeryxFlow is running in [bold]demo mode[/].\n\n"
+                    "This means:\n"
+                    "  - Synthetic price data (no exchange)\n"
+                    "  - Simulated trades\n"
+                    "  - Full UI experience\n\n"
+                    "No API keys or network needed.",
+                    classes="info",
+                )
 
-            yield Static(
-                "Your virtual balance: $10,000 USDT",
-                classes="warning",
-            )
+                yield Static(
+                    "Demo balance: $10,000 USDT",
+                    classes="warning",
+                )
+            else:
+                yield Static("Paper Trading Mode", classes="title")
+
+                yield Static(
+                    "KeryxFlow is starting in [bold]paper trading[/] mode.\n\n"
+                    "This means:\n"
+                    "  - No real money is at risk\n"
+                    "  - Trades are simulated\n"
+                    "  - You can learn safely\n\n"
+                    "To connect to a real exchange later,\n"
+                    "add your API keys to the .env file.",
+                    classes="info",
+                )
+
+                if not settings.has_binance_credentials:
+                    yield Static(
+                        "[dim]No API keys detected. Try demo mode for a\n"
+                        "quick tour: [bold]keryxflow --demo[/bold][/]",
+                        classes="info",
+                    )
+
+                yield Static(
+                    "Your virtual balance: $10,000 USDT",
+                    classes="warning",
+                )
 
             with Horizontal(classes="nav-buttons"):
                 yield Button("Continue", id="continue-btn", variant="primary")

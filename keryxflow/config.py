@@ -103,6 +103,7 @@ class SystemSettings(BaseSettings):
 
     exchange: str = "binance"
     mode: Literal["paper", "live"] = "paper"
+    demo_mode: bool = False
     symbols: list[str] = ["BTC/USDT", "ETH/USDT"]
     base_currency: str = "USDT"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
@@ -208,6 +209,11 @@ class Settings(BaseSettings):
         return self.system.mode == "paper"
 
     @property
+    def is_demo_mode(self) -> bool:
+        """Check if running in demo mode (synthetic data, no exchange)."""
+        return self.system.demo_mode
+
+    @property
     def has_binance_credentials(self) -> bool:
         """Check if Binance credentials are configured."""
         return bool(
@@ -242,6 +248,12 @@ def load_settings() -> Settings:
             # Allow env var to override TOML for mode
             if os.environ.get("KERYXFLOW_MODE"):
                 system_config["mode"] = os.environ["KERYXFLOW_MODE"]
+            if os.environ.get("KERYXFLOW_DEMO_MODE"):
+                system_config["demo_mode"] = os.environ["KERYXFLOW_DEMO_MODE"].lower() in (
+                    "true",
+                    "1",
+                    "yes",
+                )
             overrides["system"] = SystemSettings(**system_config)
         if "risk" in toml_config:
             overrides["risk"] = RiskSettings(**toml_config["risk"])

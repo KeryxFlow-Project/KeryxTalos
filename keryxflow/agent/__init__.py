@@ -44,6 +44,11 @@ from keryxflow.agent.cognitive import (
 )
 from keryxflow.agent.executor import ToolExecutor, get_tool_executor
 from keryxflow.agent.executor_agent import ExecutorAgent
+from keryxflow.agent.multi_agent import (
+    AgentOrchestrator as MultiAgentOrchestrator,
+    AgentRole,
+    get_agent_orchestrator as get_multi_agent_orchestrator,
+)
 from keryxflow.agent.orchestrator import AgentOrchestrator, get_agent_orchestrator
 from keryxflow.agent.reflection import (
     DailyReflectionResult,
@@ -161,4 +166,8 @@ __all__ = [
     "get_trading_session",
     "SessionState",
     "SessionStats",
+    # Multi-Agent
+    "AgentRole",
+    "AgentOrchestrator",
+    "get_agent_orchestrator",
 ]

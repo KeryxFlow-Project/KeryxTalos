@@ -123,9 +123,9 @@ class PlaceOrderTool(BaseTool):
                     price = engine.get_price(symbol)
 
                 if price is None:
-                    from keryxflow.exchange.client import get_exchange_client
+                    from keryxflow.exchange import get_exchange_adapter
 
-                    client = get_exchange_client()
+                    client = get_exchange_adapter()
                     ticker = await client.fetch_ticker(symbol)
                     price = ticker.get("last", ticker.get("close"))
 

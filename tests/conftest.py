@@ -30,6 +30,7 @@ def setup_test_database(tmp_path):
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
     import keryxflow.core.repository as repository_module
+    import keryxflow.exchange.bybit as bybit_module
     import keryxflow.exchange.client as client_module
     import keryxflow.exchange.paper as paper_module
     import keryxflow.memory.episodic as episodic_module
@@ -57,6 +58,8 @@ def setup_test_database(tmp_path):
     repository_module._repository = None
     notification_manager_module._notification_manager = None
     trailing_module._trailing_stop_manager = None
+    bybit_module._bybit_client = None
+    client_module._client = None
 
     import keryxflow.api.server as api_server_module
 

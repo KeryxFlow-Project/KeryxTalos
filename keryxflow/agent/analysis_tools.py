@@ -72,9 +72,9 @@ class CalculateIndicatorsTool(BaseTool):
 
         try:
             # Fetch OHLCV data
-            from keryxflow.exchange.client import get_exchange_client
+            from keryxflow.exchange import get_exchange_adapter
 
-            client = get_exchange_client()
+            client = get_exchange_adapter()
             ohlcv = await client.fetch_ohlcv(symbol, timeframe, limit=limit)
 
             if len(ohlcv) < 30:
@@ -722,7 +722,7 @@ class CalculateStopLossTool(BaseTool):
                     side=side,
                     percentage=percentage,
                 )
-                method_used = f"Fixed {percentage*100:.1f}%"
+                method_used = f"Fixed {percentage * 100:.1f}%"
 
             elif method == "atr":
                 if not symbol:
@@ -732,9 +732,9 @@ class CalculateStopLossTool(BaseTool):
                     )
 
                 # Fetch recent price data for ATR calculation
-                from keryxflow.exchange.client import get_exchange_client
+                from keryxflow.exchange import get_exchange_adapter
 
-                client = get_exchange_client()
+                client = get_exchange_adapter()
                 ohlcv = await client.fetch_ohlcv(symbol, "1h", limit=20)
 
                 if len(ohlcv) < 15:

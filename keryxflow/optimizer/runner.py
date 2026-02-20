@@ -9,7 +9,7 @@ from pathlib import Path
 from keryxflow.backtester.data import DataLoader
 from keryxflow.core.logging import get_logger
 from keryxflow.core.models import RiskProfile
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange import get_exchange_adapter
 from keryxflow.optimizer.engine import OptimizationConfig, OptimizationEngine
 from keryxflow.optimizer.grid import ParameterGrid, ParameterRange
 from keryxflow.optimizer.report import OptimizationReport
@@ -151,7 +151,7 @@ async def run_optimization(
             else:
                 logger.warning("csv_not_found", symbol=symbol, path=str(csv_path))
     else:
-        exchange = ExchangeClient()
+        exchange = get_exchange_adapter()
         await exchange.connect()
 
         try:

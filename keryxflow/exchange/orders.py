@@ -8,7 +8,7 @@ from typing import Any, Protocol
 from keryxflow.config import get_settings
 from keryxflow.core.events import EventType, get_event_bus, order_event
 from keryxflow.core.logging import LogMessages, get_logger
-from keryxflow.exchange.client import ExchangeClient, get_exchange_client
+from keryxflow.exchange.adapter import ExchangeAdapter
 from keryxflow.exchange.paper import PaperTradingEngine, get_paper_engine
 
 logger = get_logger(__name__)
@@ -103,7 +103,7 @@ class OrderManager:
         self.settings = get_settings()
         self.event_bus = get_event_bus()
         self._paper_engine: PaperTradingEngine | None = None
-        self._exchange_client: ExchangeClient | None = None
+        self._exchange_client: ExchangeAdapter | None = None
         self._pending_orders: dict[str, Order] = {}
 
     @property
@@ -120,7 +120,9 @@ class OrderManager:
             return self._paper_engine
         else:
             if self._exchange_client is None:
-                self._exchange_client = get_exchange_client(sandbox=False)
+                from keryxflow.exchange import get_exchange_adapter
+
+                self._exchange_client = get_exchange_adapter(sandbox=False)
             return self._exchange_client
 
     async def initialize(self) -> None:
@@ -130,7 +132,9 @@ class OrderManager:
             await engine.initialize()
             logger.info("order_manager_initialized", mode="paper")
         else:
-            client = get_exchange_client(sandbox=False)
+            from keryxflow.exchange import get_exchange_adapter
+
+            client = get_exchange_adapter(sandbox=False)
             await client.connect()
             logger.info("order_manager_initialized", mode="live")
 
@@ -373,7 +377,9 @@ class OrderManager:
             engine = get_paper_engine()
             return await engine.get_balance()
         else:
-            client = get_exchange_client()
+            from keryxflow.exchange import get_exchange_adapter
+
+            client = get_exchange_adapter()
             return await client.get_balance()
 
     async def sync_balance_from_exchange(self) -> dict[str, float]:
@@ -387,7 +393,9 @@ class OrderManager:
             balance = await self.get_balance()
             return balance.get("free", {})
 
-        client = get_exchange_client()
+        from keryxflow.exchange import get_exchange_adapter
+
+        client = get_exchange_adapter()
         balance = await client.get_balance()
         return balance.get("free", {})
 
@@ -406,7 +414,9 @@ class OrderManager:
 
         # Live mode - fetch from exchange
         if self._exchange_client is None:
-            self._exchange_client = get_exchange_client(sandbox=False)
+            from keryxflow.exchange import get_exchange_adapter
+
+            self._exchange_client = get_exchange_adapter(sandbox=False)
 
         try:
             # This would fetch real open orders from exchange

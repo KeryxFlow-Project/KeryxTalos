@@ -189,6 +189,8 @@ class Settings(BaseSettings):
     # API Keys (from .env)
     binance_api_key: SecretStr = Field(default=SecretStr(""))
     binance_api_secret: SecretStr = Field(default=SecretStr(""))
+    bybit_api_key: SecretStr = Field(default=SecretStr(""))
+    bybit_api_secret: SecretStr = Field(default=SecretStr(""))
     anthropic_api_key: SecretStr = Field(default=SecretStr(""))
     cryptopanic_api_key: SecretStr = Field(default=SecretStr(""))
 
@@ -229,6 +231,13 @@ class Settings(BaseSettings):
         """Check if Binance credentials are configured."""
         return bool(
             self.binance_api_key.get_secret_value() and self.binance_api_secret.get_secret_value()
+        )
+
+    @property
+    def has_bybit_credentials(self) -> bool:
+        """Check if Bybit credentials are configured."""
+        return bool(
+            self.bybit_api_key.get_secret_value() and self.bybit_api_secret.get_secret_value()
         )
 
     @property

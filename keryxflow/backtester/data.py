@@ -7,7 +7,7 @@ import pandas as pd
 
 from keryxflow.core.logging import get_logger
 from keryxflow.core.mtf_buffer import timeframe_to_seconds
-from keryxflow.exchange.client import ExchangeClient
+from keryxflow.exchange.adapter import ExchangeAdapter
 
 logger = get_logger(__name__)
 
@@ -24,7 +24,7 @@ class DataLoader:
 
     REQUIRED_COLUMNS = ["datetime", "open", "high", "low", "close", "volume"]
 
-    def __init__(self, exchange_client: ExchangeClient | None = None):
+    def __init__(self, exchange_client: ExchangeAdapter | None = None):
         """Initialize the data loader."""
         self.exchange = exchange_client
 

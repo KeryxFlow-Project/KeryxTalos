@@ -1,34 +1,17 @@
 [tool.poetry]
 name = "keryxflow"
-version = "0.17.0"
+version = "0.13.0"
 description = "A hybrid AI & quantitative trading engine for cryptocurrency markets"
 authors = ["KeryxFlow Contributors"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/KeryxFlow-Project/Kerykeion"
-homepage = "https://github.com/KeryxFlow-Project/Kerykeion"
+repository = "https://github.com/yourusername/keryxflow"
 keywords = ["trading", "cryptocurrency", "bitcoin", "ai", "algorithmic-trading"]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Financial and Insurance Industry",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Office/Business :: Financial :: Investment",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Framework :: AsyncIO",
-]
-packages = [{include = "keryxflow"}]
-
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/KeryxFlow-Project/Kerykeion/issues"
-"Changelog" = "https://github.com/KeryxFlow-Project/Kerykeion/blob/main/CHANGELOG.md"
 
 [tool.poetry.scripts]
 keryxflow = "keryxflow.main:run"
 keryxflow-backtest = "keryxflow.backtester.runner:main"
 keryxflow-optimize = "keryxflow.optimizer.runner:main"
-keryxflow-strategy = "keryxflow.agent.strategy_gen:main"
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -49,7 +32,6 @@ ccxt = "^4.0"
 numpy = ">=2.0"
 pandas = "^2.0"
 pandas-ta = ">=0.3.14b0"
-matplotlib = ">=3.5"
 
 # AI
 langchain = ">=0.1,<1.0"
@@ -62,10 +44,10 @@ httpx = "^0.27"
 # Interface
 textual = "^0.50"
 
-# API
-fastapi = ">=0.109,<1.0"
-uvicorn = {version = ">=0.27", extras = ["standard"]}
-websockets = ">=12.0"
+# Web
+fastapi = "^0.115"
+uvicorn = {version = "^0.30", extras = ["standard"]}
+jinja2 = "^3.1"
 
 # Utils
 python-dotenv = "^1.0"

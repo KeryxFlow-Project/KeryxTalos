@@ -22,6 +22,7 @@ Learning & Reflection:
 from keryxflow.agent.cognitive import (
     AgentDecision,
     AgentStats,
+    CircuitState,
     CognitiveAgent,
     CycleResult,
     CycleStatus,
@@ -94,6 +95,7 @@ __all__ = [
     "AgentDecision",
     "DecisionType",
     "AgentStats",
+    "CircuitState",
     # Reflection
     "ReflectionEngine",
     "get_reflection_engine",

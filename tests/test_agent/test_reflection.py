@@ -1,7 +1,5 @@
 """Tests for the Reflection Engine."""
 
-from datetime import UTC, datetime
-
 import pytest
 
 from keryxflow.agent.reflection import (
@@ -195,7 +193,7 @@ class TestReflectionEngine:
         assert engine._client is None
 
     def test_generate_basic_post_mortem_win(self):
-        """Test generating basic post-mortem for winning trade."""
+        """Test generating basic post-mortem JSON for winning trade."""
         from keryxflow.core.models import TradeEpisode
 
         engine = ReflectionEngine()
@@ -210,13 +208,14 @@ class TestReflectionEngine:
             outcome=TradeOutcome.WIN,
         )
 
-        analysis = engine._generate_basic_post_mortem(episode)
+        result = engine._generate_basic_post_mortem_json(episode)
 
-        assert "Profitable" in analysis
-        assert "validated" in analysis
+        assert "Profitable" in result["lessons_learned"]
+        assert result["would_take_again"] is True
+        assert isinstance(result["new_rules"], list)
 
     def test_generate_basic_post_mortem_loss(self):
-        """Test generating basic post-mortem for losing trade."""
+        """Test generating basic post-mortem JSON for losing trade."""
         from keryxflow.core.models import TradeEpisode
 
         engine = ReflectionEngine()
@@ -231,16 +230,16 @@ class TestReflectionEngine:
             outcome=TradeOutcome.LOSS,
         )
 
-        analysis = engine._generate_basic_post_mortem(episode)
+        result = engine._generate_basic_post_mortem_json(episode)
 
-        assert "Loss" in analysis
-        assert "review" in analysis.lower()
+        assert "Loss" in result["lessons_learned"]
+        assert result["would_take_again"] is False
 
     def test_generate_basic_daily_reflection(self):
-        """Test generating basic daily reflection."""
+        """Test generating basic daily reflection JSON."""
         engine = ReflectionEngine()
 
-        analysis = engine._generate_basic_daily_reflection(
+        result = engine._generate_basic_daily_reflection_json(
             date_str="2024-01-15",
             total_trades=5,
             winning=3,
@@ -248,43 +247,79 @@ class TestReflectionEngine:
             pnl_pct=1.5,
         )
 
-        assert "2024-01-15" in analysis
-        assert "5" in analysis
-        assert "60" in analysis  # Win rate
+        assert "2024-01-15" in result["summary"]
+        assert "5" in result["summary"]
+        assert isinstance(result["key_lessons"], list)
+        assert isinstance(result["recommendations"], list)
 
-    def test_extract_section(self):
-        """Test extracting sections from analysis."""
+    def test_generate_basic_weekly_reflection(self):
+        """Test generating basic weekly reflection JSON."""
         engine = ReflectionEngine()
 
-        text = """
-What went well: The entry timing was excellent.
-What went wrong: Held too long.
-Lessons learned: Trust the signals.
-"""
+        result = engine._generate_basic_weekly_reflection_json(
+            _total_trades=10,
+            win_rate=60.0,
+            total_pnl=5.0,
+            symbol_perf={"BTC/USDT": {"trades": 5, "pnl": 3.0}},
+        )
 
-        well = engine._extract_section(text, ["well", "good"])
-        assert "entry timing" in well.lower() or "excellent" in well.lower()
+        assert isinstance(result["patterns_identified"], list)
+        assert isinstance(result["focus_areas"], list)
+        assert isinstance(result["improvement_plan"], str)
 
-        lesson = engine._extract_section(text, ["lesson", "learned"])
-        assert "trust" in lesson.lower() or "signals" in lesson.lower()
-
-    def test_extract_list(self):
-        """Test extracting list items from analysis."""
+    def test_parse_json_response_direct(self):
+        """Test parsing direct JSON response."""
         engine = ReflectionEngine()
 
-        text = """
-Key lessons:
-- Be patient with entries
-- Don't overtrade
-- Trust the system
+        text = '{"lessons_learned": "Test", "would_take_again": true}'
+        result = engine._parse_json_response(text)
 
-Mistakes:
-1. Entered too early
-2. Moved stop loss
-"""
+        assert result is not None
+        assert result["lessons_learned"] == "Test"
+        assert result["would_take_again"] is True
 
-        lessons = engine._extract_list(text, ["lesson"])
-        assert len(lessons) >= 1
+    def test_parse_json_response_with_markdown_fence(self):
+        """Test parsing JSON wrapped in markdown code fence."""
+        engine = ReflectionEngine()
+
+        text = '```json\n{"summary": "Good day", "key_lessons": ["Patience"]}\n```'
+        result = engine._parse_json_response(text)
+
+        assert result is not None
+        assert result["summary"] == "Good day"
+
+    def test_parse_json_response_with_surrounding_text(self):
+        """Test parsing JSON with surrounding text."""
+        engine = ReflectionEngine()
+
+        text = 'Here is my analysis:\n{"summary": "Good day"}\nThank you.'
+        result = engine._parse_json_response(text)
+
+        assert result is not None
+        assert result["summary"] == "Good day"
+
+    def test_parse_json_response_empty(self):
+        """Test parsing empty text returns None."""
+        engine = ReflectionEngine()
+        assert engine._parse_json_response("") is None
+        assert engine._parse_json_response(None) is None
+
+    def test_parse_json_response_invalid(self):
+        """Test parsing invalid JSON returns None."""
+        engine = ReflectionEngine()
+        result = engine._parse_json_response("This is not JSON at all")
+        assert result is None
+
+    def test_parse_json_response_nested_braces(self):
+        """Test parsing JSON with nested objects."""
+        engine = ReflectionEngine()
+
+        text = '{"rules": [{"name": "Test", "condition": "RSI > 70"}], "plan": "Improve"}'
+        result = engine._parse_json_response(text)
+
+        assert result is not None
+        assert len(result["rules"]) == 1
+        assert result["rules"][0]["name"] == "Test"
 
     def test_get_stats(self):
         """Test getting engine statistics."""
@@ -295,16 +330,21 @@ Mistakes:
         assert stats["total_post_mortems"] == 0
         assert stats["total_daily_reflections"] == 0
         assert stats["rules_created"] == 0
+        assert stats["total_input_tokens"] == 0
+        assert stats["total_output_tokens"] == 0
+        assert stats["total_cost_usd"] == 0.0
 
     def test_get_recent_reflections(self):
         """Test getting recent reflections."""
         engine = ReflectionEngine()
 
         # Add some mock reflections
-        engine._reflection_history.append({
-            "type": ReflectionType.DAILY.value,
-            "result": {"test": "data"},
-        })
+        engine._reflection_history.append(
+            {
+                "type": ReflectionType.DAILY.value,
+                "result": {"test": "data"},
+            }
+        )
 
         recent = engine.get_recent_reflections()
 
@@ -315,14 +355,18 @@ Mistakes:
         """Test getting filtered recent reflections."""
         engine = ReflectionEngine()
 
-        engine._reflection_history.append({
-            "type": ReflectionType.DAILY.value,
-            "result": {},
-        })
-        engine._reflection_history.append({
-            "type": ReflectionType.WEEKLY.value,
-            "result": {},
-        })
+        engine._reflection_history.append(
+            {
+                "type": ReflectionType.DAILY.value,
+                "result": {},
+            }
+        )
+        engine._reflection_history.append(
+            {
+                "type": ReflectionType.WEEKLY.value,
+                "result": {},
+            }
+        )
 
         daily = engine.get_recent_reflections(ReflectionType.DAILY)
         weekly = engine.get_recent_reflections(ReflectionType.WEEKLY)

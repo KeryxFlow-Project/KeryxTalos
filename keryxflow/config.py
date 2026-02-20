@@ -89,6 +89,13 @@ class AgentSettings(BaseSettings):
     fallback_to_technical: bool = True  # Fall back to technical signals on API failure
     max_consecutive_errors: int = Field(default=3, ge=1, le=10)
 
+    # Circuit breaker
+    circuit_breaker_cooldown: int = Field(default=300, ge=30, le=3600)  # Seconds
+
+    # Cost tracking (per 1K tokens)
+    input_cost_per_1k: float = Field(default=0.003, ge=0.0)
+    output_cost_per_1k: float = Field(default=0.015, ge=0.0)
+
     # Tool categories to enable
     enable_perception: bool = True
     enable_analysis: bool = True

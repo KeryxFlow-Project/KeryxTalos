@@ -12,6 +12,14 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
+
+from keryxflow.agent.cognitive import _is_retryable_api_error
 from keryxflow.config import get_settings
 from keryxflow.core.logging import get_logger
 from keryxflow.core.models import (
@@ -184,6 +192,9 @@ class ReflectionStats:
     rules_updated: int = 0
     patterns_identified: int = 0
     total_tokens_used: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cost_usd: float = 0.0
     last_reflection_time: datetime | None = None
 
 
@@ -222,14 +233,17 @@ Trade Details:
 Technical Context at Entry:
 {technical_context}
 
-Answer these questions:
-1. What went well in this trade?
-2. What went wrong or could be improved?
-3. What is the key lesson from this trade?
-4. Would you take this exact trade again? Why or why not?
-5. Should any new rules be created based on this trade?
-
-Provide your analysis in a structured format."""
+Respond with a JSON object (and nothing else) with these fields:
+{{
+  "lessons_learned": "string - key lesson from this trade",
+  "what_went_well": "string - what worked",
+  "what_went_wrong": "string - what could improve",
+  "would_take_again": true/false,
+  "new_rules": [
+    {{"name": "rule name", "condition": "when to apply", "description": "what to do"}}
+  ],
+  "pattern_observations": ["string - observed pattern"]
+}}"""
 
     DAILY_REFLECTION_PROMPT = """Analyze today's trading performance.
 
@@ -241,15 +255,15 @@ Total P&L: {total_pnl:+.2f}%
 Trade Summaries:
 {trade_summaries}
 
-Answer these questions:
-1. Provide a brief summary of today's trading
-2. What were the key lessons learned today?
-3. What mistakes were made that should be avoided?
-4. What decisions worked well that should be repeated?
-5. What specific recommendations do you have for tomorrow?
-6. Are there any rules that need to be reviewed based on today's performance?
-
-Provide your analysis in a structured format."""
+Respond with a JSON object (and nothing else) with these fields:
+{{
+  "summary": "string - brief summary of today",
+  "key_lessons": ["string - lesson learned"],
+  "mistakes_made": ["string - mistake identified"],
+  "good_decisions": ["string - good decision made"],
+  "recommendations": ["string - recommendation for tomorrow"],
+  "rules_to_review": [0]
+}}"""
 
     WEEKLY_REFLECTION_PROMPT = """Analyze this week's trading performance and identify patterns.
 
@@ -268,16 +282,19 @@ Performance by Symbol:
 Existing Rules Performance:
 {rules_performance}
 
-Answer these questions:
-1. What patterns do you observe in this week's trading?
-2. What mistakes keep recurring that need to be addressed?
-3. What strategies consistently worked well?
-4. Should any new rules be created? If so, describe them.
-5. Should any existing rules be updated or deprecated?
-6. What should be the focus areas for next week?
-7. Provide a specific improvement plan for the coming week.
-
-Provide your analysis in a structured format."""
+Respond with a JSON object (and nothing else) with these fields:
+{{
+  "patterns_identified": [{{"description": "string"}}],
+  "recurring_mistakes": ["string"],
+  "successful_strategies": ["string"],
+  "new_rules_created": [
+    {{"name": "rule name", "condition": "when to apply", "description": "what to do"}}
+  ],
+  "rules_updated": [{{"id": 0, "confidence": 0.0}}],
+  "rules_deprecated": [0],
+  "focus_areas": ["string"],
+  "improvement_plan": "string"
+}}"""
 
     def __init__(
         self,
@@ -366,37 +383,49 @@ Provide your analysis in a structured format."""
         )
 
         # Get analysis from Claude
-        analysis = await self._get_analysis(prompt)
-        if analysis is None:
-            # Generate a basic analysis without LLM
-            analysis = self._generate_basic_post_mortem(episode)
+        analysis_text = await self._get_analysis(prompt)
 
-        # Parse the analysis
-        result = self._parse_post_mortem(episode, analysis)
+        # Parse as JSON; fallback to basic if not available
+        parsed = self._parse_json_response(analysis_text) if analysis_text else None
+        if parsed is None:
+            parsed = self._generate_basic_post_mortem_json(episode)
+
+        # Build result from parsed JSON
+        result = PostMortemResult(
+            episode_id=episode.id or 0,
+            symbol=episode.symbol,
+            outcome=episode.outcome or TradeOutcome.LOSS,
+            pnl_percentage=episode.pnl_percentage or 0,
+            lessons_learned=str(parsed.get("lessons_learned", episode.entry_reasoning[:200])),
+            what_went_well=str(parsed.get("what_went_well", "Trade executed as planned")),
+            what_went_wrong=str(parsed.get("what_went_wrong", "No significant issues")),
+            would_take_again=bool(parsed.get("would_take_again", False)),
+            new_rules=list(parsed.get("new_rules", [])),
+            pattern_observations=list(parsed.get("pattern_observations", [])),
+        )
 
         # Update the episode with lessons learned
-        if result:
-            await self.episodic.record_lessons(
-                episode_id=episode_id,
-                lessons=result.lessons_learned,
-                what_went_well=result.what_went_well,
-                what_went_wrong=result.what_went_wrong,
-                would_take_again=result.would_take_again,
-            )
+        await self.episodic.record_lessons(
+            episode_id=episode_id,
+            lessons=result.lessons_learned,
+            what_went_well=result.what_went_well,
+            what_went_wrong=result.what_went_wrong,
+            would_take_again=result.would_take_again,
+        )
 
-            # Create any new rules
-            for rule_data in result.new_rules:
-                await self._create_rule_from_reflection(rule_data)
+        # Create any new rules
+        for rule_data in result.new_rules:
+            await self._create_rule_from_reflection(rule_data)
 
-            self._stats.total_post_mortems += 1
-            self._stats.last_reflection_time = datetime.now(UTC)
+        self._stats.total_post_mortems += 1
+        self._stats.last_reflection_time = datetime.now(UTC)
 
-            logger.info(
-                "post_mortem_completed",
-                episode_id=episode_id,
-                outcome=result.outcome.value,
-                new_rules=len(result.new_rules),
-            )
+        logger.info(
+            "post_mortem_completed",
+            episode_id=episode_id,
+            outcome=result.outcome.value,
+            new_rules=len(result.new_rules),
+        )
 
         return result
 
@@ -452,42 +481,50 @@ Provide your analysis in a structured format."""
         )
 
         # Get analysis from Claude
-        analysis = await self._get_analysis(prompt)
-        if analysis is None:
-            analysis = self._generate_basic_daily_reflection(
+        analysis_text = await self._get_analysis(prompt)
+
+        # Parse as JSON; fallback to basic if not available
+        parsed = self._parse_json_response(analysis_text) if analysis_text else None
+        if parsed is None:
+            parsed = self._generate_basic_daily_reflection_json(
                 date_str, total_trades, winning_trades, losing_trades, total_pnl_pct
             )
 
-        # Parse the analysis
-        result = self._parse_daily_reflection(
-            date_str,
-            total_trades,
-            winning_trades,
-            losing_trades,
-            total_pnl,
-            total_pnl_pct,
-            [e.id for e in episodes if e.id],
-            analysis,
+        episode_ids = [e.id for e in episodes if e.id]
+
+        result = DailyReflectionResult(
+            date=date_str,
+            total_trades=total_trades,
+            winning_trades=winning_trades,
+            losing_trades=losing_trades,
+            total_pnl=total_pnl,
+            total_pnl_percentage=total_pnl_pct,
+            summary=str(parsed.get("summary", f"Traded {total_trades} times today")),
+            key_lessons=list(parsed.get("key_lessons", ["Continue following the trading plan"])),
+            mistakes_made=list(parsed.get("mistakes_made", ["None significant"])),
+            good_decisions=list(parsed.get("good_decisions", ["Maintained discipline"])),
+            recommendations=list(parsed.get("recommendations", ["Stay consistent"])),
+            rules_to_review=list(parsed.get("rules_to_review", [])),
+            episodes_analyzed=episode_ids,
         )
 
-        if result:
-            self._stats.total_daily_reflections += 1
-            self._stats.last_reflection_time = datetime.now(UTC)
+        self._stats.total_daily_reflections += 1
+        self._stats.last_reflection_time = datetime.now(UTC)
 
-            # Store the reflection
-            self._reflection_history.append(
-                {
-                    "type": ReflectionType.DAILY.value,
-                    "result": result.to_dict(),
-                }
-            )
+        # Store the reflection
+        self._reflection_history.append(
+            {
+                "type": ReflectionType.DAILY.value,
+                "result": result.to_dict(),
+            }
+        )
 
-            logger.info(
-                "daily_reflection_completed",
-                date=date_str,
-                total_trades=total_trades,
-                pnl_percentage=total_pnl_pct,
-            )
+        logger.info(
+            "daily_reflection_completed",
+            date=date_str,
+            total_trades=total_trades,
+            pnl_percentage=total_pnl_pct,
+        )
 
         return result
 
@@ -554,64 +591,74 @@ Provide your analysis in a structured format."""
         )
 
         # Get analysis from Claude
-        analysis = await self._get_analysis(prompt)
-        if analysis is None:
-            analysis = self._generate_basic_weekly_reflection(
+        analysis_text = await self._get_analysis(prompt)
+
+        # Parse as JSON; fallback to basic if not available
+        parsed = self._parse_json_response(analysis_text) if analysis_text else None
+        if parsed is None:
+            parsed = self._generate_basic_weekly_reflection_json(
                 total_trades, win_rate, total_pnl, symbol_performance
             )
 
-        # Parse the analysis
-        result = self._parse_weekly_reflection(
-            week_start_str,
-            week_end_str,
-            total_trades,
-            win_rate,
-            total_pnl,
-            avg_pnl,
-            symbol_performance,
-            daily_summaries,
-            analysis,
+        result = WeeklyReflectionResult(
+            week_start=week_start_str,
+            week_end=week_end_str,
+            total_trades=total_trades,
+            win_rate=win_rate,
+            total_pnl=total_pnl,
+            avg_pnl_per_trade=avg_pnl,
+            patterns_identified=list(parsed.get("patterns_identified", [])),
+            recurring_mistakes=list(parsed.get("recurring_mistakes", ["None identified"])),
+            successful_strategies=list(
+                parsed.get("successful_strategies", ["Maintained discipline"])
+            ),
+            new_rules_created=list(parsed.get("new_rules_created", [])),
+            rules_updated=list(parsed.get("rules_updated", [])),
+            rules_deprecated=list(parsed.get("rules_deprecated", [])),
+            performance_by_symbol=symbol_performance,
+            focus_areas=list(parsed.get("focus_areas", ["Consistency"])),
+            improvement_plan=str(parsed.get("improvement_plan", "Continue current approach")),
+            daily_summaries=daily_summaries,
         )
 
-        if result:
-            # Create new rules
-            for rule_data in result.new_rules_created:
-                await self._create_rule_from_reflection(rule_data)
-                self._stats.rules_created += 1
+        # Create new rules
+        for rule_data in result.new_rules_created:
+            await self._create_rule_from_reflection(rule_data)
+            self._stats.rules_created += 1
 
-            # Update existing rules
-            for rule_update in result.rules_updated:
-                await self._update_rule_from_reflection(rule_update)
-                self._stats.rules_updated += 1
+        # Update existing rules
+        for rule_update in result.rules_updated:
+            await self._update_rule_from_reflection(rule_update)
+            self._stats.rules_updated += 1
 
-            # Deprecate rules
-            for rule_id in result.rules_deprecated:
-                await self.semantic.update_rule_status(rule_id, RuleStatus.DEPRECATED)
+        # Deprecate rules
+        for rule_id in result.rules_deprecated:
+            await self.semantic.update_rule_status(rule_id, RuleStatus.DEPRECATED)
 
-            self._stats.total_weekly_reflections += 1
-            self._stats.patterns_identified += len(result.patterns_identified)
-            self._stats.last_reflection_time = datetime.now(UTC)
+        self._stats.total_weekly_reflections += 1
+        self._stats.patterns_identified += len(result.patterns_identified)
+        self._stats.last_reflection_time = datetime.now(UTC)
 
-            # Store the reflection
-            self._reflection_history.append(
-                {
-                    "type": ReflectionType.WEEKLY.value,
-                    "result": result.to_dict(),
-                }
-            )
+        # Store the reflection
+        self._reflection_history.append(
+            {
+                "type": ReflectionType.WEEKLY.value,
+                "result": result.to_dict(),
+            }
+        )
 
-            logger.info(
-                "weekly_reflection_completed",
-                week=week_start_str,
-                total_trades=total_trades,
-                new_rules=len(result.new_rules_created),
-                patterns=len(result.patterns_identified),
-            )
+        logger.info(
+            "weekly_reflection_completed",
+            week=week_start_str,
+            total_trades=total_trades,
+            new_rules=len(result.new_rules_created),
+            patterns=len(result.patterns_identified),
+        )
 
         return result
 
     async def _get_analysis(self, prompt: str) -> str | None:
-        """Get analysis from Claude.
+        """Get analysis from Claude with retry on transient errors.
 
         Args:
             prompt: The analysis prompt
@@ -623,16 +670,19 @@ Provide your analysis in a structured format."""
             return None
 
         try:
-            response = self._client.messages.create(
-                model=self.settings.agent.model,
-                max_tokens=2048,
-                temperature=0.3,
-                messages=[{"role": "user", "content": prompt}],
-            )
+            response = self._call_api_with_retry(prompt)
 
-            self._stats.total_tokens_used += (
-                response.usage.input_tokens + response.usage.output_tokens
-            )
+            input_tokens = response.usage.input_tokens
+            output_tokens = response.usage.output_tokens
+            self._stats.total_tokens_used += input_tokens + output_tokens
+            self._stats.total_input_tokens += input_tokens
+            self._stats.total_output_tokens += output_tokens
+
+            # Calculate cost
+            agent_settings = self.settings.agent
+            input_cost = (input_tokens / 1000) * agent_settings.input_cost_per_1k
+            output_cost = (output_tokens / 1000) * agent_settings.output_cost_per_1k
+            self._stats.total_cost_usd += round(input_cost + output_cost, 6)
 
             # Extract text from response
             text_blocks = [block.text for block in response.content if block.type == "text"]
@@ -642,208 +692,162 @@ Provide your analysis in a structured format."""
             logger.error("reflection_analysis_failed", error=str(e))
             return None
 
-    def _generate_basic_post_mortem(self, episode: TradeEpisode) -> str:
-        """Generate basic post-mortem without LLM."""
+    def _call_api_with_retry(self, prompt: str) -> Any:
+        """Call Anthropic API with retry logic.
+
+        Args:
+            prompt: The prompt to send
+
+        Returns:
+            API response
+        """
+
+        @retry(
+            retry=retry_if_exception(_is_retryable_api_error),
+            stop=stop_after_attempt(3),
+            wait=wait_exponential_jitter(initial=1, max=30, jitter=2),
+            before_sleep=lambda retry_state: logger.warning(
+                "reflection_api_retry",
+                attempt=retry_state.attempt_number,
+                error=str(retry_state.outcome.exception()) if retry_state.outcome else None,
+            ),
+            reraise=True,
+        )
+        def _make_request() -> Any:
+            return self._client.messages.create(
+                model=self.settings.agent.model,
+                max_tokens=2048,
+                temperature=0.3,
+                messages=[{"role": "user", "content": prompt}],
+            )
+
+        return _make_request()
+
+    def _parse_json_response(self, text: str) -> dict[str, Any] | None:
+        """Parse a JSON response from Claude, tolerant of markdown fences.
+
+        Args:
+            text: Raw response text
+
+        Returns:
+            Parsed dict or None if parsing fails
+        """
+        if not text:
+            return None
+
+        # Try direct parse first
+        try:
+            return json.loads(text.strip())
+        except json.JSONDecodeError:
+            pass
+
+        # Try extracting from markdown code fence
+        stripped = text.strip()
+        if "```" in stripped:
+            # Find content between code fences
+            start = stripped.find("```")
+            end = stripped.rfind("```")
+            if start != end:
+                inner = stripped[start:end]
+                # Remove the opening fence line
+                first_newline = inner.find("\n")
+                if first_newline != -1:
+                    inner = inner[first_newline + 1 :]
+                try:
+                    return json.loads(inner.strip())
+                except json.JSONDecodeError:
+                    pass
+
+        # Try finding first { to last }
+        brace_start = text.find("{")
+        brace_end = text.rfind("}")
+        if brace_start != -1 and brace_end > brace_start:
+            try:
+                return json.loads(text[brace_start : brace_end + 1])
+            except json.JSONDecodeError:
+                pass
+
+        logger.warning("failed_to_parse_json_response", text_preview=text[:200])
+        return None
+
+    def _generate_basic_post_mortem_json(self, episode: TradeEpisode) -> dict[str, Any]:
+        """Generate basic post-mortem as a dict without LLM."""
         pnl = episode.pnl_percentage or 0
 
         if pnl > 0:
-            lessons = f"Profitable trade on {episode.symbol}. Entry reasoning was validated."
-            well = "Trade closed in profit as planned."
-            wrong = "None identified in this winning trade."
-            would_take = True
-        else:
-            lessons = f"Loss on {episode.symbol}. Review entry criteria."
-            well = "Risk was managed with stop loss."
-            wrong = "Entry timing or criteria may need review."
-            would_take = False
+            return {
+                "lessons_learned": f"Profitable trade on {episode.symbol}. Entry reasoning was validated.",
+                "what_went_well": "Trade closed in profit as planned.",
+                "what_went_wrong": "None identified in this winning trade.",
+                "would_take_again": True,
+                "new_rules": [],
+                "pattern_observations": [],
+            }
+        return {
+            "lessons_learned": f"Loss on {episode.symbol}. Review entry criteria.",
+            "what_went_well": "Risk was managed with stop loss.",
+            "what_went_wrong": "Entry timing or criteria may need review.",
+            "would_take_again": False,
+            "new_rules": [],
+            "pattern_observations": [],
+        }
 
-        return f"""
-Lessons Learned: {lessons}
-What Went Well: {well}
-What Went Wrong: {wrong}
-Would Take Again: {"Yes" if would_take else "No"}
-New Rules: None suggested
-"""
-
-    def _generate_basic_daily_reflection(
+    def _generate_basic_daily_reflection_json(
         self,
         date_str: str,
         total_trades: int,
         winning: int,
         losing: int,
         pnl_pct: float,
-    ) -> str:
-        """Generate basic daily reflection without LLM."""
+    ) -> dict[str, Any]:
+        """Generate basic daily reflection as dict without LLM."""
         win_rate = (winning / total_trades * 100) if total_trades > 0 else 0
 
-        return f"""
-Summary: {total_trades} trades executed on {date_str} with {win_rate:.1f}% win rate.
-Key Lessons: {"Maintain discipline" if pnl_pct > 0 else "Review entry criteria"}
-Mistakes: {"None significant" if pnl_pct > 0 else "Possible overtrading"}
-Good Decisions: {"Followed the plan" if winning > losing else "Respected stop losses"}
-Recommendations: {"Continue current approach" if pnl_pct > 0 else "Be more selective with entries"}
-"""
+        return {
+            "summary": f"{total_trades} trades on {date_str} with {win_rate:.1f}% win rate.",
+            "key_lessons": ["Maintain discipline" if pnl_pct > 0 else "Review entry criteria"],
+            "mistakes_made": ["None significant" if pnl_pct > 0 else "Possible overtrading"],
+            "good_decisions": [
+                "Followed the plan" if winning > losing else "Respected stop losses"
+            ],
+            "recommendations": [
+                "Continue current approach" if pnl_pct > 0 else "Be more selective with entries"
+            ],
+            "rules_to_review": [],
+        }
 
-    def _generate_basic_weekly_reflection(
+    def _generate_basic_weekly_reflection_json(
         self,
         _total_trades: int,
         win_rate: float,
         total_pnl: float,
-        symbol_perf: dict,
-    ) -> str:
-        """Generate basic weekly reflection without LLM."""
+        symbol_perf: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Generate basic weekly reflection as dict without LLM."""
         best_symbol = (
             max(symbol_perf.items(), key=lambda x: x[1].get("pnl", 0))[0] if symbol_perf else "N/A"
         )
 
-        return f"""
-Patterns: {"Consistent performance" if win_rate > 50 else "Need improvement in entry timing"}
-Recurring Mistakes: {"None significant" if win_rate > 50 else "Possible premature entries"}
-Successful Strategies: Best performance on {best_symbol}
-New Rules: None suggested
-Rules to Update: None
-Focus Areas: {"Maintain consistency" if total_pnl > 0 else "Improve entry criteria"}
-Improvement Plan: {"Continue current approach" if total_pnl > 0 else "Review and refine entry signals"}
-"""
-
-    def _parse_post_mortem(self, episode: TradeEpisode, analysis: str) -> PostMortemResult:
-        """Parse post-mortem analysis into structured result."""
-        # Extract sections from analysis
-        lessons = self._extract_section(
-            analysis, ["lesson", "learned"], episode.entry_reasoning[:200]
-        )
-        well = self._extract_section(analysis, ["well", "good"], "Trade executed as planned")
-        wrong = self._extract_section(analysis, ["wrong", "improve"], "No significant issues")
-        would_take = (
-            "yes" in analysis.lower() and "would" in analysis.lower() and "take" in analysis.lower()
-        )
-
-        return PostMortemResult(
-            episode_id=episode.id or 0,
-            symbol=episode.symbol,
-            outcome=episode.outcome or TradeOutcome.LOSS,
-            pnl_percentage=episode.pnl_percentage or 0,
-            lessons_learned=lessons,
-            what_went_well=well,
-            what_went_wrong=wrong,
-            would_take_again=would_take,
-            new_rules=[],  # Could be enhanced to extract rules from analysis
-            pattern_observations=[],
-        )
-
-    def _parse_daily_reflection(
-        self,
-        date_str: str,
-        total_trades: int,
-        winning_trades: int,
-        losing_trades: int,
-        total_pnl: float,
-        total_pnl_pct: float,
-        episode_ids: list[int],
-        analysis: str,
-    ) -> DailyReflectionResult:
-        """Parse daily reflection analysis into structured result."""
-        summary = self._extract_section(analysis, ["summary"], f"Traded {total_trades} times today")
-        lessons = self._extract_list(analysis, ["lesson", "learned"])
-        mistakes = self._extract_list(analysis, ["mistake", "wrong"])
-        good = self._extract_list(analysis, ["good", "well", "worked"])
-        recommendations = self._extract_list(analysis, ["recommend", "tomorrow"])
-
-        return DailyReflectionResult(
-            date=date_str,
-            total_trades=total_trades,
-            winning_trades=winning_trades,
-            losing_trades=losing_trades,
-            total_pnl=total_pnl,
-            total_pnl_percentage=total_pnl_pct,
-            summary=summary,
-            key_lessons=lessons or ["Continue following the trading plan"],
-            mistakes_made=mistakes or ["None significant"],
-            good_decisions=good or ["Maintained discipline"],
-            recommendations=recommendations or ["Stay consistent"],
-            rules_to_review=[],
-            episodes_analyzed=episode_ids,
-        )
-
-    def _parse_weekly_reflection(
-        self,
-        week_start: str,
-        week_end: str,
-        total_trades: int,
-        win_rate: float,
-        total_pnl: float,
-        avg_pnl: float,
-        symbol_performance: dict,
-        daily_summaries: list[str],
-        analysis: str,
-    ) -> WeeklyReflectionResult:
-        """Parse weekly reflection analysis into structured result."""
-        patterns = self._extract_list(analysis, ["pattern"])
-        mistakes = self._extract_list(analysis, ["mistake", "recurring"])
-        strategies = self._extract_list(analysis, ["strateg", "success"])
-        focus = self._extract_list(analysis, ["focus", "area"])
-        plan = self._extract_section(analysis, ["plan", "improvement"], "Continue current approach")
-
-        return WeeklyReflectionResult(
-            week_start=week_start,
-            week_end=week_end,
-            total_trades=total_trades,
-            win_rate=win_rate,
-            total_pnl=total_pnl,
-            avg_pnl_per_trade=avg_pnl,
-            patterns_identified=[{"description": p} for p in patterns] if patterns else [],
-            recurring_mistakes=mistakes or ["None identified"],
-            successful_strategies=strategies or ["Maintained discipline"],
-            new_rules_created=[],
-            rules_updated=[],
-            rules_deprecated=[],
-            performance_by_symbol=symbol_performance,
-            focus_areas=focus or ["Consistency"],
-            improvement_plan=plan,
-            daily_summaries=daily_summaries,
-        )
-
-    def _extract_section(self, text: str, keywords: list[str], default: str = "") -> str:
-        """Extract a section from analysis text based on keywords."""
-        lines = text.split("\n")
-        for i, line in enumerate(lines):
-            if any(kw in line.lower() for kw in keywords):
-                # Return the content after the keyword line
-                content = []
-                for j in range(i, min(i + 3, len(lines))):
-                    content.append(lines[j])
-                result = " ".join(content).strip()
-                # Clean up any markdown or prefixes
-                for prefix in [":", "-", "*", "1.", "2.", "3."]:
-                    if prefix in result:
-                        result = result.split(prefix, 1)[-1].strip()
-                return result[:500] if result else default
-        return default
-
-    def _extract_list(self, text: str, keywords: list[str]) -> list[str]:
-        """Extract a list of items from analysis text."""
-        items = []
-        lines = text.split("\n")
-        in_section = False
-
-        for line in lines:
-            if any(kw in line.lower() for kw in keywords):
-                in_section = True
-                continue
-
-            if in_section:
-                line = line.strip()
-                if line.startswith(("-", "*", "•")) or (line and line[0].isdigit()):
-                    # Clean the line
-                    item = line.lstrip("-*•0123456789. ").strip()
-                    if item and len(item) > 3:
-                        items.append(item[:200])
-                elif line and not any(kw in line.lower() for kw in [":", "?"]):
-                    # Non-list line, might be end of section
-                    if len(items) > 0:
-                        break
-
-        return items[:5]  # Limit to 5 items
+        return {
+            "patterns_identified": [
+                {
+                    "description": "Consistent performance"
+                    if win_rate > 50
+                    else "Need improvement in entry timing"
+                }
+            ],
+            "recurring_mistakes": [
+                "None significant" if win_rate > 50 else "Possible premature entries"
+            ],
+            "successful_strategies": [f"Best performance on {best_symbol}"],
+            "new_rules_created": [],
+            "rules_updated": [],
+            "rules_deprecated": [],
+            "focus_areas": ["Maintain consistency" if total_pnl > 0 else "Improve entry criteria"],
+            "improvement_plan": (
+                "Continue current approach" if total_pnl > 0 else "Review and refine entry signals"
+            ),
+        }
 
     def _build_trade_summaries(self, episodes: list[TradeEpisode]) -> str:
         """Build trade summaries for daily reflection."""
@@ -951,6 +955,9 @@ Improvement Plan: {"Continue current approach" if total_pnl > 0 else "Review and
             "rules_updated": self._stats.rules_updated,
             "patterns_identified": self._stats.patterns_identified,
             "total_tokens_used": self._stats.total_tokens_used,
+            "total_input_tokens": self._stats.total_input_tokens,
+            "total_output_tokens": self._stats.total_output_tokens,
+            "total_cost_usd": self._stats.total_cost_usd,
             "last_reflection_time": (
                 self._stats.last_reflection_time.isoformat()
                 if self._stats.last_reflection_time

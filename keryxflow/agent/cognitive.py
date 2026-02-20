@@ -8,10 +8,18 @@ while respecting immutable guardrails.
 """
 
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from keryxflow.agent.executor import ToolExecutor, get_tool_executor
 from keryxflow.agent.tools import (
@@ -27,6 +35,29 @@ from keryxflow.core.logging import get_logger
 from keryxflow.memory.manager import MemoryManager, get_memory_manager
 
 logger = get_logger(__name__)
+
+
+def _is_retryable_api_error(exception: BaseException) -> bool:
+    """Check if an API error is retryable (transient)."""
+    error_str = str(exception).lower()
+    # Retry on rate limits, server errors, and connection errors
+    if "rate" in error_str or "429" in error_str:
+        return True
+    if any(code in error_str for code in ["500", "502", "503", "504"]):
+        return True
+    if any(term in error_str for term in ["connection", "timeout", "overloaded", "temporarily"]):
+        return True
+    # Also check exception type names for anthropic-specific errors
+    exc_type = type(exception).__name__
+    if exc_type in (
+        "RateLimitError",
+        "InternalServerError",
+        "APIConnectionError",
+        "APITimeoutError",
+        "OverloadedError",
+    ):
+        return True
+    return False
 
 
 class CycleStatus(str, Enum):
@@ -48,6 +79,14 @@ class DecisionType(str, Enum):
     EXIT = "exit"
     ADJUST_STOP = "adjust_stop"
     ADJUST_TARGET = "adjust_target"
+
+
+class CircuitState(str, Enum):
+    """Circuit breaker state."""
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Tripped, rejecting calls
+    HALF_OPEN = "half_open"  # Allowing a single probe call
 
 
 @dataclass
@@ -81,6 +120,9 @@ class CycleResult:
     error: str | None = None
     duration_ms: float = 0.0
     tokens_used: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float = 0.0
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
@@ -100,6 +142,9 @@ class CycleResult:
             "error": self.error,
             "duration_ms": self.duration_ms,
             "tokens_used": self.tokens_used,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "cost_usd": self.cost_usd,
             "started_at": self.started_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
@@ -115,9 +160,57 @@ class AgentStats:
     error_cycles: int = 0
     total_tool_calls: int = 0
     total_tokens_used: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cost_usd: float = 0.0
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     last_cycle_time: datetime | None = None
     consecutive_errors: int = 0
+    circuit_state: CircuitState = CircuitState.CLOSED
+    circuit_opened_at: float | None = None
+
+
+# The make_decision tool schema for structured output from Claude
+MAKE_DECISION_TOOL = {
+    "name": "make_decision",
+    "description": (
+        "Report your trading decision after analyzing the market. "
+        "You MUST call this tool exactly once at the end of your analysis "
+        "to communicate your decision."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "decision_type": {
+                "type": "string",
+                "enum": [
+                    "hold",
+                    "entry_long",
+                    "entry_short",
+                    "exit",
+                    "adjust_stop",
+                    "adjust_target",
+                ],
+                "description": "The type of trading decision.",
+            },
+            "symbol": {
+                "type": "string",
+                "description": "The trading pair symbol (e.g. BTC/USDT). Required for entry/exit.",
+            },
+            "confidence": {
+                "type": "number",
+                "minimum": 0.0,
+                "maximum": 1.0,
+                "description": "Confidence level from 0.0 to 1.0.",
+            },
+            "reasoning": {
+                "type": "string",
+                "description": "Brief explanation of why this decision was made.",
+            },
+        },
+        "required": ["decision_type", "confidence", "reasoning"],
+    },
+}
 
 
 class CognitiveAgent:
@@ -163,11 +256,15 @@ class CognitiveAgent:
 - Respect the maximum position size and exposure limits
 
 ## Output Format
-After analyzing the market, explain your reasoning and use the appropriate execution tool if action is needed. If no action is needed, explain why you're choosing to HOLD.
+After analyzing the market, you MUST call the `make_decision` tool exactly once to report your decision. Use HOLD if no action is needed. Explain your reasoning in the reasoning field.
 
 Current UTC time: {current_time}
 Active symbols: {symbols}
 """
+
+    # Default cost rates per 1K tokens (can be overridden via settings)
+    DEFAULT_INPUT_COST_PER_1K = 0.003
+    DEFAULT_OUTPUT_COST_PER_1K = 0.015
 
     def __init__(
         self,
@@ -229,6 +326,50 @@ Active symbols: {symbols}
             model=self.settings.model,
         )
 
+    def _check_circuit_breaker(self) -> bool:
+        """Check circuit breaker state.
+
+        Returns:
+            True if the call should proceed, False if circuit is open.
+        """
+        if self._stats.circuit_state == CircuitState.CLOSED:
+            return True
+
+        if self._stats.circuit_state == CircuitState.OPEN:
+            # Check if cooldown has elapsed
+            cooldown = self.settings.circuit_breaker_cooldown
+            if (
+                self._stats.circuit_opened_at is not None
+                and (time.monotonic() - self._stats.circuit_opened_at) >= cooldown
+            ):
+                # Transition to half-open
+                self._stats.circuit_state = CircuitState.HALF_OPEN
+                logger.info("circuit_breaker_half_open", cooldown=cooldown)
+                return True
+            return False
+
+        # HALF_OPEN: allow a single probe call
+        return True
+
+    def _trip_circuit_breaker(self) -> None:
+        """Trip the circuit breaker to OPEN state."""
+        self._stats.circuit_state = CircuitState.OPEN
+        self._stats.circuit_opened_at = time.monotonic()
+        logger.warning(
+            "circuit_breaker_tripped",
+            consecutive_errors=self._stats.consecutive_errors,
+        )
+
+    def _reset_circuit_breaker(self) -> None:
+        """Reset the circuit breaker to CLOSED state."""
+        if self._stats.circuit_state != CircuitState.CLOSED:
+            logger.info(
+                "circuit_breaker_reset",
+                previous_state=self._stats.circuit_state.value,
+            )
+        self._stats.circuit_state = CircuitState.CLOSED
+        self._stats.circuit_opened_at = None
+
     async def run_cycle(self, symbols: list[str] | None = None) -> CycleResult:
         """Run a single cognitive cycle.
 
@@ -255,23 +396,48 @@ Active symbols: {symbols}
                 completed_at=datetime.now(UTC),
             )
 
+        # Check circuit breaker
+        if not self._check_circuit_breaker():
+            logger.info(
+                "circuit_breaker_open_skipping_api",
+                state=self._stats.circuit_state.value,
+            )
+            if self.settings.fallback_to_technical:
+                return await self._run_fallback_cycle(symbols, started_at)
+            return CycleResult(
+                status=CycleStatus.ERROR,
+                error="Circuit breaker is open",
+                started_at=started_at,
+                completed_at=datetime.now(UTC),
+            )
+
         try:
             # 1. Build context (Perceive + Remember)
             context = await self._build_context(symbols)
 
             # 2. Get decision from Claude (Analyze + Decide)
-            decision, tool_results, tokens = await self._get_decision(context, symbols)
+            (
+                decision,
+                tool_results,
+                total_tokens,
+                input_tokens,
+                output_tokens,
+            ) = await self._get_decision(context, symbols)
 
             # 3. Record cycle
             completed_at = datetime.now(UTC)
             duration_ms = (completed_at - started_at).total_seconds() * 1000
+            cost = self._calculate_cost(input_tokens, output_tokens)
 
             result = CycleResult(
                 status=CycleStatus.SUCCESS if decision else CycleStatus.NO_ACTION,
                 decision=decision,
                 tool_results=tool_results,
                 duration_ms=duration_ms,
-                tokens_used=tokens,
+                tokens_used=total_tokens,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost,
                 started_at=started_at,
                 completed_at=completed_at,
             )
@@ -282,8 +448,9 @@ Active symbols: {symbols}
             # 5. Publish event
             await self._publish_cycle_event(result)
 
-            # Reset error counter on success
+            # Reset error counter and circuit breaker on success
             self._stats.consecutive_errors = 0
+            self._reset_circuit_breaker()
 
             logger.info(
                 "agent_cycle_completed",
@@ -291,24 +458,41 @@ Active symbols: {symbols}
                 decision_type=decision.decision_type.value if decision else None,
                 tool_calls=len(tool_results),
                 duration_ms=duration_ms,
+                cost_usd=cost,
             )
 
             return result
 
         except Exception as e:
             self._stats.consecutive_errors += 1
-            logger.error("agent_cycle_failed", error=str(e))
+            logger.error(
+                "agent_cycle_failed",
+                error=str(e),
+                consecutive_errors=self._stats.consecutive_errors,
+            )
 
-            # Check if we should fall back
-            if (
-                self.settings.fallback_to_technical
-                and self._stats.consecutive_errors >= self.settings.max_consecutive_errors
-            ):
-                logger.warning(
-                    "falling_back_to_technical",
-                    consecutive_errors=self._stats.consecutive_errors,
+            # Check if we should trip the circuit breaker
+            if self._stats.consecutive_errors >= self.settings.max_consecutive_errors:
+                self._trip_circuit_breaker()
+
+                # Publish circuit breaker event
+                await self._event_bus.publish(
+                    Event(
+                        type=EventType.CIRCUIT_BREAKER_TRIGGERED,
+                        data={
+                            "source": "cognitive_agent_api",
+                            "consecutive_errors": self._stats.consecutive_errors,
+                            "circuit_state": self._stats.circuit_state.value,
+                        },
+                    )
                 )
-                return await self._run_fallback_cycle(symbols, started_at)
+
+                if self.settings.fallback_to_technical:
+                    logger.warning(
+                        "falling_back_to_technical",
+                        consecutive_errors=self._stats.consecutive_errors,
+                    )
+                    return await self._run_fallback_cycle(symbols, started_at)
 
             return CycleResult(
                 status=CycleStatus.ERROR,
@@ -356,7 +540,7 @@ Active symbols: {symbols}
 
     async def _get_decision(
         self, context: dict[str, Any], symbols: list[str]
-    ) -> tuple[AgentDecision | None, list[ToolResult], int]:
+    ) -> tuple[AgentDecision | None, list[ToolResult], int, int, int]:
         """Get trading decision from Claude using tool use.
 
         Args:
@@ -364,7 +548,7 @@ Active symbols: {symbols}
             symbols: Active symbols
 
         Returns:
-            Tuple of (decision, tool_results, tokens_used)
+            Tuple of (decision, tool_results, total_tokens, input_tokens, output_tokens)
         """
         # Build system prompt
         system_prompt = self.SYSTEM_PROMPT.format(
@@ -375,18 +559,21 @@ Active symbols: {symbols}
         # Build initial user message with context
         user_message = self._build_user_message(context)
 
-        # Get tool schemas based on settings
+        # Get tool schemas based on settings, plus the make_decision tool
         tools = self._get_enabled_tools()
+        tools.append(MAKE_DECISION_TOOL)
 
         # Conversation loop with tool use
         messages = [{"role": "user", "content": user_message}]
         tool_results: list[ToolResult] = []
         total_tokens = 0
+        total_input = 0
+        total_output = 0
         max_iterations = self.settings.max_tool_calls_per_cycle
 
         for iteration in range(max_iterations):
-            # Call Claude
-            response = self._client.messages.create(
+            # Call Claude with retry
+            response = await self._call_api(
                 model=self.settings.model,
                 max_tokens=self.settings.max_tokens,
                 temperature=self.settings.temperature,
@@ -396,23 +583,38 @@ Active symbols: {symbols}
             )
 
             # Track tokens
-            total_tokens += response.usage.input_tokens + response.usage.output_tokens
+            input_tok = response.usage.input_tokens
+            output_tok = response.usage.output_tokens
+            total_input += input_tok
+            total_output += output_tok
+            total_tokens += input_tok + output_tok
 
             # Check for tool use
             tool_use_blocks = [block for block in response.content if block.type == "tool_use"]
 
             if not tool_use_blocks:
-                # No more tool calls - extract decision from text
+                # No tool calls - Claude didn't call make_decision, default to HOLD
                 text_blocks = [block for block in response.content if block.type == "text"]
                 reasoning = " ".join(block.text for block in text_blocks)
+                decision = AgentDecision(
+                    decision_type=DecisionType.HOLD,
+                    reasoning=reasoning[:500],
+                    confidence=0.0,
+                )
+                return decision, tool_results, total_tokens, total_input, total_output
 
-                decision = self._parse_decision(reasoning, tool_results)
-                return decision, tool_results, total_tokens
+            # Check for make_decision tool call
+            decision_block = None
+            other_tool_blocks = []
+            for block in tool_use_blocks:
+                if block.name == "make_decision":
+                    decision_block = block
+                else:
+                    other_tool_blocks.append(block)
 
-            # Execute tool calls
+            # Execute non-decision tool calls
             tool_call_results = []
-            for tool_block in tool_use_blocks:
-                # Execute the tool
+            for tool_block in other_tool_blocks:
                 result = await self.executor.execute(tool_block.name, **tool_block.input)
                 tool_results.append(result)
                 self._stats.total_tool_calls += 1
@@ -432,6 +634,14 @@ Active symbols: {symbols}
                     iteration=iteration,
                 )
 
+            # If make_decision was called, parse it and return
+            if decision_block is not None:
+                decision = self._parse_structured_decision(decision_block.input)
+
+                # Still need to return tool_result for make_decision to complete the loop
+                # but we have our decision, so return it
+                return decision, tool_results, total_tokens, total_input, total_output
+
             # Add assistant message and tool results to conversation
             messages.append({"role": "assistant", "content": response.content})
             messages.append({"role": "user", "content": tool_call_results})
@@ -440,9 +650,49 @@ Active symbols: {symbols}
             if response.stop_reason == "end_turn":
                 break
 
-        # Max iterations reached
+        # Max iterations reached - default HOLD
         logger.warning("max_tool_iterations_reached", iterations=max_iterations)
-        return None, tool_results, total_tokens
+        return (
+            AgentDecision(
+                decision_type=DecisionType.HOLD,
+                reasoning="Max tool iterations reached",
+                confidence=0.0,
+            ),
+            tool_results,
+            total_tokens,
+            total_input,
+            total_output,
+        )
+
+    async def _call_api(self, **kwargs: Any) -> Any:
+        """Call the Anthropic API with retry and exponential backoff.
+
+        Args:
+            **kwargs: Arguments to pass to messages.create()
+
+        Returns:
+            API response
+
+        Raises:
+            Exception: If all retries are exhausted
+        """
+
+        @retry(
+            retry=retry_if_exception(_is_retryable_api_error),
+            stop=stop_after_attempt(3),
+            wait=wait_exponential_jitter(initial=1, max=30, jitter=2),
+            before_sleep=lambda retry_state: logger.warning(
+                "api_retry",
+                attempt=retry_state.attempt_number,
+                wait=retry_state.next_action.sleep if retry_state.next_action else 0,
+                error=str(retry_state.outcome.exception()) if retry_state.outcome else None,
+            ),
+            reraise=True,
+        )
+        def _make_request() -> Any:
+            return self._client.messages.create(**kwargs)
+
+        return _make_request()
 
     def _build_user_message(self, context: dict[str, Any]) -> str:
         """Build the initial user message with context.
@@ -474,7 +724,8 @@ Active symbols: {symbols}
             parts.append("")
 
         parts.append(
-            "Use the available tools to gather more data if needed, then make a trading decision."
+            "Use the available tools to gather more data if needed, "
+            "then call `make_decision` with your trading decision."
         )
 
         return "\n".join(parts)
@@ -498,68 +749,57 @@ Active symbols: {symbols}
 
         return self.toolkit.get_anthropic_tools_schema(categories)
 
-    def _parse_decision(
-        self, reasoning: str, tool_results: list[ToolResult]
-    ) -> AgentDecision | None:
-        """Parse the agent's decision from its reasoning.
+    def _parse_structured_decision(self, tool_input: dict[str, Any]) -> AgentDecision:
+        """Parse a structured decision from the make_decision tool call.
 
         Args:
-            reasoning: Text reasoning from Claude
-            tool_results: Results from tool executions
+            tool_input: Input dict from the make_decision tool call
 
         Returns:
-            Parsed AgentDecision or None
+            Parsed AgentDecision
         """
-        reasoning_lower = reasoning.lower()
-
-        # Check for execution tool results to determine decision type
-        executed_order = False
-        executed_close = False
-        symbol = None
-
-        for result in tool_results:
-            if result.success and result.data:
-                data = result.data
-                if isinstance(data, dict):
-                    if "order_id" in data:
-                        executed_order = True
-                        symbol = data.get("symbol")
-                    elif "closed" in data:
-                        executed_close = True
-                        symbol = data.get("symbol")
-
-        # Determine decision type
-        if executed_order:
-            if "long" in reasoning_lower or "buy" in reasoning_lower:
-                decision_type = DecisionType.ENTRY_LONG
-            elif "short" in reasoning_lower or "sell" in reasoning_lower:
-                decision_type = DecisionType.ENTRY_SHORT
-            else:
-                decision_type = DecisionType.ENTRY_LONG
-        elif executed_close:
-            decision_type = DecisionType.EXIT
-        elif "hold" in reasoning_lower or "wait" in reasoning_lower or "no action" in reasoning_lower:
-            decision_type = DecisionType.HOLD
-        else:
+        # Extract and validate decision_type
+        raw_type = tool_input.get("decision_type", "hold")
+        try:
+            decision_type = DecisionType(raw_type)
+        except ValueError:
+            logger.warning("invalid_decision_type", raw_type=raw_type)
             decision_type = DecisionType.HOLD
 
-        # Extract confidence (simple heuristic)
-        confidence = 0.5
-        if "high confidence" in reasoning_lower or "strong" in reasoning_lower:
-            confidence = 0.8
-        elif "low confidence" in reasoning_lower or "weak" in reasoning_lower:
-            confidence = 0.3
+        # Extract and clamp confidence
+        confidence = tool_input.get("confidence", 0.0)
+        if not isinstance(confidence, int | float):
+            confidence = 0.0
+        confidence = max(0.0, min(1.0, float(confidence)))
+
+        # Extract reasoning
+        reasoning = str(tool_input.get("reasoning", ""))[:500]
+
+        # Extract symbol
+        symbol = tool_input.get("symbol")
 
         return AgentDecision(
             decision_type=decision_type,
             symbol=symbol,
-            reasoning=reasoning[:500],  # Truncate for storage
+            reasoning=reasoning,
             confidence=confidence,
         )
 
-    async def _run_fallback_cycle(
-        self, symbols: list[str], started_at: datetime
-    ) -> CycleResult:
+    def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
+        """Calculate estimated cost in USD.
+
+        Args:
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+
+        Returns:
+            Estimated cost in USD
+        """
+        input_cost = (input_tokens / 1000) * self.settings.input_cost_per_1k
+        output_cost = (output_tokens / 1000) * self.settings.output_cost_per_1k
+        return round(input_cost + output_cost, 6)
+
+    async def _run_fallback_cycle(self, symbols: list[str], started_at: datetime) -> CycleResult:
         """Run a fallback cycle using technical signals.
 
         Args:
@@ -651,6 +891,9 @@ Active symbols: {symbols}
         self._stats.total_cycles += 1
         self._stats.last_cycle_time = result.completed_at or datetime.now(UTC)
         self._stats.total_tokens_used += result.tokens_used
+        self._stats.total_input_tokens += result.input_tokens
+        self._stats.total_output_tokens += result.output_tokens
+        self._stats.total_cost_usd += result.cost_usd
 
         if result.status == CycleStatus.SUCCESS:
             self._stats.successful_cycles += 1
@@ -734,8 +977,12 @@ Active symbols: {symbols}
             "error_cycles": self._stats.error_cycles,
             "total_tool_calls": self._stats.total_tool_calls,
             "total_tokens_used": self._stats.total_tokens_used,
+            "total_input_tokens": self._stats.total_input_tokens,
+            "total_output_tokens": self._stats.total_output_tokens,
+            "total_cost_usd": self._stats.total_cost_usd,
             "decisions_by_type": self._stats.decisions_by_type,
             "consecutive_errors": self._stats.consecutive_errors,
+            "circuit_state": self._stats.circuit_state.value,
             "last_cycle_time": (
                 self._stats.last_cycle_time.isoformat() if self._stats.last_cycle_time else None
             ),

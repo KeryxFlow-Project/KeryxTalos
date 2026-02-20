@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# Python artifacts
+__pycache__
+*.py[cod]
+*.egg-info
+.eggs
+build
+dist
+
+# Virtual environments
+.venv
+venv
+
+# Data (persisted via volume mount)
+data/*.db
+data/logs
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Testing & linting
+tests
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Documentation
+docs
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+
+# IDE & editor
+.idea
+.vscode
+*.swp
+*.swo
+
+# Tooling
+.serena
+.claude
+scripts
+.nf

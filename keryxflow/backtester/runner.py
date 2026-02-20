@@ -474,7 +474,7 @@ async def _run_walk_forward(
             if csv_path.exists():
                 data[symbol] = loader.load_from_csv(csv_path)
     else:
-        exchange = ExchangeClient()
+        exchange = get_exchange_adapter()
         await exchange.connect()
         try:
             loader = DataLoader(exchange_client=exchange)

@@ -23,7 +23,7 @@ try:
     # Silence ClientSession.__del__ warning
     _original_session_del = getattr(aiohttp.ClientSession, "__del__", None)
 
-    def _silent_session_del(self):
+    def _silent_session_del(self):  # noqa: ARG001
         pass  # Do nothing - GC will clean up
 
     aiohttp.ClientSession.__del__ = _silent_session_del
@@ -31,7 +31,7 @@ try:
     # Silence TCPConnector.__del__ warning
     _original_connector_del = getattr(aiohttp.TCPConnector, "__del__", None)
 
-    def _silent_connector_del(self):
+    def _silent_connector_del(self):  # noqa: ARG001
         pass  # Do nothing - GC will clean up
 
     aiohttp.TCPConnector.__del__ = _silent_connector_del
@@ -45,7 +45,7 @@ try:
 
     _original_exchange_del = getattr(ccxt_async.Exchange, "__del__", None)
 
-    def _silent_exchange_del(self):
+    def _silent_exchange_del(self):  # noqa: ARG001
         pass  # Do nothing - GC will clean up
 
     ccxt_async.Exchange.__del__ = _silent_exchange_del

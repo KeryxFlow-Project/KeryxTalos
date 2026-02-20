@@ -8,7 +8,7 @@ from keryxflow.memory.semantic import PatternMatch, RuleMatch, SemanticMemory
 
 
 @pytest.fixture
-async def semantic_memory(init_db):
+async def semantic_memory(_init_db):
     """Create a semantic memory instance."""
     return SemanticMemory(get_session_factory())
 
@@ -16,7 +16,7 @@ async def semantic_memory(init_db):
 class TestRuleMatch:
     """Tests for RuleMatch dataclass."""
 
-    def test_rule_match_to_dict(self, init_db):
+    def test_rule_match_to_dict(self, _init_db):
         """Test converting rule match to dict."""
         from keryxflow.core.models import TradingRule
 
@@ -45,7 +45,7 @@ class TestRuleMatch:
 class TestPatternMatch:
     """Tests for PatternMatch dataclass."""
 
-    def test_pattern_match_to_dict(self, init_db):
+    def test_pattern_match_to_dict(self, _init_db):
         """Test converting pattern match to dict."""
         from keryxflow.core.models import MarketPattern
 
@@ -215,9 +215,9 @@ class TestSemanticMemoryRules:
         )
 
         # Simulate 10 trades: 7 wins, 3 losses
-        for i in range(7):
+        for _i in range(7):
             await semantic_memory.update_rule_performance(rule.id, was_successful=True, pnl=100.0)
-        for i in range(3):
+        for _i in range(3):
             await semantic_memory.update_rule_performance(rule.id, was_successful=False, pnl=-50.0)
 
         updated = await semantic_memory.get_rule(rule.id)
@@ -371,7 +371,7 @@ class TestSemanticMemoryPatterns:
         )
 
         # Simulate 5 observations: 4 profitable
-        for i in range(4):
+        for _i in range(4):
             await semantic_memory.update_pattern_stats(
                 pattern.id, was_profitable=True, return_pct=5.0, duration_hours=24.0
             )

@@ -75,7 +75,7 @@ async def init_db():
 
 
 @pytest_asyncio.fixture
-async def db_session(init_db):
+async def db_session(_init_db):
     """Get an async database session for testing."""
     from keryxflow.core.database import get_session_factory
 

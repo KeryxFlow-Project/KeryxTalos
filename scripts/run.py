@@ -2,6 +2,7 @@
 """Simple runner for KeryxFlow - MVP demo."""
 
 import asyncio
+import contextlib
 
 # Ensure we use the project's data directory
 import os
@@ -65,7 +66,7 @@ async def main():
     # Flag for graceful shutdown
     running = True
 
-    def signal_handler(sig, frame):
+    def signal_handler(_sig, _frame):
         nonlocal running
         print("\n\n  Shutting down gracefully...")
         running = False
@@ -133,7 +134,5 @@ async def main():
 
 
 if __name__ == "__main__":
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(main())
-    except KeyboardInterrupt:
-        pass

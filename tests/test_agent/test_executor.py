@@ -77,7 +77,7 @@ class FailingTool(BaseTool):
     def parameters(self) -> list[ToolParameter]:
         return []
 
-    async def execute(self, **kwargs) -> ToolResult:
+    async def execute(self, **_kwargs) -> ToolResult:
         raise RuntimeError("Intentional failure")
 
 
@@ -254,7 +254,7 @@ class TestToolExecutorWithGuardrails:
     """Tests for executor with guardrail integration."""
 
     @pytest.mark.asyncio
-    async def test_execute_guarded_tool_with_guardrails(self, init_db):
+    async def test_execute_guarded_tool_with_guardrails(self, _init_db):
         """Test executing guarded tool validates against guardrails."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.agent.execution_tools import register_execution_tools
@@ -265,7 +265,7 @@ class TestToolExecutorWithGuardrails:
         await engine.initialize()
         engine.update_price("BTC/USDT", 45000.0)
 
-        risk_manager = get_risk_manager(initial_balance=10000.0)
+        get_risk_manager(initial_balance=10000.0)
 
         toolkit = TradingToolkit()
         register_execution_tools(toolkit)
@@ -283,7 +283,7 @@ class TestToolExecutorWithGuardrails:
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_execute_guarded_blocks_invalid_order(self, init_db):
+    async def test_execute_guarded_blocks_invalid_order(self, _init_db):
         """Test that guarded execution blocks invalid orders."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.agent.execution_tools import register_execution_tools
@@ -293,7 +293,7 @@ class TestToolExecutorWithGuardrails:
         await engine.initialize()
         engine.update_price("BTC/USDT", 45000.0)
 
-        risk_manager = get_risk_manager(initial_balance=10000.0)
+        get_risk_manager(initial_balance=10000.0)
 
         toolkit = TradingToolkit()
         register_execution_tools(toolkit)

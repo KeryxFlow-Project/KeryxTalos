@@ -59,7 +59,7 @@ class TestGetCurrentPriceTool:
         assert "symbol" in schema["input_schema"]["required"]
 
     @pytest.mark.asyncio
-    async def test_execute_with_paper_engine(self, init_db):
+    async def test_execute_with_paper_engine(self, _init_db):
         """Test execution with paper engine price."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -122,12 +122,12 @@ class TestGetPortfolioStateTool:
         assert len(tool.parameters) == 0  # No parameters
 
     @pytest.mark.asyncio
-    async def test_execute_returns_portfolio_data(self, init_db):
+    async def test_execute_returns_portfolio_data(self, _init_db):
         """Test that execution returns portfolio state."""
         from keryxflow.aegis.risk import get_risk_manager
 
         # Initialize risk manager with some balance
-        risk_manager = get_risk_manager(initial_balance=10000.0)
+        get_risk_manager(initial_balance=10000.0)
 
         tool = GetPortfolioStateTool()
         result = await tool.execute()
@@ -158,7 +158,7 @@ class TestGetBalanceTool:
         assert param.required is False
 
     @pytest.mark.asyncio
-    async def test_execute_returns_balance(self, init_db):
+    async def test_execute_returns_balance(self, _init_db):
         """Test that execution returns balance."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -174,7 +174,7 @@ class TestGetBalanceTool:
         assert "used" in result.data
 
     @pytest.mark.asyncio
-    async def test_execute_with_specific_currency(self, init_db):
+    async def test_execute_with_specific_currency(self, _init_db):
         """Test execution filtering by currency."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -200,7 +200,7 @@ class TestGetPositionsTool:
         assert tool.category == ToolCategory.PERCEPTION
 
     @pytest.mark.asyncio
-    async def test_execute_returns_empty_list(self, init_db):
+    async def test_execute_returns_empty_list(self, _init_db):
         """Test execution returns empty list when no positions."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -215,7 +215,7 @@ class TestGetPositionsTool:
         assert result.data["count"] == 0
 
     @pytest.mark.asyncio
-    async def test_execute_returns_positions(self, init_db):
+    async def test_execute_returns_positions(self, _init_db):
         """Test execution returns open positions."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -251,7 +251,7 @@ class TestGetOpenOrdersTool:
         assert tool.category == ToolCategory.PERCEPTION
 
     @pytest.mark.asyncio
-    async def test_execute_returns_empty_list(self, init_db):
+    async def test_execute_returns_empty_list(self, _init_db):
         """Test execution returns empty list when no orders."""
         from keryxflow.exchange.orders import get_order_manager
 
@@ -270,7 +270,7 @@ class TestPerceptionToolsIntegration:
     """Integration tests for perception tools."""
 
     @pytest.mark.asyncio
-    async def test_tools_can_be_executed_through_toolkit(self, init_db):
+    async def test_tools_can_be_executed_through_toolkit(self, _init_db):
         """Test that all perception tools can be executed through toolkit."""
         from keryxflow.exchange.paper import get_paper_engine
 

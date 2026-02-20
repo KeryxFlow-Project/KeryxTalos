@@ -7,9 +7,9 @@ import os
 # Set test database
 os.environ["KERYXFLOW_DB_URL"] = "sqlite+aiosqlite:///data/test_paper.db"
 
-from keryxflow.core.database import init_db
-from keryxflow.exchange.client import ExchangeClient
-from keryxflow.exchange.paper import PaperTradingEngine
+from keryxflow.core.database import init_db  # noqa: E402
+from keryxflow.exchange.client import ExchangeClient  # noqa: E402
+from keryxflow.exchange.paper import PaperTradingEngine  # noqa: E402
 
 
 async def main():

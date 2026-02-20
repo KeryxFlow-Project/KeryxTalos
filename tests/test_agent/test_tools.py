@@ -159,7 +159,7 @@ class TestBaseTool:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         tool = ExecutionTool()
@@ -191,7 +191,7 @@ class TestBaseTool:
                     ToolParameter("limit", "integer", "Limit", required=False, default=10),
                 ]
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         tool = TestTool()
@@ -227,7 +227,7 @@ class TestBaseTool:
                     ToolParameter("limit", "integer", "Limit", required=False),
                 ]
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         tool = TestTool()
@@ -258,7 +258,7 @@ class TestBaseTool:
                     ToolParameter("symbol", "string", "Symbol", required=True),
                 ]
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         tool = TestTool()
@@ -291,7 +291,7 @@ class TestBaseTool:
                     ),
                 ]
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         tool = TestTool()
@@ -325,7 +325,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         tool = MockTool()
@@ -355,7 +355,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         toolkit.register(MockTool())
@@ -384,7 +384,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         class ExecutionTool(BaseTool):
@@ -404,7 +404,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         toolkit.register(PerceptionTool())
@@ -438,7 +438,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         class GuardedTool(BaseTool):
@@ -458,7 +458,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         toolkit.register(SafeTool())
@@ -489,7 +489,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return [ToolParameter("param", "string", "Param", required=True)]
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         toolkit.register(Tool1())
@@ -563,7 +563,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         class Tool2(BaseTool):
@@ -583,7 +583,7 @@ class TestTradingToolkit:
             def parameters(self) -> list[ToolParameter]:
                 return []
 
-            async def execute(self, **kwargs):
+            async def execute(self, **_kwargs):
                 return ToolResult(success=True)
 
         toolkit.register(Tool1())

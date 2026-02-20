@@ -206,7 +206,7 @@ class TestOptimizationEngine:
 
         progress_calls = []
 
-        def callback(current, total, params):
+        def callback(current, total, _params):
             progress_calls.append((current, total))
 
         engine = OptimizationEngine()

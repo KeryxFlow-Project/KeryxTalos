@@ -177,10 +177,12 @@ class RSSFetcher:
                         dt = dt.replace(tzinfo=UTC)
                     return dt
                 except ValueError:
+                    logger.debug("date_parse_format_mismatch", date_str=date_str, fmt=fmt)
                     continue
 
             return datetime.now(UTC)
         except Exception:
+            logger.warning("date_parse_failed", date_str=date_str, exc_info=True)
             return datetime.now(UTC)
 
     def _clean_html(self, text: str) -> str:

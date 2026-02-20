@@ -104,6 +104,12 @@ class AgentSettings(BaseSettings):
     cost_per_million_input_tokens: float = 3.0  # USD per 1M input tokens
     cost_per_million_output_tokens: float = 15.0  # USD per 1M output tokens
 
+    # Multi-agent mode
+    multi_agent_enabled: bool = False  # Use AgentOrchestrator instead of CognitiveAgent
+    analyst_model: str | None = None  # Override model for analyst (defaults to main model)
+    risk_model: str | None = None  # Override model for risk agent
+    executor_model: str | None = None  # Override model for executor agent
+
 
 class ApiSettings(BaseSettings):
     """REST API configuration."""

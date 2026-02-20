@@ -38,6 +38,7 @@ class StrategyType(str, Enum):
     SCALPING = "scalping"
     SWING = "swing"
     MOMENTUM = "momentum"
+    GRID = "grid"
 
 
 @dataclass
@@ -238,6 +239,25 @@ class StrategyManager:
                 "fast_period": 12,
                 "slow_period": 26,
                 "signal_period": 9,
+            },
+        ),
+        StrategyConfig(
+            id="grid_default",
+            name="Grid Trading Bot",
+            strategy_type=StrategyType.GRID,
+            description="Place buy/sell orders at grid levels to profit from ranging markets",
+            regime_suitability={
+                MarketRegime.TRENDING_UP: 0.3,
+                MarketRegime.TRENDING_DOWN: 0.2,
+                MarketRegime.RANGING: 0.95,
+                MarketRegime.HIGH_VOLATILITY: 0.4,
+                MarketRegime.LOW_VOLATILITY: 0.85,
+                MarketRegime.BREAKOUT: 0.1,
+            },
+            parameters={
+                "grid_count": 10,
+                "grid_type": "arithmetic",
+                "auto_stop_on_breakout": True,
             },
         ),
     ]

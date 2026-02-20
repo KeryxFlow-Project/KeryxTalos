@@ -6,6 +6,7 @@ This directory contains detailed documentation for the KeryxFlow project.
 
 | Document | Description |
 |----------|-------------|
+| [Quickstart](quickstart.md) | 5-minute quickstart guide |
 | [Optimization](optimization.md) | Parameter optimization guide |
 | [Architecture](architecture.md) | System design and module interactions |
 | [API Reference](api.md) | Internal API documentation |
@@ -23,6 +24,7 @@ This directory contains detailed documentation for the KeryxFlow project.
 
 | Document | Status |
 |----------|--------|
+| Quickstart | Complete |
 | Optimization | Complete |
 | Architecture | Complete |
 | API Reference | Complete |

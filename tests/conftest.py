@@ -28,6 +28,7 @@ def setup_test_database(tmp_path):
     import keryxflow.agent.tools as tools_module
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
+    import keryxflow.core.engine as engine_module
     import keryxflow.core.events as events_module
     import keryxflow.core.repository as repository_module
     import keryxflow.exchange.bybit as bybit_module
@@ -37,6 +38,7 @@ def setup_test_database(tmp_path):
     import keryxflow.memory.manager as manager_module
     import keryxflow.memory.semantic as semantic_module
     import keryxflow.notifications.manager as notification_manager_module
+    import keryxflow.oracle.brain as brain_module
 
     config_module._settings = None
     db_module._engine = None
@@ -60,6 +62,8 @@ def setup_test_database(tmp_path):
     trailing_module._trailing_stop_manager = None
     bybit_module._bybit_client = None
     client_module._client = None
+    engine_module._engine = None
+    brain_module._brain = None
 
     import keryxflow.api.server as api_server_module
 

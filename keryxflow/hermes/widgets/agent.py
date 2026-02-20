@@ -53,6 +53,7 @@ class AgentWidget(Static):
         self._session: "TradingSession | None" = None
         self._status: dict[str, Any] = {}
         self._agent_enabled = False
+        self._custom_label: str | None = None
 
     def set_session(self, session: "TradingSession") -> None:
         """Set the trading session reference."""
@@ -90,6 +91,12 @@ class AgentWidget(Static):
         if self.is_mounted:
             self._update_display()
 
+    def set_label(self, label: str) -> None:
+        """Set a custom label for the state line (e.g. 'Technical Mode')."""
+        self._custom_label = label
+        if self.is_mounted:
+            self._update_display()
+
     def _update_display(self) -> None:
         """Update the display."""
         # State line
@@ -97,7 +104,8 @@ class AgentWidget(Static):
         state = self._status.get("state", "idle")
 
         if not self._agent_enabled:
-            state_line.update("[dim]Mode:       ○ DISABLED[/]")
+            label = self._custom_label or "DISABLED"
+            state_line.update(f"[dim]Mode:       ○ {label}[/]")
         elif state == "running":
             state_line.update("[bold green]Mode:       ● RUNNING[/]")
         elif state == "paused":

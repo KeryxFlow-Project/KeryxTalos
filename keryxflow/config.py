@@ -119,6 +119,7 @@ class SystemSettings(BaseSettings):
 
     exchange: str = "binance"
     mode: Literal["paper", "live"] = "paper"
+    ai_mode: Literal["disabled", "enhanced", "autonomous"] = "disabled"
     symbols: list[str] = ["BTC/USDT", "ETH/USDT"]
     base_currency: str = "USDT"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

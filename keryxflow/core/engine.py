@@ -192,8 +192,12 @@ class TradingEngine:
         # Safeguards for live trading
         self._safeguards = LiveTradingSafeguards(self.settings)
 
-        # Agent mode support
-        self._agent_mode = self.settings.agent.enabled
+        # AI mode: "disabled" | "enhanced" | "autonomous"
+        # ai_mode takes precedence; fall back to agent.enabled for backward compat
+        self._ai_mode = self.settings.system.ai_mode
+        if self._ai_mode == "disabled" and self.settings.agent.enabled:
+            self._ai_mode = "autonomous"
+        self._agent_mode = self._ai_mode == "autonomous"
         self._cognitive_agent = cognitive_agent
         if self._agent_mode and self._cognitive_agent is None:
             from keryxflow.agent.cognitive import get_cognitive_agent
@@ -568,13 +572,14 @@ class TradingEngine:
                 return
 
         try:
-            # Generate signal (without LLM for now - faster)
+            # include_llm depends on ai_mode: disabled=False, enhanced=True
+            include_llm = self._ai_mode == "enhanced"
             signal = await self.signals.generate_signal(
                 symbol=symbol,
                 ohlcv=ohlcv,
                 current_price=current_price,
                 include_news=False,  # Disable news for speed
-                include_llm=False,  # Disable LLM for speed
+                include_llm=include_llm,
             )
 
             # Publish signal event
@@ -1181,6 +1186,7 @@ class TradingEngine:
             if self._last_balance_sync
             else None,
             "mtf_enabled": self._mtf_enabled,
+            "ai_mode": self._ai_mode,
             "agent_mode": self._agent_mode,
         }
 

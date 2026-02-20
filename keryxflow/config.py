@@ -282,7 +282,11 @@ def load_settings() -> Settings:
         if "hermes" in toml_config:
             overrides["hermes"] = HermesSettings(**toml_config["hermes"])
         if "database" in toml_config:
-            overrides["database"] = DatabaseSettings(**toml_config["database"])
+            db_config = toml_config["database"].copy()
+            # Allow env var to override TOML for database URL
+            if os.environ.get("KERYXFLOW_DB_URL"):
+                db_config["url"] = os.environ["KERYXFLOW_DB_URL"]
+            overrides["database"] = DatabaseSettings(**db_config)
         if "live" in toml_config:
             overrides["live"] = LiveSettings(**toml_config["live"])
         if "notifications" in toml_config:

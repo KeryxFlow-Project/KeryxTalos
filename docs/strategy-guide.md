@@ -85,8 +85,8 @@ KeryxFlow ships with four default strategies registered in `StrategyManager.DEFA
 | ID | Type | Best Regimes | Key Parameters |
 |----|------|-------------|----------------|
 | `trend_following_basic` | TREND_FOLLOWING | TRENDING_UP/DOWN (0.9) | fast_ema=9, slow_ema=21 |
-| `mean_reversion_rsi` | MEAN_REVERSION | RANGING (0.9), LOW_VOL (0.8) | rsi_period=14, oversold=30, overbought=70 |
-| `breakout_bollinger` | BREAKOUT | BREAKOUT (0.95), HIGH_VOL (0.7) | bb_period=20, bb_std=2.0 |
+| `mean_reversion_rsi` | MEAN_REVERSION | RANGING (0.9), LOW_VOL (0.8) | rsi_period=14, oversold_level=30, overbought_level=70 |
+| `breakout_bollinger` | BREAKOUT | BREAKOUT (0.95), HIGH_VOL (0.7) | bb_period=20, bb_std=2.0, volume_confirmation=True |
 | `momentum_macd` | MOMENTUM | TRENDING_UP/DOWN (0.8), BREAKOUT (0.7) | fast=12, slow=26, signal=9 |
 
 ### Signal Generation Pipeline

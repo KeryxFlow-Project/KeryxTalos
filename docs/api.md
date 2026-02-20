@@ -731,3 +731,282 @@ Symbol = str  # e.g., "BTC/USDT"
 Side = Literal["buy", "sell"]
 OrderType = Literal["market", "limit"]
 ```
+
+---
+
+## REST API & WebSocket Server
+
+KeryxFlow includes a built-in REST API and WebSocket server for external integrations, monitoring dashboards, and programmatic control.
+
+### Server Configuration
+
+The API server is configured via `ApiSettings` with the `KERYXFLOW_API_` environment variable prefix.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `host` | `str` | `127.0.0.1` | Bind address |
+| `port` | `int` | `8080` | Listen port |
+| `token` | `str` | `""` | Bearer auth token (empty = no auth) |
+| `cors_origins` | `list[str]` | `["*"]` | Allowed CORS origins |
+
+**Environment variables:**
+
+```bash
+KERYXFLOW_API_HOST=0.0.0.0
+KERYXFLOW_API_PORT=8080
+KERYXFLOW_API_TOKEN=my-secret-token
+KERYXFLOW_API_CORS_ORIGINS=["http://localhost:3000"]
+```
+
+---
+
+### Authentication
+
+The API uses Bearer token authentication via `HTTPBearer`. Include the token in the `Authorization` header:
+
+```
+Authorization: Bearer <token>
+```
+
+If the `token` setting is an empty string (the default), authentication is **skipped** and all endpoints are publicly accessible.
+
+---
+
+### GET Endpoints
+
+#### `GET /api/status`
+
+Returns the current risk manager and trading session status.
+
+**Response:**
+
+```json
+{
+  "risk": {
+    "circuit_breaker": false,
+    "daily_pnl_pct": -0.5,
+    "open_positions": 1,
+    "max_open_positions": 3
+  },
+  "session": {
+    "state": "RUNNING",
+    "uptime_seconds": 3600,
+    "is_paused": false
+  }
+}
+```
+
+---
+
+#### `GET /api/positions`
+
+Returns all open positions with unrealized PnL.
+
+**Response:**
+
+```json
+[
+  {
+    "symbol": "BTC/USDT",
+    "side": "buy",
+    "quantity": 0.01,
+    "entry_price": 67000.0,
+    "current_price": 67500.0,
+    "unrealized_pnl": 5.0,
+    "unrealized_pnl_pct": 0.75
+  }
+]
+```
+
+---
+
+#### `GET /api/trades`
+
+Returns the 50 most recent trades.
+
+**Response:**
+
+```json
+[
+  {
+    "id": "trade-abc123",
+    "symbol": "BTC/USDT",
+    "side": "buy",
+    "quantity": 0.01,
+    "entry_price": 67000.0,
+    "exit_price": 67500.0,
+    "pnl": 5.0,
+    "pnl_pct": 0.75,
+    "opened_at": "2026-02-19T10:00:00Z",
+    "closed_at": "2026-02-19T12:30:00Z"
+  }
+]
+```
+
+---
+
+#### `GET /api/balance`
+
+Returns the portfolio balance.
+
+**Response:**
+
+```json
+{
+  "total": 10000.0,
+  "free": 8000.0,
+  "used": 2000.0
+}
+```
+
+---
+
+#### `GET /api/agent/status`
+
+Returns the cognitive agent session state and statistics.
+
+**Response:**
+
+```json
+{
+  "state": "RUNNING",
+  "cycles_completed": 42,
+  "success_rate": 0.95,
+  "total_trades": 10,
+  "win_rate": 0.6,
+  "pnl": 150.0,
+  "tool_calls": 320,
+  "tokens_used": 125000
+}
+```
+
+---
+
+### POST Endpoints
+
+#### `POST /api/panic`
+
+Triggers an emergency stop: closes all open positions and pauses trading.
+
+**Request:** No body required.
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "message": "Panic triggered: all positions closed, trading paused"
+}
+```
+
+---
+
+#### `POST /api/pause`
+
+Toggles pause/resume for trading. If trading is active it will be paused; if paused it will be resumed.
+
+**Request:** No body required.
+
+**Response (paused):**
+
+```json
+{
+  "status": "ok",
+  "paused": true,
+  "message": "Trading paused"
+}
+```
+
+**Response (resumed):**
+
+```json
+{
+  "status": "ok",
+  "paused": false,
+  "message": "Trading resumed"
+}
+```
+
+---
+
+### WebSocket Endpoint
+
+#### `WS /ws/events`
+
+Streams all EventBus events as JSON in real-time. Connect with any WebSocket client to receive a live feed of system events.
+
+**Connection:**
+
+```
+ws://127.0.0.1:8080/ws/events
+```
+
+If authentication is enabled, pass the token as a query parameter:
+
+```
+ws://127.0.0.1:8080/ws/events?token=my-secret-token
+```
+
+**Event JSON format:**
+
+Each message is a JSON object with the following structure:
+
+```json
+{
+  "type": "price_update",
+  "timestamp": "2026-02-19T10:00:00.123456Z",
+  "data": {
+    "symbol": "BTC/USDT",
+    "price": 67500.0
+  }
+}
+```
+
+**Available event types:**
+
+| Event Type | Description |
+|------------|-------------|
+| `price_update` | New price received for a symbol |
+| `ohlcv_update` | New OHLCV candle created |
+| `signal_generated` | Trading signal produced by Oracle or Agent |
+| `signal_validated` | Signal passed risk validation |
+| `signal_rejected` | Signal failed risk validation |
+| `order_requested` | Order submitted for approval |
+| `order_approved` | Order passed risk checks |
+| `order_rejected` | Order failed risk checks |
+| `order_submitted` | Order sent to exchange |
+| `order_filled` | Order executed on exchange |
+| `order_cancelled` | Order cancelled |
+| `position_opened` | New position opened |
+| `position_updated` | Position updated (price change, partial fill) |
+| `position_closed` | Position closed |
+| `risk_alert` | Risk threshold warning |
+| `circuit_breaker_triggered` | Circuit breaker activated |
+| `drawdown_warning` | Drawdown limit approaching |
+| `system_started` | Trading engine started |
+| `system_stopped` | Trading engine stopped |
+| `system_paused` | Trading paused |
+| `system_resumed` | Trading resumed |
+| `panic_triggered` | Emergency stop activated |
+
+---
+
+### Starting the Server
+
+The API server starts **automatically** when the `TradingEngine` is launched, using the configured `ApiSettings`.
+
+To start it standalone (without the full trading engine):
+
+```python
+from keryxflow.api import create_app
+import uvicorn
+
+app = create_app()
+uvicorn.run(app, host="127.0.0.1", port=8080)
+```
+
+Or via the CLI:
+
+```bash
+poetry run keryxflow --api-only
+```

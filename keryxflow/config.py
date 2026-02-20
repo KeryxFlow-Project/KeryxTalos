@@ -98,6 +98,16 @@ class AgentSettings(BaseSettings):
     enable_execution: bool = True  # Guarded tools
 
 
+class ApiSettings(BaseSettings):
+    """REST API configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="KERYXFLOW_API_")
+
+    enabled: bool = False
+    port: int = Field(default=8080, ge=1, le=65535)
+    token: str = ""
+
+
 class SystemSettings(BaseSettings):
     """System configuration."""
 
@@ -190,6 +200,7 @@ class Settings(BaseSettings):
     live: LiveSettings = Field(default_factory=LiveSettings)
     notifications: NotificationSettings = Field(default_factory=NotificationSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
+    api: ApiSettings = Field(default_factory=ApiSettings)
 
     @field_validator("binance_api_key", "binance_api_secret", "anthropic_api_key")
     @classmethod
@@ -259,6 +270,8 @@ def load_settings() -> Settings:
             overrides["notifications"] = NotificationSettings(**toml_config["notifications"])
         if "agent" in toml_config:
             overrides["agent"] = AgentSettings(**toml_config["agent"])
+        if "api" in toml_config:
+            overrides["api"] = ApiSettings(**toml_config["api"])
 
         return Settings(**overrides)
 

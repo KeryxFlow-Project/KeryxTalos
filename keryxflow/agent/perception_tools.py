@@ -96,7 +96,7 @@ class GetCurrentPriceTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_current_price_failed", symbol=symbol, error=str(e))
+            logger.exception("get_current_price_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to get price for {symbol}: {str(e)}",
@@ -183,7 +183,7 @@ class GetOHLCVTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_ohlcv_failed", symbol=symbol, error=str(e))
+            logger.exception("get_ohlcv_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to get OHLCV for {symbol}: {str(e)}",
@@ -265,7 +265,7 @@ class GetOrderBookTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_order_book_failed", symbol=symbol, error=str(e))
+            logger.exception("get_order_book_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to get order book for {symbol}: {str(e)}",
@@ -338,7 +338,7 @@ class GetPortfolioStateTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_portfolio_state_failed", error=str(e))
+            logger.exception("get_portfolio_state_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to get portfolio state: {str(e)}",
@@ -411,7 +411,7 @@ class GetBalanceTool(BaseTool):
                 )
 
         except Exception as e:
-            logger.error("get_balance_failed", error=str(e))
+            logger.exception("get_balance_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to get balance: {str(e)}",
@@ -490,7 +490,7 @@ class GetPositionsTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_positions_failed", error=str(e))
+            logger.exception("get_positions_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to get positions: {str(e)}",
@@ -560,7 +560,7 @@ class GetOpenOrdersTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_open_orders_failed", error=str(e))
+            logger.exception("get_open_orders_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to get open orders: {str(e)}",

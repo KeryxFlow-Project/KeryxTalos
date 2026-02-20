@@ -221,7 +221,7 @@ class ToolExecutor:
                 error=str(e),
             )
 
-            logger.error("tool_execution_error", tool=tool_name, error=str(e))
+            logger.exception("tool_execution_error", tool=tool_name)
 
             return ToolResult(
                 success=False,

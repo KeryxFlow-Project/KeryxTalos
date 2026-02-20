@@ -297,7 +297,7 @@ Active symbols: {symbols}
 
         except Exception as e:
             self._stats.consecutive_errors += 1
-            logger.error("agent_cycle_failed", error=str(e))
+            logger.exception("agent_cycle_failed")
 
             # Check if we should fall back
             if (
@@ -349,8 +349,8 @@ Active symbols: {symbols}
                 # Convert to dict for easier access
                 context["memory_context"][symbol] = memory_context.to_dict()
 
-            except Exception as e:
-                logger.warning("context_build_error", symbol=symbol, error=str(e))
+            except Exception:
+                logger.warning("context_build_error", symbol=symbol, exc_info=True)
 
         return context
 
@@ -634,7 +634,7 @@ Active symbols: {symbols}
             return result
 
         except Exception as e:
-            logger.error("fallback_cycle_failed", error=str(e))
+            logger.exception("fallback_cycle_failed")
             return CycleResult(
                 status=CycleStatus.ERROR,
                 error=f"Fallback failed: {str(e)}",
@@ -711,8 +711,8 @@ Active symbols: {symbols}
                 # Wait for next cycle
                 await asyncio.sleep(self.settings.cycle_interval)
 
-        except Exception as e:
-            logger.error("agent_loop_error", error=str(e))
+        except Exception:
+            logger.exception("agent_loop_error")
         finally:
             self._running = False
             logger.info("agent_loop_stopped", total_cycles=cycle_count)

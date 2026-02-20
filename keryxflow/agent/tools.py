@@ -308,7 +308,7 @@ class TradingToolkit:
             )
             return result
         except Exception as e:
-            logger.error("tool_execution_failed", tool=tool_name, error=str(e))
+            logger.exception("tool_execution_failed", tool=tool_name)
             return ToolResult(
                 success=False,
                 error=f"Tool execution failed: {str(e)}",

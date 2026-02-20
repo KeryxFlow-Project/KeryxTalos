@@ -247,8 +247,11 @@ class TestStrategyManager:
         )
 
         assert selection.detected_regime == MarketRegime.RANGING
-        # Mean reversion should be selected for ranging
-        assert "reversion" in selection.strategy.name.lower() or selection.strategy.strategy_type == StrategyType.MEAN_REVERSION
+        # Grid or mean reversion should be selected for ranging
+        assert selection.strategy.strategy_type in (
+            StrategyType.MEAN_REVERSION,
+            StrategyType.GRID,
+        )
 
     @pytest.mark.asyncio
     async def test_record_trade_result(self):

@@ -83,6 +83,15 @@ min_balance = 100.0                 # Minimum USDT balance for live trading
 max_position_value = 1000.0         # Maximum value per position in USDT
 sync_interval = 60                  # Seconds between balance syncs
 
+[grid]
+# Grid Trading Bot Configuration (example values)
+upper_price = 70000.0               # Upper bound of grid range
+lower_price = 60000.0               # Lower bound of grid range
+grid_count = 10                     # Number of grid intervals (creates 11 price levels)
+total_investment = 1000.0           # Total capital allocated to the grid (USDT)
+grid_type = "arithmetic"            # "arithmetic" (equal price spacing) or "geometric" (equal % spacing)
+auto_stop_on_breakout = true        # Stop strategy when price exits grid range
+
 [notifications]
 # Telegram Bot (create via @BotFather)
 telegram_enabled = false

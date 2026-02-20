@@ -495,6 +495,9 @@ For developers and curious minds:
 ├─────────────────────────────────────────────────────────────┤
 │                     OPTIMIZER (Tuning)                       │
 │    Parameter Grid • Grid Search • Sensitivity Analysis       │
+├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
+│              LOGGING (Cross-Cutting — structlog)              │
+│    Dual-Audience Messages • JSON/Console • LogMessages        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -526,6 +529,15 @@ Mathematical risk management. Every order requires Aegis approval.
 - **Volatility Adaptation**: ATR-based dynamic stops
 - **Circuit Breaker**: Automatic shutdown on drawdown limits
 
+### Structured Logging — Cross-Cutting
+
+All modules use [structlog](https://www.structlog.org/) for structured, contextual logging.
+
+- **Dual-audience messages**: Every log event has a `simple` version (for beginners) and a `technical` version (for advanced users), via the `LogMessages` factory
+- **Output formats**: Colored console for development, JSON for production (`json_format=True`)
+- **Third-party noise suppression**: httpx, httpcore, and ccxt loggers are silenced to WARNING level
+- **Usage**: `get_logger(__name__)` in any module, `setup_logging()` at startup
+
 ---
 
 ## Tech Stack
@@ -538,6 +550,7 @@ Mathematical risk management. Every order requires Aegis approval.
 | Database | SQLModel + aiosqlite |
 | Analysis | numpy, pandas, pandas-ta |
 | AI | LangChain + Anthropic Claude |
+| Logging | structlog |
 | Interface | Textual |
 
 ---
@@ -627,6 +640,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 - [x] **Learning & Reflection** - Strategy selection, scheduled reflections
 - [x] **Trading session integration** - Full agent-driven trading loop
 - [x] **TUI Agent integration** - Agent widget and keybindings in Hermes
+- [x] **Structured logging** - structlog with dual-audience messages across all modules
 - [ ] Parallel optimization
 
 ---

@@ -4,9 +4,11 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from keryxflow.agent.cognitive import (
     AgentDecision,
+    AgentResponse,
     AgentStats,
     CognitiveAgent,
     CycleResult,
@@ -211,6 +213,7 @@ class TestCognitiveAgent:
         with patch("keryxflow.agent.cognitive.get_settings") as mock_settings:
             mock_agent_settings = MagicMock()
             mock_agent_settings.fallback_to_technical = False
+            mock_agent_settings.daily_token_budget = 0
             mock_settings.return_value.agent = mock_agent_settings
             mock_settings.return_value.anthropic_api_key.get_secret_value.return_value = ""
             mock_settings.return_value.system.symbols = ["BTC/USDT"]
@@ -616,3 +619,252 @@ class TestGetCognitiveAgent:
         agent = get_cognitive_agent()
 
         assert isinstance(agent, CognitiveAgent)
+
+
+class TestAgentResponse:
+    """Tests for AgentResponse Pydantic model."""
+
+    def test_valid_response(self):
+        """Test creating a valid AgentResponse."""
+        resp = AgentResponse(
+            decision="hold",
+            reasoning="Market is uncertain",
+            confidence=0.5,
+            symbol="BTC/USDT",
+        )
+        assert resp.decision == "hold"
+        assert resp.reasoning == "Market is uncertain"
+        assert resp.confidence == 0.5
+        assert resp.symbol == "BTC/USDT"
+
+    def test_valid_response_no_symbol(self):
+        """Test AgentResponse without symbol."""
+        resp = AgentResponse(
+            decision="hold",
+            reasoning="No action needed",
+            confidence=0.3,
+        )
+        assert resp.symbol is None
+
+    def test_invalid_confidence_too_high(self):
+        """Test AgentResponse rejects confidence > 1.0."""
+        with pytest.raises(ValidationError):
+            AgentResponse(
+                decision="hold",
+                reasoning="test",
+                confidence=1.5,
+            )
+
+    def test_invalid_confidence_too_low(self):
+        """Test AgentResponse rejects confidence < 0.0."""
+        with pytest.raises(ValidationError):
+            AgentResponse(
+                decision="hold",
+                reasoning="test",
+                confidence=-0.1,
+            )
+
+    def test_missing_required_fields(self):
+        """Test AgentResponse requires decision and reasoning."""
+        with pytest.raises(ValidationError):
+            AgentResponse(confidence=0.5)
+
+
+class TestStructuredParsing:
+    """Tests for structured JSON parsing in _parse_decision."""
+
+    def test_parse_json_code_block(self):
+        """Test parsing decision from JSON code block."""
+        agent = CognitiveAgent()
+        reasoning = """Based on my analysis, I recommend holding.
+
+```json
+{"decision": "hold", "reasoning": "Market is ranging", "confidence": 0.6, "symbol": "BTC/USDT"}
+```
+"""
+        decision = agent._parse_decision(reasoning, [])
+        assert decision.decision_type == DecisionType.HOLD
+        assert decision.confidence == 0.6
+        assert decision.symbol == "BTC/USDT"
+        assert "Market is ranging" in decision.reasoning
+
+    def test_parse_inline_json(self):
+        """Test parsing decision from inline JSON."""
+        agent = CognitiveAgent()
+        reasoning = 'I recommend: {"decision": "entry_long", "reasoning": "Bullish breakout", "confidence": 0.85, "symbol": "ETH/USDT"}'
+
+        decision = agent._parse_decision(reasoning, [])
+        assert decision.decision_type == DecisionType.ENTRY_LONG
+        assert decision.confidence == 0.85
+        assert decision.symbol == "ETH/USDT"
+
+    def test_fallback_to_text_when_no_json(self):
+        """Test fallback to text parsing when no JSON present."""
+        agent = CognitiveAgent()
+        reasoning = "The market is uncertain, I recommend to HOLD for now."
+
+        decision = agent._parse_decision(reasoning, [])
+        assert decision.decision_type == DecisionType.HOLD
+        # Text fallback uses heuristic confidence
+        assert decision.confidence == 0.5
+
+    def test_fallback_on_invalid_json(self):
+        """Test fallback when JSON is malformed."""
+        agent = CognitiveAgent()
+        reasoning = (
+            '```json\n{"decision": "hold", "confidence": "not_a_number"}\n```\nI recommend holding.'
+        )
+
+        decision = agent._parse_decision(reasoning, [])
+        # Should fall back to text parsing
+        assert decision.decision_type == DecisionType.HOLD
+        assert agent._stats.total_parse_failures == 1
+
+    def test_fallback_on_invalid_schema(self):
+        """Test fallback when JSON doesn't match schema."""
+        agent = CognitiveAgent()
+        reasoning = '```json\n{"action": "buy", "reason": "bullish"}\n```\nI think we should hold.'
+
+        decision = agent._parse_decision(reasoning, [])
+        # No "decision" key in JSON, so inline match fails, falls back to text
+        assert decision.decision_type == DecisionType.HOLD
+
+    def test_parse_failure_counter_increments(self):
+        """Test that parse failures increment the counter."""
+        agent = CognitiveAgent()
+
+        # First failure
+        agent._try_parse_structured('```json\n{"decision": "hold", "confidence": 999}\n```')
+        assert agent._stats.total_parse_failures == 1
+
+        # Second failure
+        agent._try_parse_structured('```json\n{"decision": "hold", "confidence": -1}\n```')
+        assert agent._stats.total_parse_failures == 2
+
+
+class TestRetryLogic:
+    """Tests for _call_claude retry behavior."""
+
+    def test_call_claude_success(self):
+        """Test _call_claude succeeds on first try."""
+        agent = CognitiveAgent()
+        mock_response = MagicMock()
+        agent._client = MagicMock()
+        agent._client.messages.create.return_value = mock_response
+
+        result = agent._call_claude(
+            system_prompt="test",
+            tools=[],
+            messages=[{"role": "user", "content": "hello"}],
+        )
+
+        assert result is mock_response
+        assert agent._stats.total_retries == 0
+
+    def test_call_claude_retries_on_failure(self):
+        """Test _call_claude retries and succeeds."""
+        agent = CognitiveAgent()
+        mock_response = MagicMock()
+        agent._client = MagicMock()
+        agent._client.messages.create.side_effect = [
+            ConnectionError("API error"),
+            mock_response,
+        ]
+
+        result = agent._call_claude(
+            system_prompt="test",
+            tools=[],
+            messages=[{"role": "user", "content": "hello"}],
+        )
+
+        assert result is mock_response
+        assert agent._stats.total_retries == 1
+
+    def test_call_claude_exhausts_retries(self):
+        """Test _call_claude raises after retries exhausted."""
+        agent = CognitiveAgent()
+        agent._client = MagicMock()
+        agent._client.messages.create.side_effect = ConnectionError("API down")
+
+        with pytest.raises(ConnectionError):
+            agent._call_claude(
+                system_prompt="test",
+                tools=[],
+                messages=[{"role": "user", "content": "hello"}],
+            )
+
+        # Each failed attempt increments retry counter
+        assert agent._stats.total_retries == 3
+
+
+class TestTokenBudgetPreCheck:
+    """Tests for token budget pre-check in run_cycle."""
+
+    @pytest.mark.asyncio
+    async def test_rate_limited_when_budget_exceeded(self):
+        """Test run_cycle returns RATE_LIMITED when budget exceeded."""
+        from keryxflow.config import AgentSettings
+
+        settings = AgentSettings(daily_token_budget=1000, fallback_to_technical=False)
+        agent = CognitiveAgent(settings=settings)
+        agent._initialized = True
+        agent._client = MagicMock()  # Client exists but budget exceeded
+        agent.budget_exceeded = True
+
+        result = await agent.run_cycle(["BTC/USDT"])
+
+        assert result.status == CycleStatus.RATE_LIMITED
+        assert "budget exceeded" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_fallback_when_budget_exceeded(self):
+        """Test run_cycle falls back to technical when budget exceeded and fallback enabled."""
+        from keryxflow.config import AgentSettings
+
+        settings = AgentSettings(daily_token_budget=1000, fallback_to_technical=True)
+        agent = CognitiveAgent(settings=settings)
+        agent._initialized = True
+        agent._client = MagicMock()
+        agent.budget_exceeded = True
+
+        # Mock the fallback cycle
+        agent._run_fallback_cycle = AsyncMock(
+            return_value=CycleResult(
+                status=CycleStatus.FALLBACK,
+                decision=AgentDecision(decision_type=DecisionType.HOLD),
+            )
+        )
+
+        result = await agent.run_cycle(["BTC/USDT"])
+
+        assert result.status == CycleStatus.FALLBACK
+        agent._run_fallback_cycle.assert_called_once()
+
+
+class TestNewStatsFields:
+    """Tests for new stats fields."""
+
+    def test_default_stats_include_new_fields(self):
+        """Test that AgentStats includes retry and parse failure counters."""
+        stats = AgentStats()
+        assert stats.total_retries == 0
+        assert stats.total_parse_failures == 0
+
+    def test_get_stats_includes_new_fields(self):
+        """Test that get_stats output includes retry and parse failure counts."""
+        agent = CognitiveAgent()
+        agent._stats.total_retries = 5
+        agent._stats.total_parse_failures = 2
+
+        stats = agent.get_stats()
+
+        assert stats["total_retries"] == 5
+        assert stats["total_parse_failures"] == 2
+
+    def test_system_prompt_includes_json_format(self):
+        """Test that SYSTEM_PROMPT includes JSON output format instructions."""
+        prompt = CognitiveAgent.SYSTEM_PROMPT
+        assert "```json" in prompt
+        assert '"decision"' in prompt
+        assert '"reasoning"' in prompt
+        assert '"confidence"' in prompt

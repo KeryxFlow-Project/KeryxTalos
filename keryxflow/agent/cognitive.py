@@ -8,10 +8,19 @@ while respecting immutable guardrails.
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
+
+from pydantic import BaseModel, ValidationError
+from pydantic import Field as PydanticField
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from keryxflow.agent.executor import ToolExecutor, get_tool_executor
 from keryxflow.agent.tools import (
@@ -57,6 +66,15 @@ class ToolCall:
     id: str
     name: str
     input: dict[str, Any]
+
+
+class AgentResponse(BaseModel):
+    """Pydantic model for validating Claude's structured JSON responses."""
+
+    decision: str
+    reasoning: str
+    confidence: float = PydanticField(ge=0.0, le=1.0)
+    symbol: str | None = None
 
 
 @dataclass
@@ -125,6 +143,8 @@ class AgentStats:
     total_output_tokens: int = 0
     total_cost: float = 0.0
     decisions_by_type: dict[str, int] = field(default_factory=dict)
+    total_retries: int = 0
+    total_parse_failures: int = 0
     last_cycle_time: datetime | None = None
     consecutive_errors: int = 0
 
@@ -173,6 +193,16 @@ class CognitiveAgent:
 
 ## Output Format
 After analyzing the market, explain your reasoning and use the appropriate execution tool if action is needed. If no action is needed, explain why you're choosing to HOLD.
+
+Include a JSON block in your final response with your decision summary:
+```json
+{{
+  "decision": "hold|entry_long|entry_short|exit|adjust_stop|adjust_target",
+  "reasoning": "Brief explanation of your decision",
+  "confidence": 0.0 to 1.0,
+  "symbol": "SYMBOL/PAIR or null"
+}}
+```
 
 Current UTC time: {current_time}
 Active symbols: {symbols}
@@ -253,6 +283,32 @@ Active symbols: {symbols}
 
         started_at = datetime.now(UTC)
         symbols = symbols or get_settings().system.symbols
+
+        # Check token budget before calling Claude
+        if self.budget_exceeded and self.settings.daily_token_budget > 0:
+            logger.warning(
+                "token_budget_exceeded_skipping_cycle",
+                total_tokens=self._stats.total_tokens_used,
+                budget=self.settings.daily_token_budget,
+            )
+            if self.settings.fallback_to_technical:
+                return await self._run_fallback_cycle(symbols, started_at)
+            return CycleResult(
+                status=CycleStatus.RATE_LIMITED,
+                error="Daily token budget exceeded",
+                started_at=started_at,
+                completed_at=datetime.now(UTC),
+            )
+
+        # Warn when approaching budget (80% threshold)
+        budget = self.settings.daily_token_budget
+        if budget > 0 and self._stats.total_tokens_used >= budget * 0.8:
+            logger.warning(
+                "approaching_token_budget",
+                total_tokens=self._stats.total_tokens_used,
+                budget=budget,
+                usage_pct=round(self._stats.total_tokens_used / budget * 100, 1),
+            )
 
         # Check if we should fall back to technical signals
         if self._client is None:
@@ -403,12 +459,9 @@ Active symbols: {symbols}
         max_iterations = self.settings.max_tool_calls_per_cycle
 
         for iteration in range(max_iterations):
-            # Call Claude
-            response = self._client.messages.create(
-                model=self.settings.model,
-                max_tokens=self.settings.max_tokens,
-                temperature=self.settings.temperature,
-                system=system_prompt,
+            # Call Claude with retry logic
+            response = self._call_claude(
+                system_prompt=system_prompt,
                 tools=tools,
                 messages=messages,
             )
@@ -463,6 +516,44 @@ Active symbols: {symbols}
         # Max iterations reached
         logger.warning("max_tool_iterations_reached", iterations=max_iterations)
         return None, tool_results, total_tokens, total_input_tokens, total_output_tokens
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    def _call_claude(
+        self,
+        system_prompt: str,
+        tools: list[dict[str, Any]],
+        messages: list[dict[str, Any]],
+    ) -> Any:
+        """Call Claude API with retry logic.
+
+        Args:
+            system_prompt: System prompt
+            tools: Tool schemas
+            messages: Conversation messages
+
+        Returns:
+            Claude API response
+
+        Raises:
+            Exception: On API failure after retries exhausted
+        """
+        try:
+            return self._client.messages.create(
+                model=self.settings.model,
+                max_tokens=self.settings.max_tokens,
+                temperature=self.settings.temperature,
+                system=system_prompt,
+                tools=tools,
+                messages=messages,
+            )
+        except Exception:
+            self._stats.total_retries += 1
+            logger.warning("claude_api_call_retrying", exc_info=True)
+            raise
 
     def _build_user_message(self, context: dict[str, Any]) -> str:
         """Build the initial user message with context.
@@ -522,6 +613,72 @@ Active symbols: {symbols}
         self, reasoning: str, tool_results: list[ToolResult]
     ) -> AgentDecision | None:
         """Parse the agent's decision from its reasoning.
+
+        First tries structured JSON parsing, then falls back to text extraction.
+
+        Args:
+            reasoning: Text reasoning from Claude
+            tool_results: Results from tool executions
+
+        Returns:
+            Parsed AgentDecision or None
+        """
+        # Try structured JSON parsing first
+        structured = self._try_parse_structured(reasoning)
+        if structured is not None:
+            return structured
+
+        # Fall back to text-based extraction
+        return self._parse_decision_from_text(reasoning, tool_results)
+
+    def _try_parse_structured(self, reasoning: str) -> AgentDecision | None:
+        """Try to parse a structured JSON response from Claude's output.
+
+        Args:
+            reasoning: Text reasoning from Claude
+
+        Returns:
+            AgentDecision if JSON parsing succeeds, None otherwise
+        """
+        # Try to extract JSON from code blocks first
+        json_match = re.search(r"```json\s*(\{.*?\})\s*```", reasoning, re.DOTALL)
+        json_str = None
+
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            # Try inline JSON (find a JSON object)
+            inline_match = re.search(r"\{[^{}]*\"decision\"[^{}]*\}", reasoning, re.DOTALL)
+            if inline_match:
+                json_str = inline_match.group(0)
+
+        if json_str is None:
+            return None
+
+        try:
+            parsed = AgentResponse.model_validate_json(json_str)
+
+            # Map decision string to DecisionType
+            try:
+                decision_type = DecisionType(parsed.decision)
+            except ValueError:
+                decision_type = DecisionType.HOLD
+
+            return AgentDecision(
+                decision_type=decision_type,
+                symbol=parsed.symbol,
+                reasoning=parsed.reasoning[:500],
+                confidence=parsed.confidence,
+            )
+        except (json.JSONDecodeError, ValidationError):
+            self._stats.total_parse_failures += 1
+            logger.debug("structured_parse_failed", exc_info=True)
+            return None
+
+    def _parse_decision_from_text(
+        self, reasoning: str, tool_results: list[ToolResult]
+    ) -> AgentDecision | None:
+        """Parse decision from text using heuristics (fallback).
 
         Args:
             reasoning: Text reasoning from Claude
@@ -789,6 +946,8 @@ Active symbols: {symbols}
                 if self._stats.total_cycles > 0
                 else 0
             ),
+            "total_retries": self._stats.total_retries,
+            "total_parse_failures": self._stats.total_parse_failures,
             "budget_exceeded": self.budget_exceeded,
             "decisions_by_type": self._stats.decisions_by_type,
             "consecutive_errors": self._stats.consecutive_errors,

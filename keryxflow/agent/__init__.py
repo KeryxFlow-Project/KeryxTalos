@@ -35,6 +35,7 @@ from keryxflow.agent.base_agent import (
 )
 from keryxflow.agent.cognitive import (
     AgentDecision,
+    AgentResponse,
     AgentStats,
     CognitiveAgent,
     CycleResult,
@@ -122,6 +123,7 @@ __all__ = [
     "CycleStatus",
     "AgentDecision",
     "DecisionType",
+    "AgentResponse",
     "AgentStats",
     # Multi-Agent
     "SpecializedAgent",

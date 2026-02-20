@@ -41,6 +41,7 @@ class SignalSource(str, Enum):
     TECHNICAL = "technical"
     LLM = "llm"
     HYBRID = "hybrid"
+    WEBHOOK = "webhook"
 
 
 class ExperienceLevel(str, Enum):

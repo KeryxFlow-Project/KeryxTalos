@@ -98,3 +98,11 @@ notify_on_trade = true              # Notify on order fills
 notify_on_circuit_breaker = true    # Notify on circuit breaker triggers
 notify_daily_summary = true         # Send daily trading summary
 notify_on_error = true              # Notify on system errors
+
+[webhook]
+enabled = false                     # Enable webhook signal ingestion
+host = "0.0.0.0"                    # Webhook server bind address
+port = 9000                         # Webhook server port
+secret_token = ""                   # Secret token for authentication (X-Webhook-Secret header)
+auto_execute = false                # Auto-route signals to trading engine (requires stop_loss)
+allowed_sources = ["tradingview"]   # Allowed signal sources

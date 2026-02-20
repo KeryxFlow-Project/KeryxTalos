@@ -211,6 +211,10 @@ class TradingEngine:
             self.signals = signal_generator or get_signal_generator()
             self._ohlcv_buffer = OHLCVBuffer(max_candles=100)
 
+        # Webhook server
+        self._webhook_server = None
+        self._webhook_task: asyncio.Task | None = None
+
         # State
         self._running = False
         self._last_analysis: dict[str, datetime] = {}
@@ -265,6 +269,10 @@ class TradingEngine:
         # Update open positions count
         positions = await self.paper.get_positions()
         self.risk.set_open_positions(len(positions))
+
+        # Start webhook server if enabled
+        if self.settings.webhook.enabled:
+            await self._start_webhook_server()
 
         # Pre-load historical OHLCV data in background (non-blocking)
         # This allows TUI to start immediately while data loads
@@ -424,6 +432,11 @@ class TradingEngine:
             return
 
         self._running = False
+
+        # Stop webhook server if running
+        if self._webhook_server is not None:
+            await self._webhook_server.stop()
+            self._webhook_server = None
 
         # Unsubscribe from events
         self.event_bus.unsubscribe(EventType.PRICE_UPDATE, self._on_price_update)
@@ -1006,6 +1019,57 @@ class TradingEngine:
             balance = await self._sync_balance_from_exchange()
             usdt_balance = balance.get("USDT", 0.0)
             self.risk.update_balance(usdt_balance)
+
+    async def _start_webhook_server(self) -> None:
+        """Start the webhook server as a background task."""
+        from keryxflow.api.server import WebhookServer
+
+        self._webhook_server = WebhookServer(engine=self)
+        self._webhook_server.set_engine(self)
+        await self._webhook_server.start()
+        logger.info("webhook_server_integrated")
+
+    async def process_webhook_signal(self, signal: TradingSignal) -> dict[str, Any]:
+        """Process a signal received via webhook.
+
+        Validates engine state and delegates to _process_signal().
+
+        Args:
+            signal: The trading signal from the webhook.
+
+        Returns:
+            Result dict with status, message, and optional details.
+        """
+        if not self._running:
+            return {
+                "status": "error",
+                "message": "Trading engine is not running",
+            }
+
+        if self._paused:
+            return {
+                "status": "error",
+                "message": "Trading engine is paused",
+            }
+
+        if not signal.is_actionable:
+            return {
+                "status": "accepted",
+                "message": "Signal is not actionable (no action required)",
+            }
+
+        try:
+            await self._process_signal(signal)
+            return {
+                "status": "executed",
+                "message": f"Signal processed for {signal.symbol}",
+            }
+        except Exception as e:
+            logger.error("webhook_signal_execution_failed", error=str(e))
+            return {
+                "status": "error",
+                "message": f"Execution failed: {e}",
+            }
 
     def get_status(self) -> dict[str, Any]:
         """Get current engine status."""

@@ -96,6 +96,19 @@ class AgentSettings(BaseSettings):
     enable_execution: bool = True  # Guarded tools
 
 
+class WebhookSettings(BaseSettings):
+    """Webhook signal ingestion configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="KERYXFLOW_WEBHOOK_")
+
+    enabled: bool = False
+    host: str = "0.0.0.0"
+    port: int = Field(default=9000, ge=1024, le=65535)
+    secret_token: SecretStr = SecretStr("")
+    auto_execute: bool = False
+    allowed_sources: list[str] = ["tradingview"]
+
+
 class SystemSettings(BaseSettings):
     """System configuration."""
 
@@ -188,6 +201,7 @@ class Settings(BaseSettings):
     live: LiveSettings = Field(default_factory=LiveSettings)
     notifications: NotificationSettings = Field(default_factory=NotificationSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
+    webhook: WebhookSettings = Field(default_factory=WebhookSettings)
 
     @field_validator("binance_api_key", "binance_api_secret", "anthropic_api_key")
     @classmethod
@@ -257,6 +271,8 @@ def load_settings() -> Settings:
             overrides["notifications"] = NotificationSettings(**toml_config["notifications"])
         if "agent" in toml_config:
             overrides["agent"] = AgentSettings(**toml_config["agent"])
+        if "webhook" in toml_config:
+            overrides["webhook"] = WebhookSettings(**toml_config["webhook"])
 
         return Settings(**overrides)
 

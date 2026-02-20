@@ -58,6 +58,9 @@ class EventType(str, Enum):
     # News events
     NEWS_FETCHED = "news_fetched"
 
+    # Webhook events
+    WEBHOOK_SIGNAL_RECEIVED = "webhook_signal_received"
+
     # Agent events
     AGENT_CYCLE_STARTED = "agent_cycle_started"
     AGENT_CYCLE_COMPLETED = "agent_cycle_completed"

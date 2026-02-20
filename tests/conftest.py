@@ -19,6 +19,8 @@ def setup_test_database(tmp_path):
     # Reset global instances before each test
     import keryxflow.aegis.risk as risk_module
     import keryxflow.agent.cognitive as cognitive_module
+    import keryxflow.api.server as api_server_module
+    import keryxflow.api.webhook as api_webhook_module
     import keryxflow.agent.executor as executor_module
     import keryxflow.agent.reflection as reflection_module
     import keryxflow.agent.scheduler as scheduler_module
@@ -49,6 +51,8 @@ def setup_test_database(tmp_path):
     session_module._session = None
     strategy_module._strategy_manager = None
     risk_module._risk_manager = None
+    api_server_module._server = None
+    api_webhook_module._engine = None
 
     yield
 

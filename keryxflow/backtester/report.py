@@ -1,5 +1,6 @@
 """Backtesting report and metrics."""
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -201,6 +202,21 @@ class BacktestReporter:
 
             for i, equity in enumerate(result.equity_curve):
                 writer.writerow([i, equity])
+
+    @staticmethod
+    def save_json(result: BacktestResult, path: str | Path) -> None:
+        """
+        Save backtest result to JSON file.
+
+        Args:
+            result: Backtest result
+            path: Output file path
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w") as f:
+            json.dump(result.to_dict(), f, indent=2)
 
     @staticmethod
     def plot_equity_ascii(result: BacktestResult, width: int = 60, height: int = 15) -> str:

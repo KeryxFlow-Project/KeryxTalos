@@ -433,12 +433,15 @@ Examples:
 
         trades_path = output_dir / "trades.csv"
         equity_path = output_dir / "equity.csv"
+        results_path = output_dir / "results.json"
 
         BacktestReporter.save_trades_csv(result, trades_path)
         BacktestReporter.save_equity_csv(result, equity_path)
+        BacktestReporter.save_json(result, results_path)
 
         print(f"\nSaved trades to: {trades_path}")
         print(f"Saved equity curve to: {equity_path}")
+        print(f"Saved results to: {results_path}")
 
 
 async def _run_walk_forward(

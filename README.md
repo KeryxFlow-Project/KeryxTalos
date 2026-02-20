@@ -99,6 +99,8 @@ Want full control? **Advanced Mode** gives you:
 
 ## Quick Start
 
+> **Want the full walkthrough?** See the [5-Minute Quickstart Guide](docs/quickstart.md) for a step-by-step tutorial covering installation, the TUI, backtesting, and trading modes.
+
 ### What you'll need
 
 1. **A computer** with Python 3.12+ installed

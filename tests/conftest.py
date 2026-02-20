@@ -18,28 +18,21 @@ def setup_test_database(tmp_path):
 
     # Reset global instances before each test
     import keryxflow.aegis.risk as risk_module
-    import keryxflow.aegis.trailing as trailing_module
     import keryxflow.agent.cognitive as cognitive_module
     import keryxflow.agent.executor as executor_module
     import keryxflow.agent.reflection as reflection_module
     import keryxflow.agent.scheduler as scheduler_module
     import keryxflow.agent.session as session_module
     import keryxflow.agent.strategy as strategy_module
-    import keryxflow.agent.strategy_gen as strategy_gen_module
     import keryxflow.agent.tools as tools_module
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
-    import keryxflow.core.engine as engine_module
     import keryxflow.core.events as events_module
-    import keryxflow.core.repository as repository_module
-    import keryxflow.exchange.bybit as bybit_module
     import keryxflow.exchange.client as client_module
     import keryxflow.exchange.paper as paper_module
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
     import keryxflow.memory.semantic as semantic_module
-    import keryxflow.notifications.manager as notification_manager_module
-    import keryxflow.oracle.brain as brain_module
 
     config_module._settings = None
     db_module._engine = None
@@ -57,27 +50,12 @@ def setup_test_database(tmp_path):
     scheduler_module._scheduler = None
     session_module._session = None
     strategy_module._strategy_manager = None
-    strategy_gen_module._strategy_generator = None
     risk_module._risk_manager = None
-    repository_module._repository = None
-    notification_manager_module._notification_manager = None
-    trailing_module._trailing_stop_manager = None
-    bybit_module._bybit_client = None
-    client_module._client = None
-    engine_module._engine = None
-    brain_module._brain = None
-
-    import keryxflow.api.server as api_server_module
-
-    api_server_module._paused = False
-    api_server_module._server = None
-    api_server_module._server_task = None
 
     yield
 
     # Cleanup
     import contextlib
-
     if db_path.exists():
         with contextlib.suppress(PermissionError):
             db_path.unlink()
@@ -87,7 +65,6 @@ def setup_test_database(tmp_path):
 async def init_db():
     """Initialize the database tables."""
     from keryxflow.core.database import init_db as _init_db
-
     await _init_db()
 
 
@@ -95,7 +72,6 @@ async def init_db():
 async def db_session(init_db):
     """Get an async database session for testing."""
     from keryxflow.core.database import get_session_factory
-
     async_session = get_session_factory()
     async with async_session() as session:
         yield session

@@ -315,7 +315,10 @@ class EpisodicMemory:
                     score += tech_score * 0.5  # Technical has 50% weight
                     factors.append(f"technical_match:{tech_score:.0%}")
             except json.JSONDecodeError:
-                pass
+                logger.warning(
+                    "failed_to_parse_technical_context",
+                    episode_id=episode.id,
+                )
 
         if market_sentiment and episode.market_context:
             try:
@@ -324,7 +327,10 @@ class EpisodicMemory:
                     score += 0.3  # Sentiment match has 30% weight
                     factors.append("sentiment_match")
             except json.JSONDecodeError:
-                pass
+                logger.warning(
+                    "failed_to_parse_market_context",
+                    episode_id=episode.id,
+                )
 
         # Outcome quality bonus
         if episode.outcome == TradeOutcome.WIN:

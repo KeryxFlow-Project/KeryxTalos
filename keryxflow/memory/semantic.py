@@ -200,7 +200,10 @@ class SemanticMemory:
                             if symbol in symbols:
                                 filtered.append(rule)
                         except json.JSONDecodeError:
-                            pass
+                            logger.warning(
+                                "failed_to_parse_applies_to_symbols",
+                                rule_id=rule.id,
+                            )
                 return filtered
 
             return list(rules)
@@ -314,7 +317,10 @@ class SemanticMemory:
                         relevance += 0.2
                         reason_parts.append("market_condition_match")
                 except json.JSONDecodeError:
-                    pass
+                    logger.warning(
+                        "failed_to_parse_applies_to_market_conditions",
+                        rule_id=rule.id,
+                    )
 
             # Check timeframe match
             if rule.applies_to_timeframes and timeframe:
@@ -324,7 +330,10 @@ class SemanticMemory:
                         relevance += 0.1
                         reason_parts.append("timeframe_match")
                 except json.JSONDecodeError:
-                    pass
+                    logger.warning(
+                        "failed_to_parse_applies_to_timeframes",
+                        rule_id=rule.id,
+                    )
 
             # Boost by success rate
             relevance *= 0.5 + (rule.success_rate * 0.5)
@@ -556,6 +565,10 @@ class SemanticMemory:
                         )
                     )
             except json.JSONDecodeError:
+                logger.warning(
+                    "failed_to_parse_detection_criteria",
+                    pattern_id=pattern.id,
+                )
                 continue
 
         # Sort by confidence

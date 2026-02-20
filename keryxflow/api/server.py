@@ -194,6 +194,11 @@ def create_app() -> FastAPI:
     # Include the authenticated router with GET endpoints
     app.include_router(router)
 
+    # Include webhook router for external signal ingestion
+    from keryxflow.api.webhook import webhook_router
+
+    app.include_router(webhook_router)
+
     # Include web dashboard (no auth required)
     try:
         from keryxflow.web.dashboard import router as dashboard_router

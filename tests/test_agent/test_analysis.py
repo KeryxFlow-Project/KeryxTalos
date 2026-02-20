@@ -35,10 +35,9 @@ class TestAnalysisToolsRegistration:
         toolkit = TradingToolkit()
         register_analysis_tools(toolkit)
 
-        all_tools = (
-            toolkit.get_tools_by_category(ToolCategory.ANALYSIS)
-            + toolkit.get_tools_by_category(ToolCategory.INTROSPECTION)
-        )
+        all_tools = toolkit.get_tools_by_category(
+            ToolCategory.ANALYSIS
+        ) + toolkit.get_tools_by_category(ToolCategory.INTROSPECTION)
 
         for tool in all_tools:
             assert tool.is_guarded is False

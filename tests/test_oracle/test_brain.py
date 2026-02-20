@@ -123,7 +123,7 @@ class TestOracleBrain:
         """Test parsing valid JSON response."""
         brain = OracleBrain()
 
-        valid_response = '''
+        valid_response = """
         {
             "bias": "bullish",
             "confidence": 0.8,
@@ -134,7 +134,7 @@ class TestOracleBrain:
             "risks": ["High volatility"],
             "simple_explanation": "Good time to buy"
         }
-        '''
+        """
 
         context = brain._parse_response("BTC/USDT", valid_response)
 
@@ -147,7 +147,7 @@ class TestOracleBrain:
         """Test parsing response wrapped in markdown code blocks."""
         brain = OracleBrain()
 
-        markdown_response = '''```json
+        markdown_response = """```json
         {
             "bias": "bearish",
             "confidence": 0.6,
@@ -158,7 +158,7 @@ class TestOracleBrain:
             "risks": [],
             "simple_explanation": "Consider selling"
         }
-        ```'''
+        ```"""
 
         context = brain._parse_response("BTC/USDT", markdown_response)
 
@@ -246,11 +246,26 @@ class TestMarketBiasMapping:
         brain = OracleBrain()
 
         test_cases = [
-            ('{"bias": "strongly_bullish", "confidence": 0.9, "recommendation": "strong_buy", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}', MarketBias.STRONGLY_BULLISH),
-            ('{"bias": "bullish", "confidence": 0.7, "recommendation": "buy", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}', MarketBias.BULLISH),
-            ('{"bias": "neutral", "confidence": 0.5, "recommendation": "hold", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}', MarketBias.NEUTRAL),
-            ('{"bias": "bearish", "confidence": 0.7, "recommendation": "sell", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}', MarketBias.BEARISH),
-            ('{"bias": "strongly_bearish", "confidence": 0.9, "recommendation": "strong_sell", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}', MarketBias.STRONGLY_BEARISH),
+            (
+                '{"bias": "strongly_bullish", "confidence": 0.9, "recommendation": "strong_buy", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}',
+                MarketBias.STRONGLY_BULLISH,
+            ),
+            (
+                '{"bias": "bullish", "confidence": 0.7, "recommendation": "buy", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}',
+                MarketBias.BULLISH,
+            ),
+            (
+                '{"bias": "neutral", "confidence": 0.5, "recommendation": "hold", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}',
+                MarketBias.NEUTRAL,
+            ),
+            (
+                '{"bias": "bearish", "confidence": 0.7, "recommendation": "sell", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}',
+                MarketBias.BEARISH,
+            ),
+            (
+                '{"bias": "strongly_bearish", "confidence": 0.9, "recommendation": "strong_sell", "reasoning": "", "bullish_factors": [], "bearish_factors": [], "risks": [], "simple_explanation": ""}',
+                MarketBias.STRONGLY_BEARISH,
+            ),
         ]
 
         for response, expected_bias in test_cases:

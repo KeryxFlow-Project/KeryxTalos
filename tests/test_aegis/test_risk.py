@@ -173,6 +173,7 @@ class TestCircuitBreaker:
         # Balanced profile: 5% max daily drawdown
         # Set today's date to prevent reset
         from datetime import UTC, datetime
+
         risk_manager._last_reset_date = datetime.now(UTC).strftime("%Y-%m-%d")
         risk_manager._daily_starting_balance = 10000.0
         risk_manager._daily_pnl = -600.0  # 6% loss

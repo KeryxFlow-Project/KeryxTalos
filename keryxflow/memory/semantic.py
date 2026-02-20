@@ -119,9 +119,7 @@ class SemanticMemory:
                 source=source,
                 category=category,
                 priority=priority,
-                applies_to_symbols=(
-                    json.dumps(applies_to_symbols) if applies_to_symbols else None
-                ),
+                applies_to_symbols=(json.dumps(applies_to_symbols) if applies_to_symbols else None),
                 applies_to_timeframes=(
                     json.dumps(applies_to_timeframes) if applies_to_timeframes else None
                 ),
@@ -152,9 +150,7 @@ class SemanticMemory:
     async def get_rule(self, rule_id: int) -> TradingRule | None:
         """Get a specific rule by ID."""
         async with self._session_factory() as session:
-            result = await session.execute(
-                select(TradingRule).where(TradingRule.id == rule_id)
-            )
+            result = await session.execute(select(TradingRule).where(TradingRule.id == rule_id))
             return result.scalar_one_or_none()
 
     async def get_active_rules(
@@ -226,9 +222,7 @@ class SemanticMemory:
             Updated TradingRule or None if not found
         """
         async with self._session_factory() as session:
-            result = await session.execute(
-                select(TradingRule).where(TradingRule.id == rule_id)
-            )
+            result = await session.execute(select(TradingRule).where(TradingRule.id == rule_id))
             rule = result.scalar_one_or_none()
 
             if rule is None:
@@ -262,14 +256,10 @@ class SemanticMemory:
 
             return rule
 
-    async def update_rule_status(
-        self, rule_id: int, status: RuleStatus
-    ) -> TradingRule | None:
+    async def update_rule_status(self, rule_id: int, status: RuleStatus) -> TradingRule | None:
         """Update rule status."""
         async with self._session_factory() as session:
-            result = await session.execute(
-                select(TradingRule).where(TradingRule.id == rule_id)
-            )
+            result = await session.execute(select(TradingRule).where(TradingRule.id == rule_id))
             rule = result.scalar_one_or_none()
 
             if rule is None:
@@ -391,17 +381,11 @@ class SemanticMemory:
                 description=description,
                 pattern_type=pattern_type,
                 definition=definition,
-                detection_criteria=(
-                    json.dumps(detection_criteria) if detection_criteria else None
-                ),
+                detection_criteria=(json.dumps(detection_criteria) if detection_criteria else None),
                 typical_market_conditions=(
-                    json.dumps(typical_market_conditions)
-                    if typical_market_conditions
-                    else None
+                    json.dumps(typical_market_conditions) if typical_market_conditions else None
                 ),
-                associated_symbols=(
-                    json.dumps(associated_symbols) if associated_symbols else None
-                ),
+                associated_symbols=(json.dumps(associated_symbols) if associated_symbols else None),
                 associated_timeframes=(
                     json.dumps(associated_timeframes) if associated_timeframes else None
                 ),
@@ -495,9 +479,7 @@ class SemanticMemory:
             # Update running averages
             n = pattern.times_identified
             pattern.avg_return = (pattern.avg_return * (n - 1) + return_pct) / n
-            pattern.avg_duration_hours = (
-                pattern.avg_duration_hours * (n - 1) + duration_hours
-            ) / n
+            pattern.avg_duration_hours = (pattern.avg_duration_hours * (n - 1) + duration_hours) / n
 
             # Update confidence based on sample size and win rate
             if n >= pattern.min_occurrences_for_validity:
@@ -547,9 +529,7 @@ class SemanticMemory:
 
             try:
                 criteria = json.loads(pattern.detection_criteria)
-                match_score, details = self._check_pattern_match(
-                    criteria, technical_context
-                )
+                match_score, details = self._check_pattern_match(criteria, technical_context)
 
                 if match_score > 0.3:  # Minimum match threshold
                     # Adjust by pattern confidence and validation
@@ -575,9 +555,7 @@ class SemanticMemory:
         matches.sort(key=lambda x: x.confidence, reverse=True)
         return matches
 
-    def _check_pattern_match(
-        self, criteria: dict, context: dict
-    ) -> tuple[float, dict]:
+    def _check_pattern_match(self, criteria: dict, context: dict) -> tuple[float, dict]:
         """
         Check if current context matches pattern criteria.
 
@@ -630,9 +608,7 @@ class SemanticMemory:
                 "active_rules": len(active),
                 "rules_applied": len(applied),
                 "avg_success_rate": (
-                    sum(r.success_rate for r in applied) / len(applied)
-                    if applied
-                    else 0.0
+                    sum(r.success_rate for r in applied) / len(applied) if applied else 0.0
                 ),
                 "by_source": {
                     source.value: sum(1 for r in rules if r.source == source)
@@ -669,9 +645,7 @@ class SemanticMemory:
                 "validated_patterns": len(validated),
                 "patterns_identified": len(identified),
                 "avg_win_rate": (
-                    sum(p.win_rate for p in identified) / len(identified)
-                    if identified
-                    else 0.0
+                    sum(p.win_rate for p in identified) / len(identified) if identified else 0.0
                 ),
                 "by_type": {
                     ptype.value: sum(1 for p in patterns if p.pattern_type == ptype)

@@ -272,9 +272,7 @@ class CryptoPanicFetcher:
 
         for post in data.get("results", []):
             try:
-                published = datetime.fromisoformat(
-                    post["published_at"].replace("Z", "+00:00")
-                )
+                published = datetime.fromisoformat(post["published_at"].replace("Z", "+00:00"))
 
                 if published < cutoff:
                     continue
@@ -434,9 +432,7 @@ class NewsAggregator:
         age = (datetime.now(UTC) - self._cache_time).total_seconds()
         return age < self._cache_ttl
 
-    def _calculate_sentiment(
-        self, items: list[NewsItem]
-    ) -> tuple[NewsSentiment, float]:
+    def _calculate_sentiment(self, items: list[NewsItem]) -> tuple[NewsSentiment, float]:
         """Calculate overall sentiment from news items."""
         if not items:
             return NewsSentiment.NEUTRAL, 0.0
@@ -472,9 +468,7 @@ class NewsAggregator:
 
         return sentiment, score
 
-    def _generate_summary(
-        self, items: list[NewsItem], sentiment: NewsSentiment
-    ) -> str:
+    def _generate_summary(self, items: list[NewsItem], sentiment: NewsSentiment) -> str:
         """Generate a brief summary of news."""
         if not items:
             return "No recent news available."
@@ -507,7 +501,9 @@ class NewsAggregator:
         for item in digest.items[:max_items]:
             age = f"{item.age_hours:.1f}h ago"
             currencies = ", ".join(item.currencies) if item.currencies else "general"
-            sentiment = f"[{item.sentiment.value}]" if item.sentiment != NewsSentiment.UNKNOWN else ""
+            sentiment = (
+                f"[{item.sentiment.value}]" if item.sentiment != NewsSentiment.UNKNOWN else ""
+            )
             lines.append(f"- [{age}] {item.title} ({currencies}) {sentiment}")
 
         return "\n".join(lines)

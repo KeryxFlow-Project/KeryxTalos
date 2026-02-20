@@ -80,8 +80,7 @@ class MemoryContext:
                 outcome_str = ep.outcome.value if ep.outcome else "pending"
                 pnl_str = f"{ep.pnl_percentage:+.1f}%" if ep.pnl_percentage else "N/A"
                 lines.append(
-                    f"- {ep.symbol} ({outcome_str}, {pnl_str}): "
-                    f"{ep.entry_reasoning[:100]}..."
+                    f"- {ep.symbol} ({outcome_str}, {pnl_str}): " f"{ep.entry_reasoning[:100]}..."
                 )
                 if ep.lessons_learned:
                     lines.append(f"  Lesson: {ep.lessons_learned[:100]}...")
@@ -131,9 +130,7 @@ class MemoryContext:
 
     def has_relevant_context(self) -> bool:
         """Check if there's any relevant memory context."""
-        return bool(
-            self.similar_episodes or self.matching_rules or self.detected_patterns
-        )
+        return bool(self.similar_episodes or self.matching_rules or self.detected_patterns)
 
 
 class MemoryManager:
@@ -296,20 +293,14 @@ class MemoryManager:
 
         # Similar trades summary
         if context.similar_episodes:
-            wins = sum(
-                1 for e in context.similar_episodes if e.episode.outcome == TradeOutcome.WIN
-            )
+            wins = sum(1 for e in context.similar_episodes if e.episode.outcome == TradeOutcome.WIN)
             total = len(context.similar_episodes)
             parts.append(f"{total} similar trades found ({wins} wins)")
 
         # Rules summary
         if context.matching_rules:
-            high_success = sum(
-                1 for r in context.matching_rules if r.rule.success_rate > 0.6
-            )
-            parts.append(
-                f"{len(context.matching_rules)} rules apply ({high_success} high success)"
-            )
+            high_success = sum(1 for r in context.matching_rules if r.rule.success_rate > 0.6)
+            parts.append(f"{len(context.matching_rules)} rules apply ({high_success} high success)")
 
         # Patterns summary
         if context.detected_patterns:

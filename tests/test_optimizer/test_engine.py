@@ -152,9 +152,11 @@ class TestOptimizationEngine:
         start = datetime(2024, 1, 1, tzinfo=UTC)
         data = {"BTC/USDT": generate_sample_data(start)}
 
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [14], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [14], "oracle"),
+            ]
+        )
 
         engine = OptimizationEngine()
         results = await engine.optimize(data, grid)
@@ -168,9 +170,11 @@ class TestOptimizationEngine:
         start = datetime(2024, 1, 1, tzinfo=UTC)
         data = {"BTC/USDT": generate_sample_data(start)}
 
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14], "oracle"),
+            ]
+        )
 
         engine = OptimizationEngine()
         results = await engine.optimize(data, grid)
@@ -183,9 +187,11 @@ class TestOptimizationEngine:
         start = datetime(2024, 1, 1, tzinfo=UTC)
         data = {"BTC/USDT": generate_sample_data(start, periods=300)}
 
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14, 21], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14, 21], "oracle"),
+            ]
+        )
 
         engine = OptimizationEngine()
         results = await engine.optimize(data, grid, metric="sharpe_ratio")
@@ -200,9 +206,11 @@ class TestOptimizationEngine:
         start = datetime(2024, 1, 1, tzinfo=UTC)
         data = {"BTC/USDT": generate_sample_data(start)}
 
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14], "oracle"),
+            ]
+        )
 
         progress_calls = []
 
@@ -228,9 +236,11 @@ class TestOptimizationEngine:
         settings = get_settings()
         original_rsi = settings.oracle.rsi_period
 
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7], "oracle"),  # Different from default
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7], "oracle"),  # Different from default
+            ]
+        )
 
         engine = OptimizationEngine()
         await engine.optimize(data, grid)
@@ -244,9 +254,11 @@ class TestOptimizationEngine:
         start = datetime(2024, 1, 1, tzinfo=UTC)
         data = {"BTC/USDT": generate_sample_data(start)}
 
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [14], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [14], "oracle"),
+            ]
+        )
 
         config = OptimizationConfig(
             initial_balance=50000.0,

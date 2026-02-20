@@ -43,7 +43,9 @@ async def main():
             from datetime import datetime
 
             dt = datetime.fromtimestamp(ts / 1000).strftime("%Y-%m-%d %H:%M")
-            print(f"   {dt} | ${o:>9,.2f} | ${h:>9,.2f} | ${low:>9,.2f} | ${c:>9,.2f} | {vol:>10,.2f}")
+            print(
+                f"   {dt} | ${o:>9,.2f} | ${h:>9,.2f} | ${low:>9,.2f} | ${c:>9,.2f} | {vol:>10,.2f}"
+            )
 
         print("\n[4] All tests passed! ✓")
         print("=" * 50)

@@ -180,10 +180,12 @@ def format_profile_summary(profile: RiskProfile) -> str:
     ]
 
     if config.warning:
-        lines.extend([
-            "",
-            f"   ⚠️ {config.warning}",
-        ])
+        lines.extend(
+            [
+                "",
+                f"   ⚠️ {config.warning}",
+            ]
+        )
 
     return "\n".join(lines)
 

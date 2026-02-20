@@ -74,7 +74,7 @@ async def main():
             side="buy",
             amount=1.0,
             entry_price=3000.0,  # Simulated price
-            stop_loss=2850.0,    # -5%
+            stop_loss=2850.0,  # -5%
             take_profit=3300.0,  # +10%
         )
         paper.update_price("ETH/USDT", 3000.0)
@@ -91,27 +91,37 @@ async def main():
         pos = await paper.get_position("ETH/USDT")
         if pos:
             print(f"   Current price: ${pos.current_price:,.2f}")
-            print(f"   Unrealized PnL: ${pos.unrealized_pnl:+,.2f} ({pos.unrealized_pnl_percentage:+.2f}%)")
+            print(
+                f"   Unrealized PnL: ${pos.unrealized_pnl:+,.2f} ({pos.unrealized_pnl_percentage:+.2f}%)"
+            )
 
         # List all positions
         print("\n[9] All open positions:")
         positions = await paper.get_positions()
         for p in positions:
-            print(f"   - {p.symbol}: {p.quantity} @ ${p.entry_price:,.2f} | PnL: ${p.unrealized_pnl:+,.2f}")
+            print(
+                f"   - {p.symbol}: {p.quantity} @ ${p.entry_price:,.2f} | PnL: ${p.unrealized_pnl:+,.2f}"
+            )
 
         # Close ETH position
         print("\n[10] Closing ETH position...")
         close_result = await paper.close_position("ETH/USDT")
         if close_result:
             print(f"   ✓ Position closed at ${close_result['exit_price']:,.2f}")
-            print(f"   ✓ Realized PnL: ${close_result['pnl']:+,.2f} ({close_result['pnl_percentage']:+.2f}%)")
+            print(
+                f"   ✓ Realized PnL: ${close_result['pnl']:+,.2f} ({close_result['pnl_percentage']:+.2f}%)"
+            )
 
         # Final balance
         balance = await paper.get_balance()
         print("\n[11] Final balance:")
         for currency, amount in balance["total"].items():
             if amount > 0:
-                print(f"   {currency}: {amount:,.8f}" if currency != "USDT" else f"   {currency}: ${amount:,.2f}")
+                print(
+                    f"   {currency}: {amount:,.8f}"
+                    if currency != "USDT"
+                    else f"   {currency}: ${amount:,.2f}"
+                )
 
         print("\n" + "=" * 60)
         print("Paper trading simulation complete! ✓")
@@ -120,6 +130,7 @@ async def main():
     except Exception as e:
         print(f"\n   ❌ Error: {e}")
         import traceback
+
         traceback.print_exc()
 
     finally:

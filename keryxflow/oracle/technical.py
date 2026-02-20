@@ -230,12 +230,18 @@ class TechnicalAnalyzer:
             technical = f"MACD bearish crossover: {macd_line:.4f} < Signal {signal_line:.4f}"
         elif histogram > 0:
             signal = TrendDirection.BULLISH
-            strength = SignalStrength.MODERATE if histogram > abs(macd_line) * 0.1 else SignalStrength.WEAK
+            strength = (
+                SignalStrength.MODERATE if histogram > abs(macd_line) * 0.1 else SignalStrength.WEAK
+            )
             simple = "MACD is positive — buyers are in control for now."
             technical = f"MACD histogram positive: {histogram:.4f}"
         else:
             signal = TrendDirection.BEARISH
-            strength = SignalStrength.MODERATE if abs(histogram) > abs(macd_line) * 0.1 else SignalStrength.WEAK
+            strength = (
+                SignalStrength.MODERATE
+                if abs(histogram) > abs(macd_line) * 0.1
+                else SignalStrength.WEAK
+            )
             simple = "MACD is negative — sellers are in control for now."
             technical = f"MACD histogram negative: {histogram:.4f}"
 
@@ -359,7 +365,9 @@ class TechnicalAnalyzer:
         elif atr_ratio < 0.5:
             signal = TrendDirection.NEUTRAL
             strength = SignalStrength.WEAK
-            simple = f"Market is very calm — volatility is low with ${current_atr:.2f} typical moves."
+            simple = (
+                f"Market is very calm — volatility is low with ${current_atr:.2f} typical moves."
+            )
             technical = f"ATR(14) = {current_atr:.2f} ({atr_pct:.2%}), {atr_ratio:.1f}x average (compressed)"
         else:
             signal = TrendDirection.NEUTRAL

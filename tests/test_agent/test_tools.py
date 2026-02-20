@@ -185,9 +185,7 @@ class TestBaseTool:
             def parameters(self) -> list[ToolParameter]:
                 return [
                     ToolParameter("symbol", "string", "Trading pair", required=True),
-                    ToolParameter(
-                        "side", "string", "Side", required=True, enum=["buy", "sell"]
-                    ),
+                    ToolParameter("side", "string", "Side", required=True, enum=["buy", "sell"]),
                     ToolParameter("limit", "integer", "Limit", required=False, default=10),
                 ]
 
@@ -286,9 +284,7 @@ class TestBaseTool:
             @property
             def parameters(self) -> list[ToolParameter]:
                 return [
-                    ToolParameter(
-                        "side", "string", "Side", required=True, enum=["buy", "sell"]
-                    ),
+                    ToolParameter("side", "string", "Side", required=True, enum=["buy", "sell"]),
                 ]
 
             async def execute(self, **_kwargs):

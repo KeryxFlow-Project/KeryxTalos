@@ -294,15 +294,19 @@ def format_help_text(entry: GlossaryEntry, detailed: bool = False) -> str:
     ]
 
     if detailed:
-        lines.extend([
-            "",
-            f"🔬 Technical: {entry.technical}",
-        ])
+        lines.extend(
+            [
+                "",
+                f"🔬 Technical: {entry.technical}",
+            ]
+        )
 
-    lines.extend([
-        "",
-        f"💡 Why it matters: {entry.why_matters}",
-    ])
+    lines.extend(
+        [
+            "",
+            f"💡 Why it matters: {entry.why_matters}",
+        ]
+    )
 
     return "\n".join(lines)
 

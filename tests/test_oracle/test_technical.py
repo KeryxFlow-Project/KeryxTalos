@@ -28,14 +28,16 @@ def sample_ohlcv():
         price = base_price + (i * 50) + (i % 10) * 10
         prices.append(price)
 
-    df = pd.DataFrame({
-        "timestamp": dates,
-        "open": prices,
-        "high": [p + 100 for p in prices],
-        "low": [p - 100 for p in prices],
-        "close": [p + 50 for p in prices],
-        "volume": [1000000 + i * 10000 for i in range(100)],
-    })
+    df = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "open": prices,
+            "high": [p + 100 for p in prices],
+            "low": [p - 100 for p in prices],
+            "close": [p + 50 for p in prices],
+            "volume": [1000000 + i * 10000 for i in range(100)],
+        }
+    )
 
     return df
 
@@ -51,14 +53,16 @@ def downtrend_ohlcv():
         price = base_price - (i * 50) - (i % 10) * 10
         prices.append(price)
 
-    df = pd.DataFrame({
-        "timestamp": dates,
-        "open": prices,
-        "high": [p + 100 for p in prices],
-        "low": [p - 100 for p in prices],
-        "close": [p - 50 for p in prices],
-        "volume": [1000000 - i * 5000 for i in range(100)],
-    })
+    df = pd.DataFrame(
+        {
+            "timestamp": dates,
+            "open": prices,
+            "high": [p + 100 for p in prices],
+            "low": [p - 100 for p in prices],
+            "close": [p - 50 for p in prices],
+            "volume": [1000000 - i * 5000 for i in range(100)],
+        }
+    )
 
     return df
 
@@ -85,14 +89,16 @@ class TestTechnicalAnalyzer:
 
     def test_analyze_requires_minimum_candles(self, analyzer):
         """Test that analyze requires minimum data."""
-        short_data = pd.DataFrame({
-            "timestamp": pd.date_range(start="2024-01-01", periods=10, freq="1h"),
-            "open": [50000] * 10,
-            "high": [50100] * 10,
-            "low": [49900] * 10,
-            "close": [50050] * 10,
-            "volume": [1000000] * 10,
-        })
+        short_data = pd.DataFrame(
+            {
+                "timestamp": pd.date_range(start="2024-01-01", periods=10, freq="1h"),
+                "open": [50000] * 10,
+                "high": [50100] * 10,
+                "low": [49900] * 10,
+                "close": [50050] * 10,
+                "volume": [1000000] * 10,
+            }
+        )
 
         with pytest.raises(ValueError, match="at least 50 candles"):
             analyzer.analyze(short_data)
@@ -100,13 +106,15 @@ class TestTechnicalAnalyzer:
     def test_analyze_handles_lowercase_columns(self, analyzer, sample_ohlcv):
         """Test that analyzer handles various column name formats."""
         # Rename columns to uppercase
-        df = sample_ohlcv.rename(columns={
-            "open": "OPEN",
-            "high": "HIGH",
-            "low": "LOW",
-            "close": "CLOSE",
-            "volume": "VOLUME",
-        })
+        df = sample_ohlcv.rename(
+            columns={
+                "open": "OPEN",
+                "high": "HIGH",
+                "low": "LOW",
+                "close": "CLOSE",
+                "volume": "VOLUME",
+            }
+        )
 
         result = analyzer.analyze(df, "BTC/USDT")
         assert result is not None
@@ -117,8 +125,7 @@ class TestTechnicalAnalyzer:
 
         # Should have some bullish indicators
         bullish_count = sum(
-            1 for ind in result.indicators.values()
-            if ind.signal == TrendDirection.BULLISH
+            1 for ind in result.indicators.values() if ind.signal == TrendDirection.BULLISH
         )
         assert bullish_count > 0
 
@@ -128,8 +135,7 @@ class TestTechnicalAnalyzer:
 
         # Should have some bearish indicators
         bearish_count = sum(
-            1 for ind in result.indicators.values()
-            if ind.signal == TrendDirection.BEARISH
+            1 for ind in result.indicators.values() if ind.signal == TrendDirection.BEARISH
         )
         assert bearish_count >= 0  # Allow for mixed signals in synthetic data
 
@@ -166,14 +172,16 @@ class TestRSIIndicator:
         dates = pd.date_range(start="2024-01-01", periods=100, freq="1h")
         prices = [50000 + i * 100 for i in range(100)]  # Strong uptrend
 
-        df = pd.DataFrame({
-            "timestamp": dates,
-            "open": prices,
-            "high": [p + 50 for p in prices],
-            "low": [p - 20 for p in prices],
-            "close": [p + 40 for p in prices],
-            "volume": [1000000] * 100,
-        })
+        df = pd.DataFrame(
+            {
+                "timestamp": dates,
+                "open": prices,
+                "high": [p + 50 for p in prices],
+                "low": [p - 20 for p in prices],
+                "close": [p + 40 for p in prices],
+                "volume": [1000000] * 100,
+            }
+        )
 
         result = analyzer._calculate_rsi(df)
         assert result.name == "RSI"

@@ -300,10 +300,12 @@ Mistakes:
         engine = ReflectionEngine()
 
         # Add some mock reflections
-        engine._reflection_history.append({
-            "type": ReflectionType.DAILY.value,
-            "result": {"test": "data"},
-        })
+        engine._reflection_history.append(
+            {
+                "type": ReflectionType.DAILY.value,
+                "result": {"test": "data"},
+            }
+        )
 
         recent = engine.get_recent_reflections()
 
@@ -314,14 +316,18 @@ Mistakes:
         """Test getting filtered recent reflections."""
         engine = ReflectionEngine()
 
-        engine._reflection_history.append({
-            "type": ReflectionType.DAILY.value,
-            "result": {},
-        })
-        engine._reflection_history.append({
-            "type": ReflectionType.WEEKLY.value,
-            "result": {},
-        })
+        engine._reflection_history.append(
+            {
+                "type": ReflectionType.DAILY.value,
+                "result": {},
+            }
+        )
+        engine._reflection_history.append(
+            {
+                "type": ReflectionType.WEEKLY.value,
+                "result": {},
+            }
+        )
 
         daily = engine.get_recent_reflections(ReflectionType.DAILY)
         weekly = engine.get_recent_reflections(ReflectionType.WEEKLY)

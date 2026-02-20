@@ -86,9 +86,7 @@ class EpisodicMemory:
                 entry_reasoning=context.entry_reasoning,
                 entry_confidence=context.entry_confidence,
                 technical_context=(
-                    json.dumps(context.technical_context)
-                    if context.technical_context
-                    else None
+                    json.dumps(context.technical_context) if context.technical_context else None
                 ),
                 market_context=(
                     json.dumps(context.market_context) if context.market_context else None
@@ -100,9 +98,7 @@ class EpisodicMemory:
                     json.dumps(context.rules_applied) if context.rules_applied else None
                 ),
                 patterns_identified=(
-                    json.dumps(context.patterns_identified)
-                    if context.patterns_identified
-                    else None
+                    json.dumps(context.patterns_identified) if context.patterns_identified else None
                 ),
                 tags=json.dumps(context.tags) if context.tags else None,
             )
@@ -261,8 +257,7 @@ class EpisodicMemory:
         async with self._session_factory() as session:
             # Build query
             query = select(TradeEpisode).where(
-                TradeEpisode.entry_timestamp
-                >= datetime.now(UTC) - timedelta(days=days_back),
+                TradeEpisode.entry_timestamp >= datetime.now(UTC) - timedelta(days=days_back),
                 TradeEpisode.outcome.isnot(None),  # Only completed trades
             )
 
@@ -420,9 +415,7 @@ class EpisodicMemory:
             result = await session.execute(query)
             return list(result.scalars().all())
 
-    async def get_episode_stats(
-        self, symbol: str | None = None, days_back: int = 30
-    ) -> dict:
+    async def get_episode_stats(self, symbol: str | None = None, days_back: int = 30) -> dict:
         """
         Get statistics for trade episodes.
 
@@ -435,8 +428,7 @@ class EpisodicMemory:
         """
         async with self._session_factory() as session:
             query = select(TradeEpisode).where(
-                TradeEpisode.entry_timestamp
-                >= datetime.now(UTC) - timedelta(days=days_back),
+                TradeEpisode.entry_timestamp >= datetime.now(UTC) - timedelta(days=days_back),
                 TradeEpisode.outcome.isnot(None),
             )
 

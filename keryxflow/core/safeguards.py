@@ -50,7 +50,9 @@ class SafeguardResult:
         if self.passed:
             return f"All {len(self.checks)} safeguard checks passed."
 
-        lines = [f"Safeguard checks failed: {len(self.errors)} errors, {len(self.warnings)} warnings"]
+        lines = [
+            f"Safeguard checks failed: {len(self.errors)} errors, {len(self.warnings)} warnings"
+        ]
         for check in self.failed_checks:
             icon = "!" if check.severity == "error" else "?"
             lines.append(f"  [{icon}] {check.name}: {check.message}")
@@ -181,11 +183,15 @@ class LiveTradingSafeguards:
 
         # Risk per trade should not be too high
         if self.settings.risk.risk_per_trade > 0.02:
-            issues.append(f"risk_per_trade={self.settings.risk.risk_per_trade:.1%} is high (recommended: 1-2%)")
+            issues.append(
+                f"risk_per_trade={self.settings.risk.risk_per_trade:.1%} is high (recommended: 1-2%)"
+            )
 
         # Daily drawdown should have a limit
         if self.settings.risk.max_daily_drawdown > 0.10:
-            issues.append(f"max_daily_drawdown={self.settings.risk.max_daily_drawdown:.0%} is high (recommended: 5-10%)")
+            issues.append(
+                f"max_daily_drawdown={self.settings.risk.max_daily_drawdown:.0%} is high (recommended: 5-10%)"
+            )
 
         # Must have stop loss
         if self.settings.risk.stop_loss_type not in ("atr", "fixed", "percentage"):

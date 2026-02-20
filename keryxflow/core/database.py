@@ -128,9 +128,7 @@ async def initialize_paper_balance(
     """Initialize paper trading balance."""
     from sqlmodel import select
 
-    result = await session.execute(
-        select(PaperBalance).where(PaperBalance.currency == currency)
-    )
+    result = await session.execute(select(PaperBalance).where(PaperBalance.currency == currency))
     balance = result.scalar_one_or_none()
 
     if balance is None:

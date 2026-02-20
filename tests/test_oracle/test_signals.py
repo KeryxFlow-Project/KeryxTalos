@@ -31,14 +31,16 @@ def sample_ohlcv():
         price = base_price + (i * 50) + (i % 10) * 10
         prices.append(price)
 
-    return pd.DataFrame({
-        "timestamp": dates,
-        "open": prices,
-        "high": [p + 100 for p in prices],
-        "low": [p - 100 for p in prices],
-        "close": [p + 50 for p in prices],
-        "volume": [1000000 + i * 10000 for i in range(100)],
-    })
+    return pd.DataFrame(
+        {
+            "timestamp": dates,
+            "open": prices,
+            "high": [p + 100 for p in prices],
+            "low": [p - 100 for p in prices],
+            "close": [p + 50 for p in prices],
+            "volume": [1000000 + i * 10000 for i in range(100)],
+        }
+    )
 
 
 @pytest.fixture

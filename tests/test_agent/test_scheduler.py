@@ -44,6 +44,7 @@ class TestScheduledTask:
 
     def test_create_task(self):
         """Test creating a scheduled task."""
+
         async def callback():
             pass
 
@@ -63,6 +64,7 @@ class TestScheduledTask:
 
     def test_to_dict(self):
         """Test converting to dictionary."""
+
         async def callback():
             pass
 

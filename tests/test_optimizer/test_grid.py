@@ -48,9 +48,11 @@ class TestParameterGrid:
 
     def test_single_parameter(self):
         """Test grid with single parameter."""
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14, 21], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14, 21], "oracle"),
+            ]
+        )
 
         combinations = list(grid.combinations())
 
@@ -62,10 +64,12 @@ class TestParameterGrid:
 
     def test_multiple_parameters(self):
         """Test grid with multiple parameters."""
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14], "oracle"),
-            ParameterRange("risk_per_trade", [0.01, 0.02], "risk"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14], "oracle"),
+                ParameterRange("risk_per_trade", [0.01, 0.02], "risk"),
+            ]
+        )
 
         combinations = list(grid.combinations())
 
@@ -83,10 +87,12 @@ class TestParameterGrid:
 
     def test_flat_combinations(self):
         """Test flat combinations without category grouping."""
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14], "oracle"),
-            ParameterRange("risk_per_trade", [0.01, 0.02], "risk"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14], "oracle"),
+                ParameterRange("risk_per_trade", [0.01, 0.02], "risk"),
+            ]
+        )
 
         combinations = list(grid.flat_combinations())
 
@@ -112,10 +118,12 @@ class TestParameterGrid:
 
     def test_repr(self):
         """Test string representation."""
-        grid = ParameterGrid([
-            ParameterRange("rsi_period", [7, 14, 21], "oracle"),
-            ParameterRange("risk_per_trade", [0.01, 0.02], "risk"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("rsi_period", [7, 14, 21], "oracle"),
+                ParameterRange("risk_per_trade", [0.01, 0.02], "risk"),
+            ]
+        )
 
         repr_str = repr(grid)
 
@@ -151,10 +159,12 @@ class TestParameterGrid:
 
     def test_large_grid_count(self):
         """Test counting combinations in large grid."""
-        grid = ParameterGrid([
-            ParameterRange("a", [1, 2, 3, 4, 5], "oracle"),
-            ParameterRange("b", [1, 2, 3, 4, 5], "oracle"),
-            ParameterRange("c", [1, 2, 3, 4, 5], "oracle"),
-        ])
+        grid = ParameterGrid(
+            [
+                ParameterRange("a", [1, 2, 3, 4, 5], "oracle"),
+                ParameterRange("b", [1, 2, 3, 4, 5], "oracle"),
+                ParameterRange("c", [1, 2, 3, 4, 5], "oracle"),
+            ]
+        )
 
         assert len(grid) == 125  # 5 x 5 x 5

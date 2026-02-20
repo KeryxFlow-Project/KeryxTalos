@@ -149,9 +149,7 @@ class LogMessages:
         )
 
     @staticmethod
-    def circuit_breaker_triggered(
-        drawdown: float, limit: float
-    ) -> "LogMessages.Message":
+    def circuit_breaker_triggered(drawdown: float, limit: float) -> "LogMessages.Message":
         """Circuit breaker triggered message."""
         return LogMessages.Message(
             simple=f"Trading paused: daily loss limit reached ({drawdown:.1%} of {limit:.1%})",
@@ -159,7 +157,9 @@ class LogMessages:
         )
 
     @staticmethod
-    def connection_status(exchange: str, status: Literal["connected", "disconnected", "error"]) -> "LogMessages.Message":
+    def connection_status(
+        exchange: str, status: Literal["connected", "disconnected", "error"]
+    ) -> "LogMessages.Message":
         """Connection status message."""
         if status == "connected":
             return LogMessages.Message(

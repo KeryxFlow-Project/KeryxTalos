@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="30">
+    <title>KeryxFlow Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #0f1117;
+            color: #e1e4e8;
+            padding: 1.5rem;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #2d333b;
+        }
+        header h1 { font-size: 1.4rem; color: #58a6ff; }
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-running { background: #1b4332; color: #52c41a; }
+        .badge-idle { background: #2d333b; color: #8b949e; }
+        .badge-paused { background: #3b2e00; color: #f0c000; }
+        .badge-error { background: #3b1010; color: #f85149; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .card {
+            background: #161b22;
+            border: 1px solid #2d333b;
+            border-radius: 8px;
+            padding: 1rem;
+        }
+        .card .label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.05em; }
+        .card .value { font-size: 1.5rem; font-weight: 700; margin-top: 0.25rem; }
+        .positive { color: #3fb950; }
+        .negative { color: #f85149; }
+        .neutral { color: #e1e4e8; }
+        section { margin-bottom: 1.5rem; }
+        section h2 {
+            font-size: 1rem;
+            color: #8b949e;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #161b22;
+            border: 1px solid #2d333b;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        th {
+            background: #1c2129;
+            text-align: left;
+            padding: 0.6rem 1rem;
+            font-size: 0.75rem;
+            color: #8b949e;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        td { padding: 0.6rem 1rem; border-top: 1px solid #2d333b; font-size: 0.9rem; }
+        .empty-row td { text-align: center; color: #484f58; font-style: italic; }
+        footer {
+            text-align: center;
+            color: #484f58;
+            font-size: 0.75rem;
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>KeryxFlow Dashboard</h1>
+        {% set state = session.get("state", "idle") %}
+        <span class="badge badge-{{ state }}">{{ state }}</span>
+    </header>
+
+    {% set stats = session.get("stats", {}) %}
+    <div class="cards">
+        <div class="card">
+            <div class="label">Balance</div>
+            <div class="value neutral">${{ "%.2f"|format(balance.total) }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Daily P&amp;L</div>
+            {% set daily_pnl = risk.get("daily_pnl", 0) %}
+            <div class="value {{ 'positive' if daily_pnl >= 0 else 'negative' }}">
+                ${{ "%.2f"|format(daily_pnl) }}
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Total P&amp;L</div>
+            {% set total_pnl = stats.get("total_pnl", 0) %}
+            <div class="value {{ 'positive' if total_pnl >= 0 else 'negative' }}">
+                ${{ "%.2f"|format(total_pnl) }}
+            </div>
+        </div>
+        <div class="card">
+            <div class="label">Win Rate</div>
+            <div class="value neutral">{{ "%.1f"|format(stats.get("win_rate", 0)) }}%</div>
+        </div>
+        <div class="card">
+            <div class="label">Trades Today</div>
+            <div class="value neutral">{{ recent_trades|length }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Circuit Breaker</div>
+            {% set cb = risk.get("circuit_breaker_active", false) %}
+            <div class="value {{ 'negative' if cb else 'positive' }}">{{ "ACTIVE" if cb else "OK" }}</div>
+        </div>
+    </div>
+
+    <section>
+        <h2>Open Positions</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Qty</th>
+                    <th>Entry</th>
+                    <th>Current</th>
+                    <th>Unreal. P&amp;L</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if positions %}
+                    {% for p in positions %}
+                    <tr>
+                        <td>{{ p.symbol }}</td>
+                        <td>{{ p.side }}</td>
+                        <td>{{ "%.6f"|format(p.quantity) }}</td>
+                        <td>${{ "%.2f"|format(p.entry_price) }}</td>
+                        <td>${{ "%.2f"|format(p.current_price) }}</td>
+                        <td class="{{ 'positive' if p.unrealized_pnl >= 0 else 'negative' }}">
+                            ${{ "%.2f"|format(p.unrealized_pnl) }}
+                            ({{ "%.2f"|format(p.unrealized_pnl_pct) }}%)
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr class="empty-row"><td colspan="6">No open positions</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>Recent Trades (Today)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th>Qty</th>
+                    <th>Entry</th>
+                    <th>Exit</th>
+                    <th>P&amp;L</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if recent_trades %}
+                    {% for t in recent_trades %}
+                    <tr>
+                        <td>{{ t.symbol }}</td>
+                        <td>{{ t.side }}</td>
+                        <td>{{ "%.6f"|format(t.quantity) }}</td>
+                        <td>${{ "%.2f"|format(t.entry_price) }}</td>
+                        <td>{{ ("$%.2f"|format(t.exit_price)) if t.exit_price else "—" }}</td>
+                        <td class="{{ 'positive' if (t.pnl or 0) >= 0 else 'negative' }}">
+                            {{ ("$%.2f"|format(t.pnl)) if t.pnl is not none else "—" }}
+                        </td>
+                        <td>{{ t.status }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr class="empty-row"><td colspan="7">No trades today</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </section>
+
+    <footer>
+        Auto-refreshes every 30 seconds &middot; KeryxFlow v0.13.0
+    </footer>
+</body>
+</html>

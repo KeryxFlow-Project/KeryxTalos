@@ -14,6 +14,7 @@
 ```
 
 [![CI](https://github.com/KeryxFlow-Project/Kerykeion/actions/workflows/ci.yml/badge.svg)](https://github.com/KeryxFlow-Project/Kerykeion/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/keryxflow?color=blue&logo=pypi&logoColor=white)](https://pypi.org/project/keryxflow/)
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-MVP-orange)
@@ -113,7 +114,7 @@ Want full control? **Advanced Mode** gives you:
 
 ```bash
 # Download KeryxFlow
-git clone https://github.com/yourusername/keryxflow.git
+git clone https://github.com/KeryxFlow-Project/Kerykeion.git keryxflow
 cd keryxflow
 
 # Install it

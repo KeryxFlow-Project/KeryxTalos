@@ -1,12 +1,28 @@
 [tool.poetry]
 name = "keryxflow"
-version = "0.13.0"
+version = "0.17.0"
 description = "A hybrid AI & quantitative trading engine for cryptocurrency markets"
 authors = ["KeryxFlow Contributors"]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/yourusername/keryxflow"
+repository = "https://github.com/KeryxFlow-Project/Kerykeion"
+homepage = "https://github.com/KeryxFlow-Project/Kerykeion"
 keywords = ["trading", "cryptocurrency", "bitcoin", "ai", "algorithmic-trading"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Framework :: AsyncIO",
+]
+packages = [{include = "keryxflow"}]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/KeryxFlow-Project/Kerykeion/issues"
+"Changelog" = "https://github.com/KeryxFlow-Project/Kerykeion/blob/main/CHANGELOG.md"
 
 [tool.poetry.scripts]
 keryxflow = "keryxflow.main:run"

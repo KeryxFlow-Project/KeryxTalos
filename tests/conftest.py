@@ -19,14 +19,14 @@ def setup_test_database(tmp_path):
     # Reset global instances before each test
     import keryxflow.aegis.risk as risk_module
     import keryxflow.agent.cognitive as cognitive_module
-    import keryxflow.api.server as api_server_module
-    import keryxflow.api.webhook as api_webhook_module
     import keryxflow.agent.executor as executor_module
     import keryxflow.agent.reflection as reflection_module
     import keryxflow.agent.scheduler as scheduler_module
     import keryxflow.agent.session as session_module
     import keryxflow.agent.strategy as strategy_module
     import keryxflow.agent.tools as tools_module
+    import keryxflow.api.server as api_server_module
+    import keryxflow.api.webhook as api_webhook_module
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module

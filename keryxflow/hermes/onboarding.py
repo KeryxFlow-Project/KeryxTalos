@@ -9,6 +9,10 @@ from textual.containers import Container, Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
 
+from keryxflow.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 @dataclass
 class UserProfile:
@@ -364,7 +368,7 @@ class OnboardingWizard(ModalScreen[UserProfile | None]):
             next_btn = self.query_one("#next-btn", Button)
             next_btn.disabled = False
         except Exception:
-            pass
+            logger.debug("next_button_not_found", exc_info=True)
 
     def action_cancel(self) -> None:
         """Cancel the wizard."""

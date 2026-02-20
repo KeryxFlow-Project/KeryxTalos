@@ -34,6 +34,11 @@ COPY keryxflow/ keryxflow/
 COPY settings.toml .
 COPY .env.example .
 
+# Patch settings.toml for demo mode: disable features that require API keys
+# (env vars alone won't override TOML values due to pydantic-settings priority)
+RUN sed -i 's/^llm_enabled = true/llm_enabled = false/' settings.toml && \
+    sed -i 's/^news_enabled = true/news_enabled = false/' settings.toml
+
 # Create data directory for SQLite and logs
 RUN mkdir -p data && chown -R keryxflow:keryxflow /app
 

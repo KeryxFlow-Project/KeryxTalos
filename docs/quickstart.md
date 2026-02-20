@@ -21,8 +21,8 @@ Before you begin, make sure you have:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/keryxflow.git
-cd keryxflow
+git clone https://github.com/KeryxFlow-Project/Kerykeion.git
+cd Kerykeion
 
 # Install dependencies
 poetry install
@@ -185,7 +185,7 @@ max_open_positions = 3              # Max 3 concurrent trades
 
 [oracle]
 llm_enabled = true                  # true = AI+TA, false = TA only
-signal_interval = 60                # Seconds between signal checks
+analysis_interval = 300             # Seconds between analysis checks
 ```
 
 Configuration priority: environment variables > `.env` > `settings.toml` > defaults.

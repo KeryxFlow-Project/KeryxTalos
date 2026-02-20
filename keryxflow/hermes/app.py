@@ -17,6 +17,7 @@ from keryxflow.exchange.adapter import ExchangeAdapter
 from keryxflow.exchange.paper import PaperTradingEngine
 from keryxflow.hermes.widgets.aegis import AegisWidget
 from keryxflow.hermes.widgets.agent import AgentWidget
+from keryxflow.hermes.widgets.backtest import BacktestResultsWidget
 from keryxflow.hermes.widgets.balance import BalanceWidget
 from keryxflow.hermes.widgets.chart import ChartWidget
 from keryxflow.hermes.widgets.help import HelpModal
@@ -40,6 +41,7 @@ class KeryxFlowApp(App):
         Binding("p", "panic", "Panic", priority=True),
         Binding("space", "toggle_pause", "Pause/Resume"),
         Binding("a", "toggle_agent", "Toggle Agent"),
+        Binding("b", "toggle_backtest", "Backtest"),
         Binding("question_mark", "show_help", "Help"),
         Binding("l", "toggle_logs", "Toggle Logs"),
         Binding("s", "cycle_symbol", "Next Symbol"),
@@ -84,6 +86,7 @@ class KeryxFlowApp(App):
                     yield AgentWidget(id="agent")
 
             yield LogsWidget(id="logs")
+            yield BacktestResultsWidget(id="backtest-results", classes="hidden")
 
         yield Footer()
 
@@ -636,6 +639,14 @@ class KeryxFlowApp(App):
         """Toggle logs panel visibility."""
         logs = self.query_one("#logs", LogsWidget)
         logs.toggle_class("hidden")
+
+    def action_toggle_backtest(self) -> None:
+        """Toggle backtest results panel visibility."""
+        backtest = self.query_one("#backtest-results", BacktestResultsWidget)
+        # Refresh results when showing the panel
+        if backtest.has_class("hidden"):
+            backtest.refresh_results()
+        backtest.toggle_class("hidden")
 
     async def action_cycle_symbol(self) -> None:
         """Cycle through available symbols."""

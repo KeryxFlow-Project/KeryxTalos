@@ -153,6 +153,18 @@ Footer {
     display: none;
 }
 
+/* Backtest results widget */
+#backtest-results {
+    height: 25%;
+    border: solid $primary;
+    padding: 1;
+    background: $surface-darken-2;
+}
+
+#backtest-results.hidden {
+    display: none;
+}
+
 #logs .log-entry {
     padding: 0 1;
 }

@@ -146,8 +146,9 @@ class AgentWidget(Static):
         # Tokens line
         tokens_line = self.query_one("#tokens-line", Static)
         tokens = stats.get("tokens_used", 0)
+        cost = stats.get("total_cost", 0.0)
         tokens_str = f"{tokens / 1000:.1f}K" if tokens > 1000 else str(tokens)
-        tokens_line.update(f"Tokens:     {tokens_str}")
+        tokens_line.update(f"Tokens:     {tokens_str} (${cost:.2f})")
 
     def _progress_bar(self, percentage: float, width: int = 6) -> str:
         """Render a progress bar."""

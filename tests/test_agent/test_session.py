@@ -53,6 +53,7 @@ class TestSessionStats:
 
         # Wait a tiny bit
         import time
+
         time.sleep(0.1)
 
         duration = stats.duration_seconds
@@ -81,6 +82,7 @@ class TestSessionStats:
 
         # Force 1 minute duration
         import time
+
         time.sleep(0.1)  # Small sleep
 
         # Should calculate cycles per minute
@@ -97,6 +99,9 @@ class TestSessionStats:
         stats.trades_won = 2
         stats.trades_lost = 1
         stats.total_pnl = 150.0
+        stats.input_tokens = 3000
+        stats.output_tokens = 2000
+        stats.total_cost = 0.039
 
         data = stats.to_dict()
 
@@ -105,7 +110,18 @@ class TestSessionStats:
         assert data["trades_executed"] == 3
         assert data["win_rate"] == pytest.approx(66.67, rel=0.1)
         assert data["total_pnl"] == 150.0
+        assert data["input_tokens"] == 3000
+        assert data["output_tokens"] == 2000
+        assert data["total_cost"] == 0.039
         assert "started_at" in data
+
+    def test_default_token_cost_fields(self):
+        """Test that token cost fields default to zero."""
+        stats = SessionStats()
+
+        assert stats.input_tokens == 0
+        assert stats.output_tokens == 0
+        assert stats.total_cost == 0.0
 
 
 class TestTradingSession:
@@ -238,6 +254,7 @@ class TestSessionStatsCalculations:
 
         # Even if we wait, the paused time is subtracted
         import time
+
         time.sleep(0.1)
 
         duration = stats.duration_seconds

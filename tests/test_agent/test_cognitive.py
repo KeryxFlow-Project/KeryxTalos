@@ -102,6 +102,9 @@ class TestCycleResult:
             decision=decision,
             duration_ms=100.0,
             tokens_used=300,
+            input_tokens=200,
+            output_tokens=100,
+            total_cost=0.0021,
         )
         result.completed_at = datetime.now(UTC)
 
@@ -113,6 +116,9 @@ class TestCycleResult:
         assert data["decision"]["confidence"] == 0.75
         assert data["duration_ms"] == 100.0
         assert data["tokens_used"] == 300
+        assert data["input_tokens"] == 200
+        assert data["output_tokens"] == 100
+        assert data["total_cost"] == 0.0021
         assert data["error"] is None
 
     def test_result_to_dict_error(self):
@@ -142,6 +148,9 @@ class TestAgentStats:
         assert stats.error_cycles == 0
         assert stats.total_tool_calls == 0
         assert stats.total_tokens_used == 0
+        assert stats.total_input_tokens == 0
+        assert stats.total_output_tokens == 0
+        assert stats.total_cost == 0.0
         assert stats.decisions_by_type == {}
         assert stats.last_cycle_time is None
         assert stats.consecutive_errors == 0
@@ -221,6 +230,7 @@ class TestCognitiveAgent:
             mock_agent_settings = MagicMock()
             mock_agent_settings.fallback_to_technical = True
             mock_agent_settings.max_consecutive_errors = 1
+            mock_agent_settings.daily_token_budget = 0  # Unlimited for test
             mock_settings.return_value.agent = mock_agent_settings
             mock_settings.return_value.anthropic_api_key.get_secret_value.return_value = ""
             mock_settings.return_value.system.symbols = ["BTC/USDT"]
@@ -447,6 +457,9 @@ class TestCognitiveAgent:
                 symbol="BTC/USDT",
             ),
             tokens_used=500,
+            input_tokens=300,
+            output_tokens=200,
+            total_cost=0.0039,
         )
         result.completed_at = datetime.now(UTC)
 
@@ -455,7 +468,137 @@ class TestCognitiveAgent:
         assert agent._stats.total_cycles == 1
         assert agent._stats.successful_cycles == 1
         assert agent._stats.total_tokens_used == 500
+        assert agent._stats.total_input_tokens == 300
+        assert agent._stats.total_output_tokens == 200
+        assert agent._stats.total_cost == pytest.approx(0.0039)
         assert agent._stats.decisions_by_type.get("entry_long") == 1
+
+    @pytest.mark.asyncio
+    async def test_update_stats_accumulates(self):
+        """Test that stats accumulate across multiple cycles."""
+        agent = CognitiveAgent()
+
+        for _ in range(3):
+            result = CycleResult(
+                status=CycleStatus.SUCCESS,
+                decision=AgentDecision(decision_type=DecisionType.HOLD),
+                tokens_used=1000,
+                input_tokens=700,
+                output_tokens=300,
+                total_cost=0.0066,
+            )
+            result.completed_at = datetime.now(UTC)
+            agent._update_stats(result)
+
+        assert agent._stats.total_cycles == 3
+        assert agent._stats.total_tokens_used == 3000
+        assert agent._stats.total_input_tokens == 2100
+        assert agent._stats.total_output_tokens == 900
+        assert agent._stats.total_cost == pytest.approx(0.0198)
+
+    def test_calculate_cost(self):
+        """Test cost calculation from token counts."""
+        agent = CognitiveAgent()
+        # Default pricing: $3/1M input, $15/1M output
+        cost = agent._calculate_cost(1_000_000, 1_000_000)
+        assert cost == pytest.approx(18.0)
+
+        cost = agent._calculate_cost(500, 100)
+        expected = (500 / 1_000_000) * 3.0 + (100 / 1_000_000) * 15.0
+        assert cost == pytest.approx(expected)
+
+    def test_calculate_cost_zero(self):
+        """Test cost calculation with zero tokens."""
+        agent = CognitiveAgent()
+        cost = agent._calculate_cost(0, 0)
+        assert cost == 0.0
+
+    def test_get_token_stats(self):
+        """Test get_token_stats returns correct dict."""
+        agent = CognitiveAgent()
+        agent._stats.total_tokens_used = 5000
+        agent._stats.total_input_tokens = 3000
+        agent._stats.total_output_tokens = 2000
+        agent._stats.total_cost = 0.039
+        agent._stats.total_cycles = 5
+
+        stats = agent.get_token_stats()
+
+        assert stats["total_tokens"] == 5000
+        assert stats["total_input_tokens"] == 3000
+        assert stats["total_output_tokens"] == 2000
+        assert stats["total_cost"] == 0.039
+        assert stats["avg_tokens_per_cycle"] == 1000
+        assert stats["budget_exceeded"] is False
+        assert stats["daily_token_budget"] == 1_000_000
+
+    def test_get_token_stats_no_cycles(self):
+        """Test get_token_stats with no cycles."""
+        agent = CognitiveAgent()
+        stats = agent.get_token_stats()
+
+        assert stats["total_tokens"] == 0
+        assert stats["avg_tokens_per_cycle"] == 0
+
+    def test_budget_exceeded_flag(self):
+        """Test that budget_exceeded flag triggers when budget is hit."""
+        from keryxflow.config import AgentSettings
+
+        settings = AgentSettings(daily_token_budget=1000)
+        agent = CognitiveAgent(settings=settings)
+
+        assert agent.budget_exceeded is False
+
+        result = CycleResult(
+            status=CycleStatus.SUCCESS,
+            decision=AgentDecision(decision_type=DecisionType.HOLD),
+            tokens_used=1000,
+            input_tokens=700,
+            output_tokens=300,
+            total_cost=0.0066,
+        )
+        result.completed_at = datetime.now(UTC)
+        agent._update_stats(result)
+
+        assert agent.budget_exceeded is True
+
+    def test_budget_exceeded_flag_unlimited(self):
+        """Test that budget_exceeded stays False when budget is 0 (unlimited)."""
+        from keryxflow.config import AgentSettings
+
+        settings = AgentSettings(daily_token_budget=0)
+        agent = CognitiveAgent(settings=settings)
+
+        result = CycleResult(
+            status=CycleStatus.SUCCESS,
+            decision=AgentDecision(decision_type=DecisionType.HOLD),
+            tokens_used=10_000_000,
+            input_tokens=7_000_000,
+            output_tokens=3_000_000,
+            total_cost=66.0,
+        )
+        result.completed_at = datetime.now(UTC)
+        agent._update_stats(result)
+
+        assert agent.budget_exceeded is False
+
+    def test_get_stats_includes_token_cost_fields(self):
+        """Test that get_stats includes new token cost fields."""
+        agent = CognitiveAgent()
+        agent._stats.total_cycles = 10
+        agent._stats.successful_cycles = 8
+        agent._stats.total_tokens_used = 5000
+        agent._stats.total_input_tokens = 3000
+        agent._stats.total_output_tokens = 2000
+        agent._stats.total_cost = 0.039
+
+        stats = agent.get_stats()
+
+        assert stats["total_input_tokens"] == 3000
+        assert stats["total_output_tokens"] == 2000
+        assert stats["total_cost"] == 0.039
+        assert stats["avg_tokens_per_cycle"] == 500
+        assert stats["budget_exceeded"] is False
 
 
 class TestGetCognitiveAgent:

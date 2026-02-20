@@ -13,6 +13,7 @@ from keryxflow.aegis.risk import (
     RiskManager,
     get_risk_manager,
 )
+from keryxflow.aegis.trailing import get_trailing_stop_manager
 from keryxflow.config import get_settings
 from keryxflow.core.events import Event, EventBus, EventType, get_event_bus
 from keryxflow.core.logging import get_logger
@@ -212,6 +213,10 @@ class TradingEngine:
             self.signals = signal_generator or get_signal_generator()
             self._ohlcv_buffer = OHLCVBuffer(max_candles=100)
 
+        # Trailing stop manager
+        self._trailing_enabled = self.settings.risk.trailing_stop_enabled
+        self._trailing_manager = get_trailing_stop_manager() if self._trailing_enabled else None
+
         # State
         self._running = False
         self._last_analysis: dict[str, datetime] = {}
@@ -249,6 +254,11 @@ class TradingEngine:
         self.event_bus.subscribe(EventType.SYSTEM_PAUSED, self._on_pause)
         self.event_bus.subscribe(EventType.SYSTEM_RESUMED, self._on_resume)
         self.event_bus.subscribe(EventType.PANIC_TRIGGERED, self._on_panic)
+
+        # Subscribe to position events for trailing stop
+        if self._trailing_enabled:
+            self.event_bus.subscribe(EventType.POSITION_OPENED, self._on_position_opened)
+            self.event_bus.subscribe(EventType.POSITION_CLOSED, self._on_position_closed)
 
         # Setup notification manager
         if self.notifications:
@@ -437,6 +447,10 @@ class TradingEngine:
         self.event_bus.unsubscribe(EventType.SYSTEM_RESUMED, self._on_resume)
         self.event_bus.unsubscribe(EventType.PANIC_TRIGGERED, self._on_panic)
 
+        if self._trailing_enabled:
+            self.event_bus.unsubscribe(EventType.POSITION_OPENED, self._on_position_opened)
+            self.event_bus.unsubscribe(EventType.POSITION_CLOSED, self._on_position_closed)
+
         logger.info("trading_engine_stopped")
 
     async def _on_price_update(self, event: Event) -> None:
@@ -450,6 +464,13 @@ class TradingEngine:
 
         if not symbol or not price:
             return
+
+        # Check trailing stop before anything else (fastest reaction)
+        if self._trailing_enabled and self._trailing_manager is not None:
+            self._trailing_manager.update_price(symbol, price)
+            if self._trailing_manager.should_trigger_stop(symbol, price):
+                await self._close_trailing_stop(symbol, price)
+                return
 
         # Add to appropriate buffer
         if self._mtf_enabled:
@@ -897,6 +918,97 @@ class TradingEngine:
             reason=approval.reason.value if approval.reason else "unknown",
         )
 
+    async def _on_position_opened(self, event: Event) -> None:
+        """Handle position opened event — start trailing stop tracking."""
+        if not self._trailing_enabled or self._trailing_manager is None:
+            return
+
+        symbol = event.data.get("symbol")
+        side = event.data.get("side")
+        entry_price = event.data.get("entry_price") or event.data.get("price")
+
+        if not symbol or not side or not entry_price:
+            logger.warning("trailing_stop_missing_position_data", data=event.data)
+            return
+
+        self._trailing_manager.start_tracking(
+            symbol=symbol,
+            side=side,
+            entry_price=entry_price,
+            trail_pct=self.settings.risk.trailing_stop_pct,
+            activation_pct=self.settings.risk.trailing_activation_pct,
+        )
+
+    async def _on_position_closed(self, event: Event) -> None:
+        """Handle position closed event — stop trailing stop tracking."""
+        if not self._trailing_enabled or self._trailing_manager is None:
+            return
+
+        symbol = event.data.get("symbol")
+        if symbol:
+            self._trailing_manager.stop_tracking(symbol)
+
+    async def _close_trailing_stop(self, symbol: str, price: float) -> None:
+        """Close a position due to trailing stop trigger."""
+        logger.warning(
+            "trailing_stop_triggered",
+            symbol=symbol,
+            price=price,
+            stop_price=self._trailing_manager.get_stop_price(symbol)
+            if self._trailing_manager
+            else None,
+        )
+
+        # Stop tracking immediately to prevent duplicate triggers
+        if self._trailing_manager is not None:
+            self._trailing_manager.stop_tracking(symbol)
+
+        try:
+            result = await self.paper.close_position(symbol, price)
+
+            if result:
+                pnl = result.get("pnl", 0.0)
+                pnl_pct = result.get("pnl_percentage", 0.0)
+
+                await self.event_bus.publish(
+                    Event(
+                        type=EventType.POSITION_CLOSED,
+                        data={
+                            "symbol": symbol,
+                            "exit_price": price,
+                            "pnl": pnl,
+                            "pnl_percentage": pnl_pct,
+                            "reason": "trailing_stop",
+                        },
+                    )
+                )
+
+                # Update risk manager state
+                positions = await self.paper.get_positions()
+                self.risk.set_open_positions(len(positions))
+                balance = await self.paper.get_balance()
+                self.risk.update_balance(balance["total"].get("USDT", 0.0))
+
+                # Record trade exit in memory
+                order_id = f"{symbol}_{result.get('entry_price', price)}"
+                await self.record_trade_exit(
+                    order_id=order_id,
+                    exit_price=price,
+                    exit_reasoning="Trailing stop triggered",
+                    pnl=pnl,
+                    pnl_percentage=pnl_pct,
+                )
+
+                logger.info(
+                    "trailing_stop_position_closed",
+                    symbol=symbol,
+                    pnl=pnl,
+                    pnl_pct=pnl_pct,
+                )
+
+        except Exception as e:
+            logger.error("trailing_stop_close_failed", symbol=symbol, error=str(e))
+
     async def _on_pause(self, _event: Event) -> None:
         """Handle pause event."""
         self._paused = True
@@ -913,6 +1025,10 @@ class TradingEngine:
         logger.warning("panic_triggered")
 
         try:
+            # Stop all trailing stops before closing
+            if self._trailing_enabled and self._trailing_manager is not None:
+                self._trailing_manager.stop_tracking_all()
+
             await self.paper.close_all_positions()
 
             # Update state

@@ -45,8 +45,29 @@ For full functionality, add API keys to `.env`:
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
 
+# Bybit (alternative exchange)
+BYBIT_API_KEY=your_key
+BYBIT_API_SECRET=your_secret
+
 # Anthropic (required for LLM features)
 ANTHROPIC_API_KEY=your_key
+```
+
+### Additional Dependencies
+
+The following dependencies are used for the API server and testing:
+
+| Package | Purpose |
+|---------|---------|
+| `fastapi` | REST API for monitoring and control |
+| `uvicorn` | ASGI server to run the FastAPI app |
+| `httpx` | Async HTTP client (notifications, API testing) |
+| `websockets` | WebSocket support for real-time streaming |
+
+Install all dependencies (including these) with:
+
+```bash
+poetry install --with dev
 ```
 
 ### Verify Installation
@@ -260,15 +281,70 @@ Tests mirror the source structure:
 
 ```
 tests/
-├── conftest.py              # Shared fixtures
+├── conftest.py                    # Shared fixtures
+├── test_api/                      # REST API and WebSocket tests
+│   ├── test_routes.py
+│   └── test_websocket.py
+├── test_aegis/
+│   ├── test_circuit.py
+│   ├── test_guardrails.py
+│   ├── test_quant.py
+│   ├── test_risk.py
+│   └── test_trailing.py           # Trailing stop-loss tests
+├── test_agent/
+│   ├── test_analysis.py
+│   ├── test_cognitive.py
+│   ├── test_execution.py
+│   ├── test_executor.py
+│   ├── test_perception.py
+│   ├── test_reflection.py
+│   ├── test_scheduler.py
+│   ├── test_session.py
+│   ├── test_strategy.py
+│   └── test_tools.py
+├── test_backtester/
+│   ├── test_data.py
+│   ├── test_engine.py
+│   ├── test_html_report.py        # HTML report generation tests
+│   ├── test_monte_carlo.py        # Monte Carlo simulation tests
+│   └── test_walk_forward.py       # Walk-forward validation tests
 ├── test_core/
 │   ├── test_engine.py
-│   └── test_events.py
-├── test_aegis/
-│   ├── test_quant.py
-│   └── test_risk.py
-└── test_oracle/
-    └── test_signals.py
+│   ├── test_engine_trailing.py    # Engine trailing stop integration tests
+│   ├── test_mtf_buffer.py
+│   ├── test_repository.py
+│   └── test_safeguards.py
+├── test_exchange/
+│   ├── test_bybit.py              # Bybit adapter tests
+│   └── test_paper.py
+├── test_hermes/
+│   ├── test_app.py
+│   ├── test_help.py
+│   ├── test_onboarding.py
+│   └── test_widgets.py
+├── test_memory/
+│   ├── test_episodic.py
+│   ├── test_manager.py
+│   └── test_semantic.py
+├── test_notifications/
+│   ├── test_base.py
+│   ├── test_discord.py
+│   ├── test_manager.py
+│   └── test_telegram.py
+├── test_optimizer/
+│   ├── test_comparator.py
+│   ├── test_engine.py
+│   ├── test_grid.py
+│   └── test_report.py
+├── test_oracle/
+│   ├── test_brain.py
+│   ├── test_feeds.py
+│   ├── test_mtf_analyzer.py
+│   ├── test_mtf_signals.py
+│   ├── test_signals.py
+│   └── test_technical.py
+└── integration/
+    └── test_agent_session_e2e.py
 ```
 
 ### Test Naming
@@ -407,6 +483,83 @@ def new_event(data: dict) -> Event:
 
 3. Subscribe in relevant modules
 4. Add tests
+
+### Running the API Server
+
+KeryxFlow includes a REST API and WebSocket server for monitoring and controlling the trading engine programmatically.
+
+**Start the development server:**
+
+```bash
+# Default (port 8000)
+poetry run uvicorn keryxflow.api:app --reload
+
+# Custom host and port
+poetry run uvicorn keryxflow.api:app --host 0.0.0.0 --port 8080 --reload
+```
+
+The `--reload` flag enables auto-reload on code changes (development only).
+
+**Key endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/status` | Engine and session status |
+| `GET` | `/api/positions` | Open positions |
+| `GET` | `/api/balance` | Account balance |
+| `GET` | `/api/trades` | Trade history |
+| `POST` | `/api/panic` | Emergency close all positions |
+| `WS` | `/ws/events` | Real-time event stream |
+
+**Testing the API:**
+
+```bash
+# Health check
+curl http://localhost:8000/api/status
+
+# Run API tests
+poetry run pytest tests/test_api/
+```
+
+### Adding a New Exchange Adapter
+
+KeryxFlow uses the `OrderExecutor` protocol (`keryxflow/exchange/orders.py`) for exchange abstraction. To add a new exchange (e.g., Bybit, OKX):
+
+1. **Create a new client** in `keryxflow/exchange/`:
+
+```python
+# keryxflow/exchange/bybit_client.py
+import ccxt.async_support as ccxt
+
+class BybitClient:
+    """Bybit exchange client implementing the OrderExecutor protocol."""
+
+    async def execute_market_order(
+        self, symbol: str, side: str, amount: float, price: float | None = None
+    ) -> dict[str, Any]:
+        # Implement using ccxt.bybit
+        ...
+
+    def update_price(self, symbol: str, price: float) -> None:
+        ...
+
+    def get_price(self, symbol: str) -> float | None:
+        ...
+```
+
+2. **Implement all methods** from the `OrderExecutor` protocol:
+   - `execute_market_order()` - Submit market orders
+   - `update_price()` - Update cached price
+   - `get_price()` - Get cached price
+
+3. **Register in `OrderManager`** (`keryxflow/exchange/orders.py`):
+   - Add a condition to select the new client based on `settings.system.exchange`
+
+4. **Add configuration** to `config.py` for the new exchange's API keys
+
+5. **Add tests** in `tests/test_exchange/` (e.g., `test_bybit.py`)
+
+6. **Test against sandbox** - Most exchanges offer testnet/sandbox APIs via CCXT's `sandbox=True` option
 
 ### Adding a Configuration Option
 

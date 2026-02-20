@@ -1,5 +1,6 @@
 """Tests for Hermes app - logic and state tests."""
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -91,6 +92,17 @@ class TestKeryxFlowAppCurrentSymbol:
 
 class TestKeryxFlowAppToggleAgent:
     """Tests for agent toggle action logic."""
+
+    @pytest.fixture(autouse=True)
+    def _enable_ai_mode(self):
+        """Set ai_mode=autonomous so agent toggle is not blocked."""
+        import keryxflow.config as config_module
+
+        os.environ["KERYXFLOW_AI_MODE"] = "autonomous"
+        config_module._settings = None
+        yield
+        os.environ.pop("KERYXFLOW_AI_MODE", None)
+        config_module._settings = None
 
     @pytest.mark.asyncio
     async def test_toggle_agent_no_session_no_engine(self):

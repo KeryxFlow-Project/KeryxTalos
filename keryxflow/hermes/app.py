@@ -201,18 +201,23 @@ class KeryxFlowApp(App):
 
         # Connect agent widget to trading session
         agent_widget = self.query_one("#agent", AgentWidget)
-        if self.trading_session:
+        ai_mode = self.settings.system.ai_mode
+        if ai_mode == "disabled":
+            agent_widget.set_enabled(False)
+            agent_widget.set_label("Technical Mode")
+            self._log_msg("AI mode: disabled (Technical Mode)")
+        elif self.trading_session:
             agent_widget.set_session(self.trading_session)
-            self._log_msg("Connected AGENT to trading session")
+            self._log_msg(f"Connected AGENT to trading session (ai_mode={ai_mode})")
         else:
-            # Check settings for agent mode
-            agent_enabled = getattr(self.settings, "agent", None)
-            if agent_enabled and getattr(agent_enabled, "enabled", False):
-                agent_widget.set_enabled(True)
-                self._log_msg("Agent mode enabled (no session)")
-            else:
-                agent_widget.set_enabled(False)
-                self._log_msg("Agent mode disabled")
+            agent_enabled = ai_mode == "autonomous" or (
+                getattr(self.settings, "agent", None)
+                and getattr(self.settings.agent, "enabled", False)
+            )
+            agent_widget.set_enabled(agent_enabled)
+            self._log_msg(
+                f"Agent mode: {'enabled' if agent_enabled else 'disabled'} (ai_mode={ai_mode})"
+            )
 
         self._log_msg("Widgets connected")
 
@@ -563,6 +568,14 @@ class KeryxFlowApp(App):
 
         logs = self.query_one("#logs", LogsWidget)
         agent_widget = self.query_one("#agent", AgentWidget)
+
+        # Block agent toggle when ai_mode is disabled (pure technical mode)
+        if self.settings.system.ai_mode == "disabled":
+            logs.add_entry(
+                "Agent unavailable in Technical Mode (ai_mode=disabled)", level="warning"
+            )
+            self.notify("Technical Mode - Agent disabled", severity="warning")
+            return
 
         if not self.trading_session:
             # No session - try to create one if we have the necessary components

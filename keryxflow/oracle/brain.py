@@ -174,7 +174,7 @@ Always respond with valid JSON only, no additional text."""
         Returns:
             MarketContext with LLM analysis
         """
-        if not self.settings.oracle.llm_enabled:
+        if self.settings.system.ai_mode == "disabled" or not self.settings.oracle.llm_enabled:
             return self._create_fallback_context(symbol, technical, news)
 
         try:

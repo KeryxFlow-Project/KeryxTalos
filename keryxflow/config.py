@@ -205,6 +205,11 @@ class Settings(BaseSettings):
     binance_api_secret: SecretStr = Field(default=SecretStr(""))
     bybit_api_key: SecretStr = Field(default=SecretStr(""))
     bybit_api_secret: SecretStr = Field(default=SecretStr(""))
+    kraken_api_key: SecretStr = Field(default=SecretStr(""))
+    kraken_api_secret: SecretStr = Field(default=SecretStr(""))
+    okx_api_key: SecretStr = Field(default=SecretStr(""))
+    okx_api_secret: SecretStr = Field(default=SecretStr(""))
+    okx_passphrase: SecretStr = Field(default=SecretStr(""))
     anthropic_api_key: SecretStr = Field(default=SecretStr(""))
     cryptopanic_api_key: SecretStr = Field(default=SecretStr(""))
 
@@ -252,6 +257,22 @@ class Settings(BaseSettings):
         """Check if Bybit credentials are configured."""
         return bool(
             self.bybit_api_key.get_secret_value() and self.bybit_api_secret.get_secret_value()
+        )
+
+    @property
+    def has_kraken_credentials(self) -> bool:
+        """Check if Kraken credentials are configured."""
+        return bool(
+            self.kraken_api_key.get_secret_value() and self.kraken_api_secret.get_secret_value()
+        )
+
+    @property
+    def has_okx_credentials(self) -> bool:
+        """Check if OKX credentials are configured."""
+        return bool(
+            self.okx_api_key.get_secret_value()
+            and self.okx_api_secret.get_secret_value()
+            and self.okx_passphrase.get_secret_value()
         )
 
     @property

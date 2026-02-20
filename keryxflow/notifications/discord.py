@@ -46,10 +46,10 @@ class DiscordNotifier(BaseNotifier):
             Color as integer (Discord format)
         """
         colors = {
-            NotificationLevel.INFO: 0x3498DB,      # Blue
-            NotificationLevel.SUCCESS: 0x2ECC71,   # Green
-            NotificationLevel.WARNING: 0xF39C12,   # Orange
-            NotificationLevel.ERROR: 0xE74C3C,     # Red
+            NotificationLevel.INFO: 0x3498DB,  # Blue
+            NotificationLevel.SUCCESS: 0x2ECC71,  # Green
+            NotificationLevel.WARNING: 0xF39C12,  # Orange
+            NotificationLevel.ERROR: 0xE74C3C,  # Red
             NotificationLevel.CRITICAL: 0x9B59B6,  # Purple
         }
         return colors.get(level, 0x95A5A6)  # Grey default
@@ -82,8 +82,7 @@ class DiscordNotifier(BaseNotifier):
         # Add metadata as fields
         if message.metadata:
             embed["fields"] = [
-                {"name": k, "value": str(v), "inline": True}
-                for k, v in message.metadata.items()
+                {"name": k, "value": str(v), "inline": True} for k, v in message.metadata.items()
             ]
 
         payload = {

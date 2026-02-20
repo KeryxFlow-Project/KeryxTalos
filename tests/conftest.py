@@ -33,6 +33,7 @@ def setup_test_database(tmp_path):
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
     import keryxflow.memory.semantic as semantic_module
+    import keryxflow.notifications.manager as notification_manager_module
 
     config_module._settings = None
     db_module._engine = None
@@ -51,6 +52,7 @@ def setup_test_database(tmp_path):
     strategy_module._strategy_manager = None
     risk_module._risk_manager = None
     repository_module._repository = None
+    notification_manager_module._notification_manager = None
 
     yield
 

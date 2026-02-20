@@ -2,10 +2,12 @@
 
 import pytest
 
+from keryxflow.core.events import Event, EventBus, EventType
 from keryxflow.notifications.base import (
     BaseNotifier,
     NotificationLevel,
     NotificationMessage,
+    NotificationType,
 )
 from keryxflow.notifications.manager import NotificationManager
 
@@ -265,6 +267,252 @@ class TestNotificationManagerTestAll:
 
         assert results["Mock1"] is True
         assert results["Mock2"] is False
+
+
+class TestNotificationManagerPositionOpened:
+    """Tests for notify_position_opened method."""
+
+    @pytest.mark.asyncio
+    async def test_notify_position_opened_long(self):
+        """Test position opened notification for long."""
+        mock = MockNotifier("Mock")
+        manager = NotificationManager()
+        manager.add_notifier(mock)
+
+        await manager.notify_position_opened(
+            symbol="BTC/USDT",
+            side="long",
+            quantity=0.1,
+            entry_price=50000.0,
+        )
+
+        assert len(mock.sent_messages) == 1
+        msg = mock.sent_messages[0]
+        assert "BTC/USDT" in msg.title
+        assert "LONG" in msg.title
+        assert msg.notification_type == NotificationType.POSITION_OPENED
+        assert msg.level == NotificationLevel.SUCCESS
+
+    @pytest.mark.asyncio
+    async def test_notify_position_opened_short(self):
+        """Test position opened notification for short."""
+        mock = MockNotifier("Mock")
+        manager = NotificationManager()
+        manager.add_notifier(mock)
+
+        await manager.notify_position_opened(
+            symbol="ETH/USDT",
+            side="short",
+            quantity=1.0,
+            entry_price=3000.0,
+        )
+
+        msg = mock.sent_messages[0]
+        assert "SHORT" in msg.title
+
+
+class TestNotificationManagerPositionClosed:
+    """Tests for notify_position_closed method."""
+
+    @pytest.mark.asyncio
+    async def test_notify_position_closed_win(self):
+        """Test position closed notification with profit."""
+        mock = MockNotifier("Mock")
+        manager = NotificationManager()
+        manager.add_notifier(mock)
+
+        await manager.notify_position_closed(
+            symbol="BTC/USDT",
+            side="long",
+            quantity=0.1,
+            entry_price=50000.0,
+            exit_price=52000.0,
+            pnl=200.0,
+            pnl_pct=4.0,
+        )
+
+        assert len(mock.sent_messages) == 1
+        msg = mock.sent_messages[0]
+        assert "WIN" in msg.title
+        assert msg.notification_type == NotificationType.POSITION_CLOSED
+        assert msg.level == NotificationLevel.SUCCESS
+        assert "200" in msg.body
+        assert "+4.00%" in msg.body
+
+    @pytest.mark.asyncio
+    async def test_notify_position_closed_loss(self):
+        """Test position closed notification with loss."""
+        mock = MockNotifier("Mock")
+        manager = NotificationManager()
+        manager.add_notifier(mock)
+
+        await manager.notify_position_closed(
+            symbol="BTC/USDT",
+            side="long",
+            quantity=0.1,
+            entry_price=50000.0,
+            exit_price=48000.0,
+            pnl=-200.0,
+            pnl_pct=-4.0,
+        )
+
+        msg = mock.sent_messages[0]
+        assert "LOSS" in msg.title
+        assert msg.level == NotificationLevel.WARNING
+
+
+class TestNotificationManagerEventBus:
+    """Tests for event bus integration."""
+
+    @pytest.mark.asyncio
+    async def test_subscribe_to_events(self):
+        """Test that subscribe_to_events registers all 5 event types."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+
+        manager.subscribe_to_events()
+
+        assert EventType.ORDER_FILLED in event_bus._subscribers
+        assert EventType.CIRCUIT_BREAKER_TRIGGERED in event_bus._subscribers
+        assert EventType.PANIC_TRIGGERED in event_bus._subscribers
+        assert EventType.POSITION_OPENED in event_bus._subscribers
+        assert EventType.POSITION_CLOSED in event_bus._subscribers
+
+    @pytest.mark.asyncio
+    async def test_subscribe_idempotent(self):
+        """Test that calling subscribe_to_events twice doesn't double-subscribe."""
+        event_bus = EventBus()
+        manager = NotificationManager(event_bus=event_bus)
+
+        manager.subscribe_to_events()
+        manager.subscribe_to_events()
+
+        assert len(event_bus._subscribers.get(EventType.ORDER_FILLED, [])) == 1
+
+    @pytest.mark.asyncio
+    async def test_subscribe_no_event_bus(self):
+        """Test that subscribe_to_events is a no-op without event bus."""
+        manager = NotificationManager()
+        manager.subscribe_to_events()
+        assert not manager._subscribed
+
+    @pytest.mark.asyncio
+    async def test_handle_order_filled_via_event(self):
+        """Test order filled handler via event bus dispatch."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+        manager.subscribe_to_events()
+
+        event = Event(
+            type=EventType.ORDER_FILLED,
+            data={"symbol": "BTC/USDT", "side": "buy", "quantity": 0.1, "price": 50000.0},
+        )
+        await event_bus.publish_sync(event)
+
+        assert len(mock.sent_messages) == 1
+        assert "BTC/USDT" in mock.sent_messages[0].title
+
+    @pytest.mark.asyncio
+    async def test_handle_circuit_breaker_via_event(self):
+        """Test circuit breaker handler via event bus dispatch."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+        manager.subscribe_to_events()
+
+        event = Event(
+            type=EventType.CIRCUIT_BREAKER_TRIGGERED,
+            data={"reason": "Max drawdown", "cooldown_minutes": 60},
+        )
+        await event_bus.publish_sync(event)
+
+        assert len(mock.sent_messages) == 1
+        assert "Circuit Breaker" in mock.sent_messages[0].title
+
+    @pytest.mark.asyncio
+    async def test_handle_panic_via_event(self):
+        """Test panic handler via event bus dispatch."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+        manager.subscribe_to_events()
+
+        event = Event(type=EventType.PANIC_TRIGGERED, data={})
+        await event_bus.publish_sync(event)
+
+        assert len(mock.sent_messages) == 1
+        assert "PANIC" in mock.sent_messages[0].title
+
+    @pytest.mark.asyncio
+    async def test_handle_position_opened_via_event(self):
+        """Test position opened handler via event bus dispatch."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+        manager.subscribe_to_events()
+
+        event = Event(
+            type=EventType.POSITION_OPENED,
+            data={"symbol": "ETH/USDT", "side": "long", "quantity": 1.0, "entry_price": 3000.0},
+        )
+        await event_bus.publish_sync(event)
+
+        assert len(mock.sent_messages) == 1
+        msg = mock.sent_messages[0]
+        assert "ETH/USDT" in msg.title
+        assert msg.notification_type == NotificationType.POSITION_OPENED
+
+    @pytest.mark.asyncio
+    async def test_handle_position_closed_via_event(self):
+        """Test position closed handler via event bus dispatch."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+        manager.subscribe_to_events()
+
+        event = Event(
+            type=EventType.POSITION_CLOSED,
+            data={
+                "symbol": "BTC/USDT",
+                "side": "long",
+                "quantity": 0.5,
+                "entry_price": 40000.0,
+                "exit_price": 42000.0,
+                "pnl": 1000.0,
+                "pnl_pct": 5.0,
+            },
+        )
+        await event_bus.publish_sync(event)
+
+        assert len(mock.sent_messages) == 1
+        msg = mock.sent_messages[0]
+        assert "BTC/USDT" in msg.title
+        assert msg.notification_type == NotificationType.POSITION_CLOSED
+        assert "1,000" in msg.body
+
+    @pytest.mark.asyncio
+    async def test_handle_position_closed_defaults(self):
+        """Test position closed handler with missing data uses defaults."""
+        event_bus = EventBus()
+        mock = MockNotifier("Mock")
+        manager = NotificationManager(event_bus=event_bus)
+        manager.add_notifier(mock)
+        manager.subscribe_to_events()
+
+        event = Event(type=EventType.POSITION_CLOSED, data={})
+        await event_bus.publish_sync(event)
+
+        assert len(mock.sent_messages) == 1
+        msg = mock.sent_messages[0]
+        assert "UNKNOWN" in msg.title
 
 
 class TestNotificationManagerClose:

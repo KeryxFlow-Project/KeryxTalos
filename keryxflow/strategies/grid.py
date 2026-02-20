@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+from enum import Enum
+
+
+class GridType(str, Enum):
+    """Grid spacing type."""
+
+    ARITHMETIC = "arithmetic"
+    GEOMETRIC = "geometric"
+
+
+@dataclass
+class GridOrder:
+    """A single grid order."""
+
+    price: float
+    quantity: float
+    side: str  # "buy" or "sell"
+    level_index: int
+
 
 class GridStrategy:
     """Grid bot trading strategy with arithmetic or geometric level spacing."""
@@ -10,7 +30,7 @@ class GridStrategy:
         upper_price: float,
         grid_count: int,
         total_investment: float,
-        grid_type: str = "arithmetic",
+        grid_type: str | GridType = "arithmetic",
     ) -> None:
         if lower_price >= upper_price:
             raise ValueError(
@@ -18,6 +38,9 @@ class GridStrategy:
             )
         if grid_count < 2:
             raise ValueError(f"grid_count ({grid_count}) must be at least 2")
+        # Normalize GridType enum to string
+        if isinstance(grid_type, GridType):
+            grid_type = grid_type.value
         if grid_type not in ("arithmetic", "geometric"):
             raise ValueError(f"grid_type must be 'arithmetic' or 'geometric', got '{grid_type}'")
 

@@ -1,6 +1,5 @@
 """Tests for the Trading Session."""
 
-import asyncio
 from datetime import UTC, datetime
 
 import pytest

@@ -1,6 +1,5 @@
 """KeryxFlow - A hybrid AI & quantitative trading engine."""
 
-import sys
 import warnings
 
 __version__ = "0.17.0"

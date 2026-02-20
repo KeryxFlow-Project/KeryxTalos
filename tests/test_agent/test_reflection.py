@@ -1,6 +1,5 @@
 """Tests for the Reflection Engine."""
 
-from datetime import UTC, datetime
 
 import pytest
 

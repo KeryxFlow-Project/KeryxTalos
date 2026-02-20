@@ -13,6 +13,7 @@
 ╚═══════════════════════════════════════════════════════════════╝
 ```
 
+[![CI](https://github.com/KeryxFlow-Project/Kerykeion/actions/workflows/ci.yml/badge.svg)](https://github.com/KeryxFlow-Project/Kerykeion/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-MVP-orange)

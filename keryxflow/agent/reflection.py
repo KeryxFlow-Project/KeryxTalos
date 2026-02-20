@@ -350,6 +350,7 @@ Provide your analysis in a structured format."""
             try:
                 technical_context = json.dumps(json.loads(episode.technical_context), indent=2)
             except json.JSONDecodeError:
+                logger.debug("json_decode_fallback", context="technical_context")
                 technical_context = episode.technical_context
 
         prompt = self.POST_MORTEM_PROMPT.format(
@@ -638,8 +639,8 @@ Provide your analysis in a structured format."""
             text_blocks = [block.text for block in response.content if block.type == "text"]
             return " ".join(text_blocks)
 
-        except Exception as e:
-            logger.error("reflection_analysis_failed", error=str(e))
+        except Exception:
+            logger.exception("reflection_analysis_failed")
             return None
 
     def _generate_basic_post_mortem(self, episode: TradeEpisode) -> str:

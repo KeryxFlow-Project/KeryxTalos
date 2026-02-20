@@ -277,7 +277,7 @@ class PlaceOrderTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("place_order_failed", symbol=symbol, error=str(e))
+            logger.exception("place_order_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to place order: {str(e)}",
@@ -381,7 +381,7 @@ class ClosePositionTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("close_position_failed", symbol=symbol, error=str(e))
+            logger.exception("close_position_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to close position: {str(e)}",
@@ -499,7 +499,7 @@ class SetStopLossTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("set_stop_loss_failed", symbol=symbol, error=str(e))
+            logger.exception("set_stop_loss_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to set stop loss: {str(e)}",
@@ -617,7 +617,7 @@ class SetTakeProfitTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("set_take_profit_failed", symbol=symbol, error=str(e))
+            logger.exception("set_take_profit_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to set take profit: {str(e)}",
@@ -689,7 +689,7 @@ class CancelOrderTool(BaseTool):
                 )
 
         except Exception as e:
-            logger.error("cancel_order_failed", order_id=order_id, error=str(e))
+            logger.exception("cancel_order_failed", order_id=order_id)
             return ToolResult(
                 success=False,
                 error=f"Failed to cancel order: {str(e)}",
@@ -798,7 +798,7 @@ class CloseAllPositionsTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("close_all_positions_failed", reason=reason, error=str(e))
+            logger.exception("close_all_positions_failed", reason=reason)
             return ToolResult(
                 success=False,
                 error=f"Failed to close all positions: {str(e)}",

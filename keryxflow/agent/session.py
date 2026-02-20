@@ -248,12 +248,10 @@ class TradingSession:
             return True
 
         except Exception as e:
-            import traceback
-
             self._state = SessionState.ERROR
             error_msg = f"{type(e).__name__}: {str(e)}"
             self._stats.errors.append(error_msg)
-            logger.error("session_start_failed", error=error_msg, tb=traceback.format_exc())
+            logger.exception("session_start_failed")
             return False
 
     async def stop(self) -> bool:
@@ -303,7 +301,7 @@ class TradingSession:
         except Exception as e:
             self._state = SessionState.ERROR
             self._stats.errors.append(str(e))
-            logger.error("session_stop_failed", error=str(e))
+            logger.exception("session_stop_failed")
             return False
 
     async def pause(self) -> bool:
@@ -393,7 +391,7 @@ class TradingSession:
                 except Exception as e:
                     self._stats.cycles_failed += 1
                     self._stats.errors.append(str(e))
-                    logger.error("agent_loop_error", error=str(e))
+                    logger.exception("agent_loop_error")
 
             # Wait for next cycle
             try:
@@ -403,7 +401,7 @@ class TradingSession:
                 )
                 break  # Shutdown requested
             except TimeoutError:
-                pass  # Continue loop
+                logger.debug("session_wait_timeout")
 
     async def _publish_state_event(self) -> None:
         """Publish session state change event."""

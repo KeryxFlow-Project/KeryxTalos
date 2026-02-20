@@ -123,7 +123,7 @@ class CalculateIndicatorsTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("calculate_indicators_failed", symbol=symbol, error=str(e))
+            logger.exception("calculate_indicators_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to calculate indicators for {symbol}: {str(e)}",
@@ -216,7 +216,7 @@ class CalculatePositionSizeTool(BaseTool):
                 error=str(e),
             )
         except Exception as e:
-            logger.error("calculate_position_size_failed", error=str(e))
+            logger.exception("calculate_position_size_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to calculate position size: {str(e)}",
@@ -308,7 +308,7 @@ class CalculateRiskRewardTool(BaseTool):
                 error=str(e),
             )
         except Exception as e:
-            logger.error("calculate_risk_reward_failed", error=str(e))
+            logger.exception("calculate_risk_reward_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to calculate risk/reward: {str(e)}",
@@ -395,7 +395,7 @@ class GetTradingRulesTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_trading_rules_failed", error=str(e))
+            logger.exception("get_trading_rules_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to get trading rules: {str(e)}",
@@ -521,7 +521,7 @@ class RecallSimilarTradesTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("recall_similar_trades_failed", symbol=symbol, error=str(e))
+            logger.exception("recall_similar_trades_failed", symbol=symbol)
             return ToolResult(
                 success=False,
                 error=f"Failed to recall similar trades: {str(e)}",
@@ -632,7 +632,7 @@ class GetMarketPatternsTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("get_market_patterns_failed", error=str(e))
+            logger.exception("get_market_patterns_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to get market patterns: {str(e)}",
@@ -779,7 +779,7 @@ class CalculateStopLossTool(BaseTool):
             )
 
         except Exception as e:
-            logger.error("calculate_stop_loss_failed", error=str(e))
+            logger.exception("calculate_stop_loss_failed")
             return ToolResult(
                 success=False,
                 error=f"Failed to calculate stop loss: {str(e)}",

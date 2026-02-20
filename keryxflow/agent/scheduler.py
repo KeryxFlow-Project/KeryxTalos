@@ -326,8 +326,8 @@ class TaskScheduler:
 
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                logger.error("scheduler_loop_error", error=str(e))
+            except Exception:
+                logger.exception("scheduler_loop_error")
                 await asyncio.sleep(self._check_interval)
 
     async def _execute_task(self, task: ScheduledTask) -> TaskResult:
@@ -409,10 +409,9 @@ class TaskScheduler:
                 error=str(e),
             )
 
-            logger.error(
+            logger.exception(
                 "task_failed",
                 task_id=task.id,
-                error=str(e),
             )
 
         # Store in history

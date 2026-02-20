@@ -41,6 +41,9 @@ These are sensitive credentials that should never be committed to version contro
 |----------|-------------|---------|
 | `BINANCE_API_KEY` | Binance API key | `abc123...` |
 | `BINANCE_API_SECRET` | Binance API secret | `xyz789...` |
+| `KERYXFLOW_BYBIT_API_KEY` | Bybit API key | `abc123...` |
+| `KERYXFLOW_BYBIT_API_SECRET` | Bybit API secret | `xyz789...` |
+| `KERYXFLOW_EXCHANGE` | Exchange override | `binance` or `bybit` |
 
 ### Required for LLM Features
 
@@ -64,6 +67,9 @@ These are sensitive credentials that should never be committed to version contro
 | `KERYXFLOW_NOTIFY_TELEGRAM_CHAT_ID` | Chat ID from @userinfobot |
 | `KERYXFLOW_NOTIFY_DISCORD_ENABLED` | Enable Discord (`true`/`false`) |
 | `KERYXFLOW_NOTIFY_DISCORD_WEBHOOK` | Discord webhook URL |
+| `KERYXFLOW_NOTIFICATIONS_DISCORD_WEBHOOK_URL` | Discord webhook URL (new prefix) |
+| `KERYXFLOW_NOTIFICATIONS_TELEGRAM_BOT_TOKEN` | Telegram bot token (new prefix) |
+| `KERYXFLOW_NOTIFICATIONS_TELEGRAM_CHAT_ID` | Telegram chat ID (new prefix) |
 
 ---
 
@@ -75,7 +81,7 @@ General system configuration.
 
 ```toml
 [system]
-exchange = "binance"              # Exchange to use
+exchange = "binance"              # Exchange: "binance" or "bybit"
 mode = "paper"                    # "paper" or "live"
 symbols = ["BTC/USDT", "ETH/USDT"] # Trading pairs
 base_currency = "USDT"            # Quote currency
@@ -84,7 +90,7 @@ log_level = "INFO"                # DEBUG, INFO, WARNING, ERROR
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `exchange` | string | `"binance"` | Exchange (only Binance supported) |
+| `exchange` | string | `"binance"` | Exchange: `"binance"` or `"bybit"` |
 | `mode` | string | `"paper"` | Trading mode: `"paper"` or `"live"` |
 | `symbols` | list | `["BTC/USDT", "ETH/USDT"]` | Trading pairs |
 | `base_currency` | string | `"USDT"` | Quote currency |
@@ -105,6 +111,12 @@ max_open_positions = 3            # Maximum concurrent positions
 min_risk_reward = 1.5             # Minimum R:R ratio
 stop_loss_type = "atr"            # "atr", "fixed", or "percentage"
 atr_multiplier = 2.0              # ATR multiplier for stops
+
+# Trailing Stop
+trailing_stop_enabled = false     # Enable trailing stop
+trailing_stop_pct = 2.0           # Trailing stop percentage
+trailing_activation_pct = 1.0     # Activation threshold percentage
+breakeven_trigger_pct = 1.0       # Break-even trigger percentage
 ```
 
 | Setting | Type | Range | Default | Description |
@@ -116,6 +128,10 @@ atr_multiplier = 2.0              # ATR multiplier for stops
 | `min_risk_reward` | float | 0.5-10.0 | `1.5` | Minimum risk/reward ratio |
 | `stop_loss_type` | string | `atr`, `fixed`, `percentage` | `"atr"` | Stop loss calculation method |
 | `atr_multiplier` | float | 0.5-5.0 | `2.0` | ATR multiplier for dynamic stops |
+| `trailing_stop_enabled` | bool | - | `false` | Enable trailing stop |
+| `trailing_stop_pct` | float | 0.1-10.0 | `2.0` | Trailing stop percentage |
+| `trailing_activation_pct` | float | 0.1-10.0 | `1.0` | Activation threshold before trailing starts |
+| `breakeven_trigger_pct` | float | 0.1-10.0 | `1.0` | Profit % to trigger break-even stop |
 
 **Risk Profiles:**
 
@@ -290,6 +306,36 @@ notify_on_error = true            # System error alerts
 | `notify_on_circuit_breaker` | bool | `true` | Notify on circuit breaker |
 | `notify_daily_summary` | bool | `true` | Send daily summary |
 | `notify_on_error` | bool | `true` | Notify on errors |
+
+---
+
+### [api]
+
+REST API server configuration.
+
+```toml
+[api]
+host = "127.0.0.1"               # API server host
+port = 8080                       # API server port
+token = ""                        # Bearer token for auth (empty = no auth)
+cors_origins = ["*"]              # CORS allowed origins
+```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `host` | string | `"127.0.0.1"` | API server bind address |
+| `port` | int | `8080` | API server port |
+| `token` | string | `""` | Bearer token for authentication (empty disables auth) |
+| `cors_origins` | list | `["*"]` | CORS allowed origins |
+
+**Environment variable overrides:**
+
+```bash
+KERYXFLOW_API_HOST=0.0.0.0
+KERYXFLOW_API_PORT=9090
+KERYXFLOW_API_TOKEN=my-secret-token
+KERYXFLOW_API_CORS_ORIGINS='["https://myapp.com"]'
+```
 
 ---
 

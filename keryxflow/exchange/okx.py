@@ -1,8 +1,8 @@
-"""CCXT async wrapper for exchange connectivity."""
+"""OKX exchange adapter using CCXT."""
 
 import asyncio
 import contextlib
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import ccxt.async_support as ccxt
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -12,38 +12,38 @@ from keryxflow.core.events import get_event_bus, price_update_event
 from keryxflow.core.logging import LogMessages, get_logger
 from keryxflow.exchange.adapter import ExchangeAdapter
 
-if TYPE_CHECKING:
-    from keryxflow.exchange.kraken import KrakenAdapter
-    from keryxflow.exchange.okx import OKXAdapter
-
 logger = get_logger(__name__)
 
 
-class ExchangeClient(ExchangeAdapter):
+class OKXAdapter(ExchangeAdapter):
     """
-    Binance exchange adapter using CCXT.
+    OKX exchange adapter using CCXT.
 
     Handles connection, price feeds, and order execution with
     automatic retry and rate limiting.
+
+    Note: OKX requires a passphrase in addition to API key and secret.
+    For demo/sandbox mode, OKX uses a custom header instead of
+    CCXT's standard set_sandbox_mode().
     """
 
     def __init__(self, sandbox: bool = True):
         """
-        Initialize the exchange client.
+        Initialize the OKX adapter.
 
         Args:
-            sandbox: Whether to use sandbox/testnet mode
+            sandbox: Whether to use demo trading mode
         """
         self.settings = get_settings()
         self.event_bus = get_event_bus()
-        self._exchange: ccxt.binance | None = None
+        self._exchange: ccxt.okx | None = None
         self._sandbox = sandbox
         self._running = False
         self._price_task: asyncio.Task | None = None
 
     async def connect(self) -> bool:
         """
-        Connect to the exchange.
+        Connect to OKX exchange.
 
         Returns:
             True if connection successful, False otherwise
@@ -53,60 +53,60 @@ class ExchangeClient(ExchangeAdapter):
                 "enableRateLimit": True,
                 "options": {
                     "defaultType": "spot",
-                    "adjustForTimeDifference": True,
                 },
             }
 
             # Add API credentials if available
-            if self.settings.has_binance_credentials:
-                config["apiKey"] = self.settings.binance_api_key.get_secret_value()
-                config["secret"] = self.settings.binance_api_secret.get_secret_value()
+            # OKX requires passphrase as 'password' in CCXT config
+            if self.settings.has_okx_credentials:
+                config["apiKey"] = self.settings.okx_api_key.get_secret_value()
+                config["secret"] = self.settings.okx_api_secret.get_secret_value()
+                config["password"] = self.settings.okx_passphrase.get_secret_value()
 
-            self._exchange = ccxt.binance(config)
-
-            # Enable sandbox mode if requested
+            # Enable demo trading mode via custom header
+            # OKX doesn't support standard set_sandbox_mode()
             if self._sandbox:
-                self._exchange.set_sandbox_mode(True)
-                logger.info("exchange_sandbox_mode_enabled")
+                config["headers"] = {"x-simulated-trading": "1"}
+                logger.info("okx_demo_mode_enabled")
+
+            self._exchange = ccxt.okx(config)
 
             # Test connection by fetching time
             await self._exchange.fetch_time()
 
-            msg = LogMessages.connection_status("Binance", "connected")
+            msg = LogMessages.connection_status("OKX", "connected")
             logger.info(msg.technical)
 
             return True
 
         except ccxt.NetworkError as e:
-            logger.error("exchange_network_error", error=str(e))
+            self._exchange = None
+            logger.error("okx_network_error", error=str(e))
             return False
         except ccxt.ExchangeError as e:
-            logger.error("exchange_error", error=str(e))
+            self._exchange = None
+            logger.error("okx_exchange_error", error=str(e))
             return False
         except Exception as e:
-            logger.error("exchange_connection_failed", error=str(e))
+            self._exchange = None
+            logger.error("okx_connection_failed", error=str(e))
             return False
 
     async def disconnect(self) -> None:
-        """Disconnect from the exchange."""
+        """Disconnect from OKX exchange."""
         await self.stop_price_feed()
 
         if self._exchange:
             await self._exchange.close()
             self._exchange = None
 
-            msg = LogMessages.connection_status("Binance", "disconnected")
+            msg = LogMessages.connection_status("OKX", "disconnected")
             logger.info(msg.technical)
 
     @property
     def is_connected(self) -> bool:
         """Check if connected to exchange."""
         return self._exchange is not None
-
-    def _ensure_connected(self) -> None:
-        """Raise error if not connected."""
-        if not self.is_connected:
-            raise RuntimeError("Not connected to exchange. Call connect() first.")
 
     @retry(
         stop=stop_after_attempt(3),
@@ -153,8 +153,6 @@ class ExchangeClient(ExchangeAdapter):
         """
         Get OHLCV (candlestick) data.
 
-        Always uses real Binance API for historical data (sandbox doesn't have it).
-
         Args:
             symbol: Trading pair
             timeframe: Candle timeframe (1m, 5m, 15m, 1h, 4h, 1d)
@@ -167,18 +165,8 @@ class ExchangeClient(ExchangeAdapter):
         self._ensure_connected()
         assert self._exchange is not None
 
-        # Use real API for OHLCV data (sandbox doesn't have historical data)
-        # OHLCV is public data, doesn't need authentication
-        if self._sandbox:
-            # Temporarily create a non-sandbox client for market data
-            market_client = ccxt.binance({"enableRateLimit": True})
-            try:
-                ohlcv = await market_client.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
-            finally:
-                await market_client.close()
-        else:
-            ohlcv = await self._exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
-
+        # OKX demo mode typically has OHLCV data available
+        ohlcv = await self._exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
         return ohlcv
 
     @retry(
@@ -248,9 +236,15 @@ class ExchangeClient(ExchangeAdapter):
         self._ensure_connected()
         assert self._exchange is not None
 
-        order = await self._exchange.create_market_order(symbol, side, amount)
+        # OKX spot orders use 'cash' trade mode by default
+        order = await self._exchange.create_market_order(
+            symbol,
+            side,
+            amount,
+            params={"tdMode": "cash"},
+        )
         logger.info(
-            "market_order_created",
+            "okx_market_order_created",
             symbol=symbol,
             side=side,
             amount=amount,
@@ -280,9 +274,16 @@ class ExchangeClient(ExchangeAdapter):
         self._ensure_connected()
         assert self._exchange is not None
 
-        order = await self._exchange.create_limit_order(symbol, side, amount, price)
+        # OKX spot orders use 'cash' trade mode by default
+        order = await self._exchange.create_limit_order(
+            symbol,
+            side,
+            amount,
+            price,
+            params={"tdMode": "cash"},
+        )
         logger.info(
-            "limit_order_created",
+            "okx_limit_order_created",
             symbol=symbol,
             side=side,
             amount=amount,
@@ -306,7 +307,7 @@ class ExchangeClient(ExchangeAdapter):
         assert self._exchange is not None
 
         result = await self._exchange.cancel_order(order_id, symbol)
-        logger.info("order_cancelled", order_id=order_id, symbol=symbol)
+        logger.info("okx_order_cancelled", order_id=order_id, symbol=symbol)
         return result
 
     async def get_order(self, order_id: str, symbol: str) -> dict[str, Any]:
@@ -360,7 +361,7 @@ class ExchangeClient(ExchangeAdapter):
 
         self._running = True
         self._price_task = asyncio.create_task(self._price_feed_loop(symbols, interval))
-        logger.info("price_feed_started", symbols=symbols, interval=interval)
+        logger.info("okx_price_feed_started", symbols=symbols, interval=interval)
 
     async def stop_price_feed(self) -> None:
         """Stop the price feed."""
@@ -375,7 +376,7 @@ class ExchangeClient(ExchangeAdapter):
                 await self._price_task
             self._price_task = None
 
-        logger.info("price_feed_stopped")
+        logger.info("okx_price_feed_stopped")
 
     async def _price_feed_loop(self, symbols: list[str], interval: float) -> None:
         """
@@ -404,7 +405,7 @@ class ExchangeClient(ExchangeAdapter):
 
                     except Exception as e:
                         logger.warning(
-                            "price_fetch_error",
+                            "okx_price_fetch_error",
                             symbol=symbol,
                             error=str(e),
                         )
@@ -414,55 +415,17 @@ class ExchangeClient(ExchangeAdapter):
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error("price_feed_error", error=str(e))
+                logger.error("okx_price_feed_error", error=str(e))
                 await asyncio.sleep(interval)
 
 
 # Global client instance
-_client: ExchangeClient | None = None
+_okx_client: OKXAdapter | None = None
 
 
-def get_exchange_client(sandbox: bool = True) -> ExchangeClient:
-    """Get the global exchange client instance (Binance)."""
-    global _client
-    if _client is None:
-        _client = ExchangeClient(sandbox=sandbox)
-    return _client
-
-
-def get_exchange_adapter(
-    sandbox: bool = True,
-) -> "ExchangeAdapter | KrakenAdapter | OKXAdapter":
-    """
-    Get the appropriate exchange adapter based on settings.
-
-    Reads from settings.system.exchange to determine which adapter to use.
-
-    Args:
-        sandbox: Whether to use sandbox/demo mode
-
-    Returns:
-        Exchange adapter instance for the configured exchange
-
-    Raises:
-        ValueError: If the configured exchange is not supported
-    """
-    settings = get_settings()
-    exchange = settings.system.exchange.lower()
-
-    if exchange == "binance":
-        return get_exchange_client(sandbox=sandbox)
-    elif exchange == "kraken":
-        # Lazy import to avoid circular dependencies
-        from keryxflow.exchange.kraken import get_kraken_client
-
-        return get_kraken_client(sandbox=sandbox)
-    elif exchange == "okx":
-        # Lazy import to avoid circular dependencies
-        from keryxflow.exchange.okx import get_okx_client
-
-        return get_okx_client(sandbox=sandbox)
-    else:
-        raise ValueError(
-            f"Unsupported exchange: {exchange}. " f"Supported exchanges: binance, kraken, okx"
-        )
+def get_okx_client(sandbox: bool = True) -> OKXAdapter:
+    """Get the global OKX adapter instance."""
+    global _okx_client
+    if _okx_client is None:
+        _okx_client = OKXAdapter(sandbox=sandbox)
+    return _okx_client

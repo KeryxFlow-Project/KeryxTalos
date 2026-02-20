@@ -173,6 +173,11 @@ class Settings(BaseSettings):
     # API Keys (from .env)
     binance_api_key: SecretStr = Field(default=SecretStr(""))
     binance_api_secret: SecretStr = Field(default=SecretStr(""))
+    kraken_api_key: SecretStr = Field(default=SecretStr(""))
+    kraken_api_secret: SecretStr = Field(default=SecretStr(""))
+    okx_api_key: SecretStr = Field(default=SecretStr(""))
+    okx_api_secret: SecretStr = Field(default=SecretStr(""))
+    okx_passphrase: SecretStr = Field(default=SecretStr(""))
     anthropic_api_key: SecretStr = Field(default=SecretStr(""))
     cryptopanic_api_key: SecretStr = Field(default=SecretStr(""))
 
@@ -189,7 +194,16 @@ class Settings(BaseSettings):
     notifications: NotificationSettings = Field(default_factory=NotificationSettings)
     agent: AgentSettings = Field(default_factory=AgentSettings)
 
-    @field_validator("binance_api_key", "binance_api_secret", "anthropic_api_key")
+    @field_validator(
+        "binance_api_key",
+        "binance_api_secret",
+        "kraken_api_key",
+        "kraken_api_secret",
+        "okx_api_key",
+        "okx_api_secret",
+        "okx_passphrase",
+        "anthropic_api_key",
+    )
     @classmethod
     def warn_if_empty(cls, v: SecretStr) -> SecretStr:
         """Warn if critical API keys are empty."""
@@ -218,6 +232,22 @@ class Settings(BaseSettings):
     def has_anthropic_credentials(self) -> bool:
         """Check if Anthropic API key is configured."""
         return bool(self.anthropic_api_key.get_secret_value())
+
+    @property
+    def has_kraken_credentials(self) -> bool:
+        """Check if Kraken credentials are configured."""
+        return bool(
+            self.kraken_api_key.get_secret_value() and self.kraken_api_secret.get_secret_value()
+        )
+
+    @property
+    def has_okx_credentials(self) -> bool:
+        """Check if OKX credentials are configured."""
+        return bool(
+            self.okx_api_key.get_secret_value()
+            and self.okx_api_secret.get_secret_value()
+            and self.okx_passphrase.get_secret_value()
+        )
 
 
 def load_settings() -> Settings:

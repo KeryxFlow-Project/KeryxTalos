@@ -28,6 +28,10 @@ def setup_test_database(tmp_path):
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
     import keryxflow.core.events as events_module
+    import keryxflow.exchange.client as client_module
+    import keryxflow.exchange.kraken as kraken_module
+    import keryxflow.exchange.okx as okx_module
+    import keryxflow.exchange.orders as orders_module
     import keryxflow.exchange.paper as paper_module
     import keryxflow.memory.episodic as episodic_module
     import keryxflow.memory.manager as manager_module
@@ -38,6 +42,10 @@ def setup_test_database(tmp_path):
     db_module._async_session_factory = None
     events_module._event_bus = None
     paper_module._paper_engine = None
+    client_module._client = None
+    kraken_module._kraken_client = None
+    okx_module._okx_client = None
+    orders_module._order_manager = None
     episodic_module._episodic_memory = None
     semantic_module._semantic_memory = None
     manager_module._memory_manager = None
@@ -54,6 +62,7 @@ def setup_test_database(tmp_path):
 
     # Cleanup
     import contextlib
+
     if db_path.exists():
         with contextlib.suppress(PermissionError):
             db_path.unlink()
@@ -63,6 +72,7 @@ def setup_test_database(tmp_path):
 async def init_db():
     """Initialize the database tables."""
     from keryxflow.core.database import init_db as _init_db
+
     await _init_db()
 
 
@@ -70,6 +80,7 @@ async def init_db():
 async def db_session(init_db):
     """Get an async database session for testing."""
     from keryxflow.core.database import get_session_factory
+
     async_session = get_session_factory()
     async with async_session() as session:
         yield session

@@ -8,7 +8,8 @@ from typing import Any, Protocol
 from keryxflow.config import get_settings
 from keryxflow.core.events import EventType, get_event_bus, order_event
 from keryxflow.core.logging import LogMessages, get_logger
-from keryxflow.exchange.client import ExchangeClient, get_exchange_client
+from keryxflow.exchange.adapter import ExchangeAdapter
+from keryxflow.exchange.client import get_exchange_adapter
 from keryxflow.exchange.paper import PaperTradingEngine, get_paper_engine
 
 logger = get_logger(__name__)
@@ -80,11 +81,14 @@ class OrderExecutor(Protocol):
 
     async def execute_market_order(
         self, symbol: str, side: str, amount: float, price: float | None = None
-    ) -> dict[str, Any]: ...
+    ) -> dict[str, Any]:
+        ...
 
-    def update_price(self, symbol: str, price: float) -> None: ...
+    def update_price(self, symbol: str, price: float) -> None:
+        ...
 
-    def get_price(self, symbol: str) -> float | None: ...
+    def get_price(self, symbol: str) -> float | None:
+        ...
 
 
 class OrderManager:
@@ -100,7 +104,7 @@ class OrderManager:
         self.settings = get_settings()
         self.event_bus = get_event_bus()
         self._paper_engine: PaperTradingEngine | None = None
-        self._exchange_client: ExchangeClient | None = None
+        self._exchange_adapter: ExchangeAdapter | None = None
         self._pending_orders: dict[str, Order] = {}
 
     @property
@@ -116,9 +120,9 @@ class OrderManager:
                 self._paper_engine = get_paper_engine()
             return self._paper_engine
         else:
-            if self._exchange_client is None:
-                self._exchange_client = get_exchange_client(sandbox=False)
-            return self._exchange_client
+            if self._exchange_adapter is None:
+                self._exchange_adapter = get_exchange_adapter(sandbox=False)
+            return self._exchange_adapter
 
     async def initialize(self) -> None:
         """Initialize the order manager."""
@@ -127,8 +131,8 @@ class OrderManager:
             await engine.initialize()
             logger.info("order_manager_initialized", mode="paper")
         else:
-            client = get_exchange_client(sandbox=False)
-            await client.connect()
+            adapter = get_exchange_adapter(sandbox=False)
+            await adapter.connect()
             logger.info("order_manager_initialized", mode="live")
 
     def update_price(self, symbol: str, price: float) -> None:
@@ -232,9 +236,8 @@ class OrderManager:
                 raise ValueError(f"No price available for {symbol}")
 
             # Check if limit would be filled
-            can_fill = (
-                (side == "buy" and current_price <= price)
-                or (side == "sell" and current_price >= price)
+            can_fill = (side == "buy" and current_price <= price) or (
+                side == "sell" and current_price >= price
             )
 
             if can_fill:
@@ -265,10 +268,8 @@ class OrderManager:
                 return order
         else:
             # Live trading
-            assert self._exchange_client is not None
-            result = await self._exchange_client.create_limit_order(
-                symbol, side, amount, price
-            )
+            assert self._exchange_adapter is not None
+            result = await self._exchange_adapter.create_limit_order(symbol, side, amount, price)
             return Order(
                 id=result["id"],
                 symbol=symbol,
@@ -278,7 +279,7 @@ class OrderManager:
                 price=price,
                 status=OrderStatus.OPEN,
                 remaining=amount,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(UTC),
                 is_paper=False,
             )
 
@@ -298,9 +299,9 @@ class OrderManager:
             logger.info("order_cancelled", order_id=order_id)
             return True
 
-        if not self.is_paper_mode and self._exchange_client:
+        if not self.is_paper_mode and self._exchange_adapter:
             try:
-                await self._exchange_client.cancel_order(order_id, symbol)
+                await self._exchange_adapter.cancel_order(order_id, symbol)
                 return True
             except Exception as e:
                 logger.error("cancel_order_failed", order_id=order_id, error=str(e))
@@ -322,9 +323,8 @@ class OrderManager:
             if current_price is None:
                 continue
 
-            should_fill = (
-                (order.side == "buy" and current_price <= (order.price or 0))
-                or (order.side == "sell" and current_price >= (order.price or 0))
+            should_fill = (order.side == "buy" and current_price <= (order.price or 0)) or (
+                order.side == "sell" and current_price >= (order.price or 0)
             )
 
             if should_fill:
@@ -374,8 +374,8 @@ class OrderManager:
             engine = get_paper_engine()
             return await engine.get_balance()
         else:
-            client = get_exchange_client()
-            return await client.get_balance()
+            adapter = get_exchange_adapter()
+            return await adapter.get_balance()
 
     async def sync_balance_from_exchange(self) -> dict[str, float]:
         """
@@ -388,8 +388,8 @@ class OrderManager:
             balance = await self.get_balance()
             return balance.get("free", {})
 
-        client = get_exchange_client()
-        balance = await client.get_balance()
+        adapter = get_exchange_adapter()
+        balance = await adapter.get_balance()
         return balance.get("free", {})
 
     async def get_open_orders(self, _symbol: str | None = None) -> list[Order]:
@@ -406,8 +406,8 @@ class OrderManager:
             return self.get_pending_orders()
 
         # Live mode - fetch from exchange
-        if self._exchange_client is None:
-            self._exchange_client = get_exchange_client(sandbox=False)
+        if self._exchange_adapter is None:
+            self._exchange_adapter = get_exchange_adapter(sandbox=False)
 
         try:
             # This would fetch real open orders from exchange

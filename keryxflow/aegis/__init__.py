@@ -13,6 +13,7 @@ from keryxflow.aegis.portfolio import PortfolioState, PositionState, create_port
 from keryxflow.aegis.profiles import get_risk_profile
 from keryxflow.aegis.quant import QuantEngine, get_quant_engine
 from keryxflow.aegis.risk import RiskManager, get_risk_manager
+from keryxflow.aegis.trailing import TrailingStopManager, get_trailing_stop_manager
 
 __all__ = [
     # Circuit breaker
@@ -37,4 +38,7 @@ __all__ = [
     # Risk
     "RiskManager",
     "get_risk_manager",
+    # Trailing stop
+    "TrailingStopManager",
+    "get_trailing_stop_manager",
 ]

@@ -8,6 +8,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ---
 
+## [0.18.0] - 2026-02-19
+
+### Added
+
+#### REST API Monitoring Server (`keryxflow/api/`)
+
+- **`server.py`** - FastAPI-based REST API for monitoring and control
+  - `GET /api/status` - System status overview
+  - `GET /api/positions` - Open positions listing
+  - `GET /api/trades` - Trade history
+  - `GET /api/balance` - Account balance
+  - `POST /api/panic` - Emergency panic stop
+  - `POST /api/pause` - Pause/resume trading
+  - `WS /ws/events` - WebSocket endpoint for real-time event streaming
+
+#### Trailing Stop-Loss Manager (`keryxflow/aegis/`)
+
+- **`trailing_stop.py`** - Trailing stop-loss with break-even logic
+  - Dynamic stop-loss adjustment as price moves favorably
+  - Break-even activation when configurable threshold reached
+  - Event emission: `STOP_LOSS_TRAILED`, `STOP_LOSS_BREAKEVEN`
+  - Integration into TradingEngine price loop
+
+#### Webhook Notifications (`keryxflow/notifications/`)
+
+- **`webhooks.py`** - Webhook notifications for Discord and Telegram
+  - Triggers on `POSITION_OPENED` and `POSITION_CLOSED` events
+  - Discord webhook with rich embed formatting
+  - Telegram Bot API message delivery
+
+#### Multi-Exchange Support (`keryxflow/exchange/`)
+
+- **`adapter.py`** - `ExchangeAdapter` abstract interface for exchange connectivity
+  - Standardized API across exchanges
+  - Factory pattern via `get_exchange_adapter()`
+- **`bybit.py`** - Bybit exchange adapter implementation
+  - Full ExchangeAdapter ABC compliance
+  - Order execution, balance, and market data methods
+
+#### Backtester Enhancements (`keryxflow/backtester/`)
+
+- **`walk_forward.py`** - Walk-forward analysis engine
+  - Out-of-sample validation for backtester results
+  - Rolling window optimization and testing
+- **`monte_carlo.py`** - Monte Carlo simulation
+  - Statistical analysis of backtester results
+  - Confidence intervals and distribution analysis
+- **`html_report.py`** - HTML report generation
+  - Rich visual reports for backtester results
+  - Charts and performance tables
+
+### Fixed
+
+- **Critical bug**: `paper_trade_count` was hardcoded to 0, now queries database correctly (PR #28)
+- **Safety hardening**: Observability improvements across modules (PR #27)
+
+### Changed
+
+- Replaced 100 silent `except/pass` clauses with structured logging across all modules (agent, memory, oracle, exchange, hermes, core, aegis)
+- Refactored Binance exchange client to implement `ExchangeAdapter` ABC
+
+### Technical Details
+
+- **REST API** - FastAPI server for external monitoring and control
+- **WebSocket** - Real-time event feed for dashboard integration
+- **Trailing Stops** - Dynamic risk management with break-even protection
+- **Multi-Exchange** - Abstracted exchange layer supporting Binance and Bybit
+- **Walk-Forward** - Out-of-sample validation prevents overfitting
+- **Monte Carlo** - Statistical confidence in backtest results
+- **Error Handling** - 100 silent exceptions replaced with structured logging
+
+---
+
 ## [0.17.0] - 2026-02-03
 
 ### Added
@@ -1176,6 +1249,9 @@ poetry run keryxflow
 
 | Version | Date | Description |
 |---------|------|-------------|
+| 0.18.0 | 2026-02-19 | REST API, trailing stops, webhooks, multi-exchange, walk-forward, Monte Carlo |
+| 0.17.0 | 2026-02-03 | Full TUI integration - AgentWidget, keybindings, E2E tests |
+| 0.16.0 | 2026-02-03 | Trading Session - session management, AgentWidget TUI |
 | 0.15.0 | 2026-02-03 | Learning & Reflection - strategy, scheduler, reflection engine |
 | 0.14.0 | 2026-02-03 | Cognitive Agent - AI-first autonomous trading |
 | 0.13.0 | 2026-02-02 | Agent Tools - tool framework for Claude |

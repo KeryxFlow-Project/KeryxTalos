@@ -330,7 +330,7 @@ class TestOKXExchangeFactory:
         okx_module._okx_client = None
 
         with patch("keryxflow.config.get_settings") as mock_settings:
-            mock_system = type("System", (), {"exchange": "okx"})()
+            mock_system = type("System", (), {"exchange": "okx", "mode": "paper"})()
             mock_settings.return_value = type("Settings", (), {"system": mock_system})()
             adapter = get_exchange_adapter(sandbox=True)
             assert isinstance(adapter, OKXClient)

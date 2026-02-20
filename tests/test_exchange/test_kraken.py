@@ -301,7 +301,7 @@ class TestKrakenExchangeFactory:
         kraken_module._kraken_client = None
 
         with patch("keryxflow.config.get_settings") as mock_settings:
-            mock_system = type("System", (), {"exchange": "kraken"})()
+            mock_system = type("System", (), {"exchange": "kraken", "mode": "paper"})()
             mock_settings.return_value = type("Settings", (), {"system": mock_system})()
             adapter = get_exchange_adapter(sandbox=True)
             assert isinstance(adapter, KrakenClient)

@@ -723,7 +723,7 @@ Respond with a JSON object (and nothing else) with these fields:
 
         return _make_request()
 
-    def _parse_json_response(self, text: str) -> dict[str, Any] | None:
+    def _parse_json_response(self, text: str | None) -> dict[str, Any] | None:
         """Parse a JSON response from Claude, tolerant of markdown fences.
 
         Args:

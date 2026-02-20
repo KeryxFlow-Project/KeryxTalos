@@ -867,7 +867,6 @@ Active symbols: {symbols}
                 completed_at=completed_at,
             )
 
-            self._stats.fallback_cycles += 1
             self._update_stats(result)
 
             logger.info("fallback_cycle_completed", symbols=symbols)

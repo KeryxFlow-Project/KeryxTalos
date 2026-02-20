@@ -4,12 +4,15 @@ This document describes the system architecture, module interactions, and design
 
 ## Overview
 
-KeryxFlow is built as a modular, event-driven trading system with 7 distinct layers:
+KeryxFlow is built as a modular, event-driven trading system with 9 distinct layers:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      HERMES (Interface)                      │
 │         Terminal UI - Real-time Charts - System Status       │
+├─────────────────────────────────────────────────────────────┤
+│                        API (REST & WebSocket)                │
+│       FastAPI Server - REST Endpoints - WS Event Stream      │
 ├─────────────────────────────────────────────────────────────┤
 │                   TRADING ENGINE (Orchestrator)              │
 │      OHLCV Buffer - Signal Flow - Order Execution Loop       │
@@ -18,16 +21,16 @@ KeryxFlow is built as a modular, event-driven trading system with 7 distinct lay
 │    Technical Analysis - News Feeds - Claude LLM Brain        │
 ├─────────────────────────────────────────────────────────────┤
 │                      AEGIS (Risk & Math)                     │
-│    Position Sizing - Risk Manager - Circuit Breaker          │
+│  Position Sizing - Risk Manager - Circuit Breaker - Trailing │
 ├─────────────────────────────────────────────────────────────┤
 │                      EXCHANGE (Connectivity)                 │
-│     Binance API - Paper Trading - Live Safeguards            │
+│   Multi-Exchange Adapter - Paper Trading - Live Safeguards   │
 ├─────────────────────────────────────────────────────────────┤
 │                    NOTIFICATIONS (Alerts)                    │
-│           Telegram - Discord - Event Subscriptions           │
+│      Discord/Telegram Webhooks - Event Subscriptions         │
 ├─────────────────────────────────────────────────────────────┤
 │                     BACKTESTER (Validation)                  │
-│     Historical Replay - Performance Metrics - Reports        │
+│  Walk-Forward - Monte Carlo - Performance Metrics - Reports  │
 ├─────────────────────────────────────────────────────────────┤
 │                     OPTIMIZER (Tuning)                       │
 │    Parameter Grid - Grid Search - Sensitivity Analysis       │
@@ -108,6 +111,7 @@ Foundation layer providing shared infrastructure.
 | Order | `ORDER_REQUESTED`, `ORDER_APPROVED`, `ORDER_REJECTED`, `ORDER_FILLED` |
 | Position | `POSITION_OPENED`, `POSITION_UPDATED`, `POSITION_CLOSED` |
 | Risk | `RISK_ALERT`, `CIRCUIT_BREAKER_TRIGGERED`, `DRAWDOWN_WARNING` |
+| Trailing Stop | `STOP_LOSS_TRAILED`, `STOP_LOSS_BREAKEVEN` |
 | System | `SYSTEM_STARTED`, `SYSTEM_STOPPED`, `SYSTEM_PAUSED`, `PANIC_TRIGGERED` |
 
 ---
@@ -135,6 +139,42 @@ class TradingEngine:
     async def _run_analysis() -> None  # Generate signals
     async def _handle_signal() -> None # Process signal → order
 ```
+
+---
+
+### API (`keryxflow/api/`)
+
+REST and WebSocket interface built with [FastAPI](https://fastapi.tiangolo.com/). Provides programmatic access to the trading engine as an alternative to the Hermes TUI.
+
+| File | Purpose |
+|------|---------|
+| `server.py` | FastAPI application and lifecycle management |
+| `routes.py` | REST endpoint definitions |
+| `websocket.py` | WebSocket event streaming |
+
+**Lifecycle Integration:**
+
+The API server is started and stopped by the TradingEngine lifecycle. When the engine starts, it launches the FastAPI server in the background; when the engine stops, the server shuts down gracefully.
+
+**REST Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/status` | Engine status, uptime, active symbols |
+| `GET` | `/api/positions` | Open positions with unrealized PnL |
+| `GET` | `/api/trades` | Trade history |
+| `GET` | `/api/balance` | Current balance and equity |
+| `POST` | `/api/panic` | Emergency stop — close all positions |
+| `POST` | `/api/pause` | Pause/resume trading |
+| `GET` | `/api/agent/status` | Cognitive agent state and statistics |
+
+**WebSocket:**
+
+| Endpoint | Description |
+|----------|-------------|
+| `WS /ws/events` | Real-time event stream (price updates, signals, orders, positions) |
+
+The WebSocket endpoint subscribes to the event bus and forwards events to connected clients as JSON messages, enabling external dashboards and monitoring tools.
 
 ---
 
@@ -256,17 +296,54 @@ Risk management layer. Every order must be approved before execution.
 | Consecutive losses | 5 |
 | Rapid losses | 3 in 1 hour |
 
+**Trailing Stop (`aegis/trailing.py`):**
+
+The `TrailingStopManager` automatically ratchets stop-loss levels upward as price moves in favor of an open position.
+
+| Feature | Description |
+|---------|-------------|
+| Price tracking | Monitors highest price per symbol since entry |
+| Stop ratcheting | Moves stop-loss up by ATR-based trail distance |
+| Break-even logic | Moves stop to entry price once a configurable profit threshold is reached |
+| Event integration | Publishes `STOP_LOSS_TRAILED` and `STOP_LOSS_BREAKEVEN` events |
+
+The TrailingStopManager is integrated into the TradingEngine price loop. On each `PRICE_UPDATE`, it checks all open positions and adjusts stop-loss levels accordingly.
+
+```python
+class TrailingStopManager:
+    async def on_price_update(self, symbol: str, price: float) -> None
+    async def register_position(self, symbol: str, entry_price: float, stop_loss: float) -> None
+    async def unregister_position(self, symbol: str) -> None
+```
+
 ---
 
 ### Exchange (`keryxflow/exchange/`)
 
-Connectivity layer for exchange interactions.
+Connectivity layer for exchange interactions with a multi-exchange adapter architecture.
 
 | File | Purpose |
 |------|---------|
-| `client.py` | CCXT wrapper for Binance |
+| `adapter.py` | `ExchangeAdapter` ABC — common interface for all exchanges |
+| `client.py` | `ExchangeClient` — Binance implementation via CCXT |
+| `bybit.py` | `BybitClient` — Bybit implementation via CCXT |
 | `paper.py` | Paper trading simulation |
 | `orders.py` | Order management abstraction |
+
+**Multi-Exchange Architecture:**
+
+All exchange implementations inherit from the `ExchangeAdapter` abstract base class, which defines the standard interface for fetching prices, placing orders, and managing positions.
+
+```python
+class ExchangeAdapter(ABC):
+    async def fetch_ticker(self, symbol: str) -> dict
+    async def fetch_ohlcv(self, symbol: str, timeframe: str, limit: int) -> list
+    async def create_order(self, symbol: str, side: str, amount: float, price: float | None) -> dict
+    async def cancel_order(self, order_id: str, symbol: str) -> dict
+    async def fetch_balance(self) -> dict
+```
+
+The `get_exchange_adapter()` factory function selects the appropriate implementation based on the `KERYXFLOW_EXCHANGE` configuration setting (default: `binance`).
 
 **Trading Modes:**
 
@@ -286,34 +363,52 @@ Connectivity layer for exchange interactions.
 
 ### Notifications (`keryxflow/notifications/`)
 
-Alert system for trade notifications.
+Event-driven alert system using Discord and Telegram webhooks.
 
 | File | Purpose |
 |------|---------|
-| `telegram.py` | Telegram Bot API |
-| `discord.py` | Discord Webhook |
-| `manager.py` | Notification coordinator |
+| `telegram.py` | Telegram Bot API webhook sender |
+| `discord.py` | Discord webhook sender |
+| `manager.py` | `NotificationManager` — event subscriber and dispatcher |
 
-**Notification Events:**
+**NotificationManager:**
+
+The `NotificationManager` subscribes to the event bus and dispatches formatted messages to configured webhook endpoints. It listens for key trading events and sends notifications asynchronously.
+
+**Subscribed Events:**
 
 | Event | Notification |
 |-------|--------------|
-| Order filled | Trade execution details |
-| Circuit breaker | Emergency stop alert |
+| `POSITION_OPENED` | Entry details — symbol, side, size, entry price, stop-loss |
+| `POSITION_CLOSED` | Exit details — symbol, PnL, duration, exit reason |
+| `ORDER_FILLED` | Trade execution details |
+| `CIRCUIT_BREAKER_TRIGGERED` | Emergency stop alert |
 | Daily summary | End of day report |
 | System error | Error details |
+
+**Webhook Configuration:**
+
+```toml
+[notifications]
+discord_webhook_url = "https://discord.com/api/webhooks/..."
+telegram_bot_token = "bot123:ABC..."
+telegram_chat_id = "123456789"
+enabled_events = ["POSITION_OPENED", "POSITION_CLOSED", "CIRCUIT_BREAKER_TRIGGERED"]
+```
 
 ---
 
 ### Backtester (`keryxflow/backtester/`)
 
-Historical strategy validation.
+Historical strategy validation with walk-forward analysis and Monte Carlo simulation.
 
 | File | Purpose |
 |------|---------|
 | `data.py` | OHLCV data loading |
 | `engine.py` | Backtest simulation |
-| `report.py` | Performance reports |
+| `walk_forward.py` | `WalkForwardEngine` — out-of-sample validation |
+| `monte_carlo.py` | `MonteCarloSimulator` — statistical analysis |
+| `report.py` | Performance reports (text and HTML) |
 | `runner.py` | CLI interface |
 
 **Metrics Calculated:**
@@ -326,6 +421,29 @@ Historical strategy validation.
 | Max Drawdown | Largest peak-to-trough decline |
 | Sharpe Ratio | Risk-adjusted return |
 | Expectancy | Average profit per trade |
+
+**Walk-Forward Engine:**
+
+The `WalkForwardEngine` performs out-of-sample validation by splitting historical data into rolling in-sample (training) and out-of-sample (testing) windows. This guards against overfitting by ensuring strategy parameters are validated on unseen data.
+
+```
+│◄── In-Sample (optimize) ──►│◄── Out-of-Sample (validate) ──►│
+│         Window 1            │           Window 1              │
+│              │◄── In-Sample ──►│◄── Out-of-Sample ──►│
+│              │     Window 2    │      Window 2        │
+```
+
+**Monte Carlo Simulator:**
+
+The `MonteCarloSimulator` runs thousands of randomized trade sequence permutations to produce statistical confidence intervals for strategy performance. Outputs include:
+
+- Median and percentile return distributions (5th, 25th, 75th, 95th)
+- Probability of ruin (drawdown exceeding threshold)
+- Confidence intervals for Sharpe ratio and max drawdown
+
+**HTML Reports:**
+
+Backtester results can be exported as self-contained HTML reports with interactive charts, equity curves, drawdown plots, and trade-by-trade analysis.
 
 ---
 
@@ -355,13 +473,15 @@ Parameter optimization via grid search.
 ### Trading Loop
 
 ```
-1. ExchangeClient fetches prices
+1. ExchangeAdapter fetches prices
           │
           ▼
-2. Prices published to EventBus
+2. Prices published to EventBus ──────► API (WS /ws/events)
           │
           ▼
 3. TradingEngine aggregates OHLCV
+          │
+          ├──► TrailingStopManager checks stops
           │
           ▼
 4. Oracle generates signal
@@ -373,8 +493,13 @@ Parameter optimization via grid search.
 6. PaperEngine/LiveExchange executes
           │
           ▼
-7. Notifications sent (if enabled)
+7. Notifications sent (Discord/Telegram webhooks)
+          │
+          ▼
+8. API streams event to WebSocket clients
 ```
+
+The API layer provides an alternative interface alongside Hermes TUI. External clients can monitor the trading loop via `WS /ws/events` and control the engine via REST endpoints (`POST /api/panic`, `POST /api/pause`).
 
 ### Event Flow Example
 
@@ -427,6 +552,10 @@ keryxflow/
 │   │   ├── safeguards.py     # Live trading checks
 │   │   ├── logging.py        # Structured logging
 │   │   └── glossary.py       # Term definitions
+│   ├── api/
+│   │   ├── server.py         # FastAPI app & lifecycle
+│   │   ├── routes.py         # REST endpoints
+│   │   └── websocket.py      # WS event streaming
 │   ├── hermes/
 │   │   ├── app.py            # TUI application
 │   │   ├── theme.tcss        # CSS styling
@@ -441,19 +570,24 @@ keryxflow/
 │   │   ├── quant.py          # Math engine
 │   │   ├── risk.py           # Risk manager
 │   │   ├── circuit.py        # Circuit breaker
+│   │   ├── trailing.py       # Trailing stop manager
 │   │   └── profiles.py       # Risk profiles
 │   ├── exchange/
-│   │   ├── client.py         # CCXT wrapper
+│   │   ├── adapter.py        # ExchangeAdapter ABC
+│   │   ├── client.py         # Binance (CCXT)
+│   │   ├── bybit.py          # Bybit (CCXT)
 │   │   ├── paper.py          # Paper trading
 │   │   └── orders.py         # Order management
 │   ├── notifications/
-│   │   ├── telegram.py       # Telegram
-│   │   ├── discord.py        # Discord
-│   │   └── manager.py        # Coordinator
+│   │   ├── telegram.py       # Telegram webhook
+│   │   ├── discord.py        # Discord webhook
+│   │   └── manager.py        # NotificationManager
 │   ├── backtester/
 │   │   ├── data.py           # Data loading
 │   │   ├── engine.py         # Backtest engine
-│   │   ├── report.py         # Reports
+│   │   ├── walk_forward.py   # Walk-forward validation
+│   │   ├── monte_carlo.py    # Monte Carlo simulation
+│   │   ├── report.py         # Reports (text & HTML)
 │   │   └── runner.py         # CLI
 │   └── optimizer/
 │       ├── grid.py           # Parameter grid

@@ -217,6 +217,10 @@ class TradingEngine:
         self._trailing_enabled = self.settings.risk.trailing_stop_enabled
         self._trailing_manager = get_trailing_stop_manager() if self._trailing_enabled else None
 
+        # API server (managed lifecycle)
+        self._api_server: Any = None
+        self._api_task: asyncio.Task | None = None
+
         # State
         self._running = False
         self._last_analysis: dict[str, datetime] = {}
@@ -284,6 +288,21 @@ class TradingEngine:
 
         mode = "live" if self._is_live_mode else "paper"
         logger.info("trading_engine_started", mode=mode)
+
+        # Start API server if enabled
+        if self.settings.api.enabled:
+            try:
+                from keryxflow.api.server import start_api_server
+
+                self._api_server, self._api_task = await start_api_server(
+                    host=self.settings.api.host,
+                    port=self.settings.api.port,
+                )
+            except Exception as e:
+                logger.error("api_server_start_failed", error=str(e))
+                # Don't crash the engine — trading continues without API
+                self._api_server = None
+                self._api_task = None
 
         # Send startup notification
         if self.notifications:
@@ -440,6 +459,17 @@ class TradingEngine:
         # Cancel background preload task if running
         if self._preload_task and not self._preload_task.done():
             self._preload_task.cancel()
+
+        # Stop API server if running
+        if self._api_server is not None:
+            try:
+                from keryxflow.api.server import stop_api_server
+
+                await stop_api_server()
+            except Exception as e:
+                logger.error("api_server_stop_failed", error=str(e))
+            self._api_server = None
+            self._api_task = None
 
         # Unsubscribe from events
         self.event_bus.unsubscribe(EventType.PRICE_UPDATE, self._on_price_update)

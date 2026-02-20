@@ -3,6 +3,8 @@ FROM python:3.12-slim AS builder
 
 RUN pip install --no-cache-dir poetry==1.8.5
 
+ENV POETRY_VIRTUALENVS_IN_PROJECT=true
+
 WORKDIR /app
 
 # Copy project metadata (README.md is referenced in pyproject.toml)

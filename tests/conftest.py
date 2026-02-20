@@ -20,6 +20,7 @@ def setup_test_database(tmp_path):
     import keryxflow.aegis.risk as risk_module
     import keryxflow.agent.cognitive as cognitive_module
     import keryxflow.agent.executor as executor_module
+    import keryxflow.agent.orchestrator as orchestrator_module
     import keryxflow.agent.reflection as reflection_module
     import keryxflow.agent.scheduler as scheduler_module
     import keryxflow.agent.session as session_module
@@ -46,6 +47,7 @@ def setup_test_database(tmp_path):
     tools_module._toolkit = None
     executor_module._executor = None
     cognitive_module._agent = None
+    orchestrator_module._orchestrator = None
     reflection_module._reflection_engine = None
     scheduler_module._scheduler = None
     session_module._session = None

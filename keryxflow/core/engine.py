@@ -33,6 +33,7 @@ from keryxflow.oracle.signals import (
 
 if TYPE_CHECKING:
     from keryxflow.agent.cognitive import CognitiveAgent
+    from keryxflow.agent.orchestrator import AgentOrchestrator
     from keryxflow.notifications.manager import NotificationManager
 
 logger = get_logger(__name__)
@@ -199,10 +200,18 @@ class TradingEngine:
             self._ai_mode = "autonomous"
         self._agent_mode = self._ai_mode == "autonomous"
         self._cognitive_agent = cognitive_agent
-        if self._agent_mode and self._cognitive_agent is None:
-            from keryxflow.agent.cognitive import get_cognitive_agent
+        self._orchestrator: AgentOrchestrator | None = None
+        self._multi_agent_mode = self.settings.agent.multi_agent_enabled
 
-            self._cognitive_agent = get_cognitive_agent()
+        if self._agent_mode:
+            if self._multi_agent_mode:
+                from keryxflow.agent.orchestrator import get_agent_orchestrator
+
+                self._orchestrator = get_agent_orchestrator()
+            elif self._cognitive_agent is None:
+                from keryxflow.agent.cognitive import get_cognitive_agent
+
+                self._cognitive_agent = get_cognitive_agent()
 
         # Multi-Timeframe Analysis support
         self._mtf_enabled = self.settings.oracle.mtf.enabled
@@ -607,12 +616,11 @@ class TradingEngine:
     async def _run_agent_cycle(self, symbols: list[str]) -> None:
         """Run a cognitive agent cycle for the given symbols.
 
+        Uses AgentOrchestrator in multi-agent mode, CognitiveAgent otherwise.
+
         Args:
             symbols: Symbols to analyze in this cycle
         """
-        if self._cognitive_agent is None:
-            return
-
         # Check cycle interval
         now = datetime.now(UTC)
         if self._last_agent_cycle is not None:
@@ -623,30 +631,51 @@ class TradingEngine:
         self._last_agent_cycle = now
 
         try:
-            # Initialize agent if needed
-            if not self._cognitive_agent._initialized:
-                await self._cognitive_agent.initialize()
+            if self._multi_agent_mode and self._orchestrator is not None:
+                # Multi-agent mode: use orchestrator
+                if not self._orchestrator._initialized:
+                    await self._orchestrator.initialize()
 
-            # Run the cycle
-            result = await self._cognitive_agent.run_cycle(symbols)
+                result = await self._orchestrator.run_cycle(symbols)
 
-            logger.info(
-                "agent_cycle_completed",
-                status=result.status.value,
-                decision=result.decision.decision_type.value if result.decision else None,
-                duration_ms=result.duration_ms,
-            )
-
-            # If agent errored too many times, disable agent mode temporarily
-            if (
-                self._cognitive_agent._stats.consecutive_errors
-                >= self.settings.agent.max_consecutive_errors
-            ):
-                logger.warning(
-                    "agent_mode_disabled_due_to_errors",
-                    consecutive_errors=self._cognitive_agent._stats.consecutive_errors,
+                logger.info(
+                    "orchestrator_cycle_completed",
+                    status=result.status.value,
+                    decision=result.decision.decision_type.value if result.decision else None,
+                    duration_ms=result.duration_ms,
                 )
-                # Don't disable permanently, let it retry on next interval
+
+                if (
+                    self._orchestrator._stats.consecutive_errors
+                    >= self.settings.agent.max_consecutive_errors
+                ):
+                    logger.warning(
+                        "orchestrator_disabled_due_to_errors",
+                        consecutive_errors=self._orchestrator._stats.consecutive_errors,
+                    )
+
+            elif self._cognitive_agent is not None:
+                # Single-agent mode
+                if not self._cognitive_agent._initialized:
+                    await self._cognitive_agent.initialize()
+
+                result = await self._cognitive_agent.run_cycle(symbols)
+
+                logger.info(
+                    "agent_cycle_completed",
+                    status=result.status.value,
+                    decision=result.decision.decision_type.value if result.decision else None,
+                    duration_ms=result.duration_ms,
+                )
+
+                if (
+                    self._cognitive_agent._stats.consecutive_errors
+                    >= self.settings.agent.max_consecutive_errors
+                ):
+                    logger.warning(
+                        "agent_mode_disabled_due_to_errors",
+                        consecutive_errors=self._cognitive_agent._stats.consecutive_errors,
+                    )
 
         except Exception as e:
             logger.error("agent_cycle_failed", error=str(e))
@@ -1195,8 +1224,12 @@ class TradingEngine:
             status["mtf_primary_timeframe"] = self.settings.oracle.mtf.primary_timeframe
             status["mtf_filter_timeframe"] = self.settings.oracle.mtf.filter_timeframe
 
-        if self._agent_mode and self._cognitive_agent is not None:
-            status["agent_stats"] = self._cognitive_agent.get_stats()
+        if self._agent_mode:
+            if self._multi_agent_mode and self._orchestrator is not None:
+                status["agent_stats"] = self._orchestrator.get_stats()
+                status["multi_agent_mode"] = True
+            elif self._cognitive_agent is not None:
+                status["agent_stats"] = self._cognitive_agent.get_stats()
             status["agent_cycle_interval"] = self.settings.agent.cycle_interval
             status["last_agent_cycle"] = (
                 self._last_agent_cycle.isoformat() if self._last_agent_cycle else None

@@ -64,6 +64,11 @@ class EventType(str, Enum):
     AGENT_CYCLE_FAILED = "agent_cycle_failed"
     SESSION_STATE_CHANGED = "session_state_changed"
 
+    # Multi-agent events
+    AGENT_ANALYSIS_COMPLETED = "agent_analysis_completed"
+    AGENT_RISK_ASSESSED = "agent_risk_assessed"
+    AGENT_EXECUTION_COMPLETED = "agent_execution_completed"
+
     # Tool events
     TOOL_EXECUTED = "tool_executed"
 

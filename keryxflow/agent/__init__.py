@@ -13,12 +13,26 @@ Cognitive Agent:
 - CognitiveAgent: AI-first autonomous trading agent
 - Cycle: Perceive → Remember → Analyze → Decide → Validate → Execute → Learn
 
+Multi-Agent Architecture:
+- AnalystAgent: Market analysis and pattern recognition
+- RiskAgent: Position sizing and risk assessment
+- ExecutorAgent: Order execution and timing
+- AgentOrchestrator: Coordinates Analyst → Risk → Executor pipeline
+
 Learning & Reflection:
 - ReflectionEngine: Post-mortem, daily, and weekly reflections
 - StrategyManager: Strategy selection and adaptation
 - TaskScheduler: Scheduled tasks for reflections
 """
 
+from keryxflow.agent.analyst_agent import AnalystAgent
+from keryxflow.agent.base_agent import (
+    AgentRole,
+    ExecutionResult,
+    MarketAnalysis,
+    RiskAssessment,
+    SpecializedAgent,
+)
 from keryxflow.agent.cognitive import (
     AgentDecision,
     AgentStats,
@@ -29,6 +43,8 @@ from keryxflow.agent.cognitive import (
     get_cognitive_agent,
 )
 from keryxflow.agent.executor import ToolExecutor, get_tool_executor
+from keryxflow.agent.executor_agent import ExecutorAgent
+from keryxflow.agent.orchestrator import AgentOrchestrator, get_agent_orchestrator
 from keryxflow.agent.reflection import (
     DailyReflectionResult,
     PostMortemResult,
@@ -37,6 +53,7 @@ from keryxflow.agent.reflection import (
     WeeklyReflectionResult,
     get_reflection_engine,
 )
+from keryxflow.agent.risk_agent import RiskAgent
 from keryxflow.agent.scheduler import (
     ScheduledTask,
     TaskFrequency,
@@ -101,6 +118,17 @@ __all__ = [
     "AgentDecision",
     "DecisionType",
     "AgentStats",
+    # Multi-Agent
+    "SpecializedAgent",
+    "AgentRole",
+    "MarketAnalysis",
+    "RiskAssessment",
+    "ExecutionResult",
+    "AnalystAgent",
+    "RiskAgent",
+    "ExecutorAgent",
+    "AgentOrchestrator",
+    "get_agent_orchestrator",
     # Reflection
     "ReflectionEngine",
     "get_reflection_engine",

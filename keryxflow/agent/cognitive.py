@@ -81,6 +81,9 @@ class CycleResult:
     error: str | None = None
     duration_ms: float = 0.0
     tokens_used: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_cost: float = 0.0
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     completed_at: datetime | None = None
 
@@ -100,6 +103,9 @@ class CycleResult:
             "error": self.error,
             "duration_ms": self.duration_ms,
             "tokens_used": self.tokens_used,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_cost": self.total_cost,
             "started_at": self.started_at.isoformat(),
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
         }
@@ -115,6 +121,9 @@ class AgentStats:
     error_cycles: int = 0
     total_tool_calls: int = 0
     total_tokens_used: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    total_cost: float = 0.0
     decisions_by_type: dict[str, int] = field(default_factory=dict)
     last_cycle_time: datetime | None = None
     consecutive_errors: int = 0
@@ -195,6 +204,7 @@ Active symbols: {symbols}
         self._stats = AgentStats()
         self._cycle_history: list[CycleResult] = []
         self._client: Any = None  # Anthropic client
+        self.budget_exceeded: bool = False
 
     async def initialize(self) -> None:
         """Initialize the agent and register all tools."""
@@ -260,11 +270,14 @@ Active symbols: {symbols}
             context = await self._build_context(symbols)
 
             # 2. Get decision from Claude (Analyze + Decide)
-            decision, tool_results, tokens = await self._get_decision(context, symbols)
+            decision, tool_results, tokens, input_tok, output_tok = await self._get_decision(
+                context, symbols
+            )
 
             # 3. Record cycle
             completed_at = datetime.now(UTC)
             duration_ms = (completed_at - started_at).total_seconds() * 1000
+            cost = self._calculate_cost(input_tok, output_tok)
 
             result = CycleResult(
                 status=CycleStatus.SUCCESS if decision else CycleStatus.NO_ACTION,
@@ -272,6 +285,9 @@ Active symbols: {symbols}
                 tool_results=tool_results,
                 duration_ms=duration_ms,
                 tokens_used=tokens,
+                input_tokens=input_tok,
+                output_tokens=output_tok,
+                total_cost=cost,
                 started_at=started_at,
                 completed_at=completed_at,
             )
@@ -356,7 +372,7 @@ Active symbols: {symbols}
 
     async def _get_decision(
         self, context: dict[str, Any], symbols: list[str]
-    ) -> tuple[AgentDecision | None, list[ToolResult], int]:
+    ) -> tuple[AgentDecision | None, list[ToolResult], int, int, int]:
         """Get trading decision from Claude using tool use.
 
         Args:
@@ -364,7 +380,7 @@ Active symbols: {symbols}
             symbols: Active symbols
 
         Returns:
-            Tuple of (decision, tool_results, tokens_used)
+            Tuple of (decision, tool_results, total_tokens, input_tokens, output_tokens)
         """
         # Build system prompt
         system_prompt = self.SYSTEM_PROMPT.format(
@@ -382,6 +398,8 @@ Active symbols: {symbols}
         messages = [{"role": "user", "content": user_message}]
         tool_results: list[ToolResult] = []
         total_tokens = 0
+        total_input_tokens = 0
+        total_output_tokens = 0
         max_iterations = self.settings.max_tool_calls_per_cycle
 
         for iteration in range(max_iterations):
@@ -396,6 +414,8 @@ Active symbols: {symbols}
             )
 
             # Track tokens
+            total_input_tokens += response.usage.input_tokens
+            total_output_tokens += response.usage.output_tokens
             total_tokens += response.usage.input_tokens + response.usage.output_tokens
 
             # Check for tool use
@@ -407,7 +427,7 @@ Active symbols: {symbols}
                 reasoning = " ".join(block.text for block in text_blocks)
 
                 decision = self._parse_decision(reasoning, tool_results)
-                return decision, tool_results, total_tokens
+                return decision, tool_results, total_tokens, total_input_tokens, total_output_tokens
 
             # Execute tool calls
             tool_call_results = []
@@ -442,7 +462,7 @@ Active symbols: {symbols}
 
         # Max iterations reached
         logger.warning("max_tool_iterations_reached", iterations=max_iterations)
-        return None, tool_results, total_tokens
+        return None, tool_results, total_tokens, total_input_tokens, total_output_tokens
 
     def _build_user_message(self, context: dict[str, Any]) -> str:
         """Build the initial user message with context.
@@ -642,6 +662,20 @@ Active symbols: {symbols}
                 completed_at=datetime.now(UTC),
             )
 
+    def _calculate_cost(self, input_tokens: int, output_tokens: int) -> float:
+        """Calculate USD cost from token counts.
+
+        Args:
+            input_tokens: Number of input tokens
+            output_tokens: Number of output tokens
+
+        Returns:
+            Cost in USD
+        """
+        input_cost = (input_tokens / 1_000_000) * self.settings.cost_per_million_input_tokens
+        output_cost = (output_tokens / 1_000_000) * self.settings.cost_per_million_output_tokens
+        return input_cost + output_cost
+
     def _update_stats(self, result: CycleResult) -> None:
         """Update agent statistics.
 
@@ -651,6 +685,9 @@ Active symbols: {symbols}
         self._stats.total_cycles += 1
         self._stats.last_cycle_time = result.completed_at or datetime.now(UTC)
         self._stats.total_tokens_used += result.tokens_used
+        self._stats.total_input_tokens += result.input_tokens
+        self._stats.total_output_tokens += result.output_tokens
+        self._stats.total_cost += result.total_cost
 
         if result.status == CycleStatus.SUCCESS:
             self._stats.successful_cycles += 1
@@ -662,6 +699,16 @@ Active symbols: {symbols}
         if result.decision:
             dt = result.decision.decision_type.value
             self._stats.decisions_by_type[dt] = self._stats.decisions_by_type.get(dt, 0) + 1
+
+        # Check daily token budget
+        budget = self.settings.daily_token_budget
+        if budget > 0 and self._stats.total_tokens_used >= budget:
+            self.budget_exceeded = True
+            logger.warning(
+                "daily_token_budget_exceeded",
+                total_tokens=self._stats.total_tokens_used,
+                budget=budget,
+            )
 
         # Keep history (last 100 cycles)
         self._cycle_history.append(result)
@@ -734,6 +781,15 @@ Active symbols: {symbols}
             "error_cycles": self._stats.error_cycles,
             "total_tool_calls": self._stats.total_tool_calls,
             "total_tokens_used": self._stats.total_tokens_used,
+            "total_input_tokens": self._stats.total_input_tokens,
+            "total_output_tokens": self._stats.total_output_tokens,
+            "total_cost": self._stats.total_cost,
+            "avg_tokens_per_cycle": (
+                self._stats.total_tokens_used / self._stats.total_cycles
+                if self._stats.total_cycles > 0
+                else 0
+            ),
+            "budget_exceeded": self.budget_exceeded,
             "decisions_by_type": self._stats.decisions_by_type,
             "consecutive_errors": self._stats.consecutive_errors,
             "last_cycle_time": (
@@ -744,6 +800,26 @@ Active symbols: {symbols}
                 if self._stats.total_cycles > 0
                 else 0
             ),
+        }
+
+    def get_token_stats(self) -> dict[str, Any]:
+        """Get token usage statistics.
+
+        Returns:
+            Dictionary with token usage and cost stats
+        """
+        return {
+            "total_tokens": self._stats.total_tokens_used,
+            "total_input_tokens": self._stats.total_input_tokens,
+            "total_output_tokens": self._stats.total_output_tokens,
+            "total_cost": self._stats.total_cost,
+            "avg_tokens_per_cycle": (
+                self._stats.total_tokens_used / self._stats.total_cycles
+                if self._stats.total_cycles > 0
+                else 0
+            ),
+            "budget_exceeded": self.budget_exceeded,
+            "daily_token_budget": self.settings.daily_token_budget,
         }
 
     def get_recent_cycles(self, limit: int = 10) -> list[dict[str, Any]]:

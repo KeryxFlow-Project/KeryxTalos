@@ -99,6 +99,11 @@ class AgentSettings(BaseSettings):
     enable_introspection: bool = True
     enable_execution: bool = True  # Guarded tools
 
+    # Token budget and pricing
+    daily_token_budget: int = Field(default=1_000_000, ge=0)  # 0 = unlimited
+    cost_per_million_input_tokens: float = 3.0  # USD per 1M input tokens
+    cost_per_million_output_tokens: float = 15.0  # USD per 1M output tokens
+
 
 class ApiSettings(BaseSettings):
     """REST API configuration."""

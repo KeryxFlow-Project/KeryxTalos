@@ -55,6 +55,9 @@ class SessionStats:
 
     tool_calls: int = 0
     tokens_used: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_cost: float = 0.0
 
     errors: list[str] = field(default_factory=list)
 
@@ -103,6 +106,9 @@ class SessionStats:
             "cycles_per_minute": self.cycles_per_minute,
             "tool_calls": self.tool_calls,
             "tokens_used": self.tokens_used,
+            "input_tokens": self.input_tokens,
+            "output_tokens": self.output_tokens,
+            "total_cost": self.total_cost,
             "errors_count": len(self.errors),
         }
 
@@ -392,6 +398,9 @@ class TradingSession:
 
                     self._stats.tool_calls += len(result.tool_results)
                     self._stats.tokens_used += result.tokens_used
+                    self._stats.input_tokens += result.input_tokens
+                    self._stats.output_tokens += result.output_tokens
+                    self._stats.total_cost += result.total_cost
 
                 except Exception as e:
                     self._stats.cycles_failed += 1

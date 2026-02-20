@@ -431,6 +431,69 @@ Never merge code that:
 - Disables circuit breakers
 - Modifies `TradingGuardrails` to loosen constraints
 
+## Release Process
+
+Publishing a new version to PyPI:
+
+### 1. Bump Version
+
+Update the version in **both** files (they must stay in sync):
+
+```bash
+# keryxflow/__init__.py
+__version__ = "0.18.0"
+
+# pyproject.toml
+version = "0.18.0"
+```
+
+### 2. Update Changelog
+
+Add a new section to `CHANGELOG.md` with the version and date.
+
+### 3. Commit and Tag
+
+```bash
+git add pyproject.toml keryxflow/__init__.py CHANGELOG.md
+git commit -m "chore(core): bump version to 0.18.0"
+git tag v0.18.0
+git push origin main --tags
+```
+
+### 4. Build and Verify
+
+```bash
+# Build sdist and wheel
+poetry build
+
+# Check package metadata
+twine check dist/*
+
+# Test install in a clean venv
+python -m venv /tmp/keryxflow-test && source /tmp/keryxflow-test/bin/activate
+pip install dist/keryxflow-*.whl
+keryxflow --help
+keryxflow-backtest --help
+keryxflow-optimize --help
+python -c "import keryxflow; print(keryxflow.__version__)"
+deactivate && rm -rf /tmp/keryxflow-test
+```
+
+### 5. Publish to TestPyPI (Dry Run)
+
+```bash
+twine upload --repository testpypi dist/*
+pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ keryxflow
+```
+
+### 6. Publish to PyPI
+
+```bash
+twine upload dist/*
+```
+
+---
+
 ## Questions?
 
 - Open a discussion on GitHub

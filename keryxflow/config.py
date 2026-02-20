@@ -120,6 +120,7 @@ class ApiSettings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = Field(default=8080, ge=1, le=65535)
     token: str = ""
+    webhook_secret: str = ""
     cors_origins: list[str] = ["*"]
 
 

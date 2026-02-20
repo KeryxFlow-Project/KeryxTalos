@@ -7,7 +7,7 @@ from typing import Any
 from sqlmodel import select
 
 from keryxflow.config import get_settings
-from keryxflow.core.database import get_session, initialize_paper_balance
+from keryxflow.core.database import get_session, get_session_factory, initialize_paper_balance
 from keryxflow.core.events import EventType, get_event_bus, order_event
 from keryxflow.core.logging import LogMessages, get_logger
 from keryxflow.core.models import (
@@ -158,9 +158,7 @@ class PaperTradingEngine:
 
             return {"total": total, "free": free, "used": used}
 
-    async def _get_or_create_balance(
-        self, session: Any, currency: str
-    ) -> PaperBalance:
+    async def _get_or_create_balance(self, session: Any, currency: str) -> PaperBalance:
         """Get or create a balance record."""
         result = await session.execute(
             select(PaperBalance).where(PaperBalance.currency == currency)
@@ -208,7 +206,8 @@ class PaperTradingEngine:
 
         order_id = str(uuid.uuid4())[:8]
 
-        async for session in get_session():
+        async_session = get_session_factory()
+        async with async_session() as session, session.begin():
             if side == "buy":
                 # Check quote balance
                 quote_balance = await self._get_or_create_balance(session, quote)
@@ -257,8 +256,6 @@ class PaperTradingEngine:
                 closed_at=datetime.now(UTC),
             )
             session.add(trade)
-
-            await session.commit()
 
         # Create order result
         order_result = {
@@ -322,16 +319,12 @@ class PaperTradingEngine:
 
         async for session in get_session():
             # Check for existing position
-            result = await session.execute(
-                select(Position).where(Position.symbol == symbol)
-            )
+            result = await session.execute(select(Position).where(Position.symbol == symbol))
             existing = result.scalar_one_or_none()
 
             if existing:
                 # Update existing position (averaging in)
-                total_cost = (existing.entry_price * existing.quantity) + (
-                    entry_price * amount
-                )
+                total_cost = (existing.entry_price * existing.quantity) + (entry_price * amount)
                 total_qty = existing.quantity + amount
                 existing.entry_price = total_cost / total_qty
                 existing.quantity = total_qty
@@ -398,9 +391,7 @@ class PaperTradingEngine:
                 raise ValueError(f"No price available for {symbol}")
 
         async for session in get_session():
-            result = await session.execute(
-                select(Position).where(Position.symbol == symbol)
-            )
+            result = await session.execute(select(Position).where(Position.symbol == symbol))
             position = result.scalar_one_or_none()
 
             if not position:
@@ -417,14 +408,10 @@ class PaperTradingEngine:
             pnl_pct = (pnl / (position.entry_price * position.quantity)) * 100
 
             # Execute close order
-            await self.execute_market_order(
-                symbol, close_side, position.quantity, price
-            )
+            await self.execute_market_order(symbol, close_side, position.quantity, price)
 
             # Update trade record
-            result = await session.execute(
-                select(Trade).where(Trade.id == position.trade_id)
-            )
+            result = await session.execute(select(Trade).where(Trade.id == position.trade_id))
             trade = result.scalar_one_or_none()
             if trade:
                 trade.exit_price = price
@@ -470,9 +457,7 @@ class PaperTradingEngine:
         await self.initialize()
 
         async for session in get_session():
-            result = await session.execute(
-                select(Position).where(Position.symbol == symbol)
-            )
+            result = await session.execute(select(Position).where(Position.symbol == symbol))
             return result.scalar_one_or_none()
         return None
 

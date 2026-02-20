@@ -1,5 +1,3 @@
-"""Trading strategy implementations."""
+from keryxflow.strategies.grid import GridStrategy
 
-from keryxflow.strategies.dca import DCAStrategy
-
-__all__ = ["DCAStrategy"]
+__all__ = ["GridStrategy"]

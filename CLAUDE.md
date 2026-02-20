@@ -37,7 +37,7 @@ poetry run ruff format .
 
 ## Architecture
 
-KeryxFlow is an AI-powered cryptocurrency trading engine with a 9-layer architecture:
+KeryxFlow is an AI-powered cryptocurrency trading engine with a 12-layer architecture:
 
 ```
 ┌─ HERMES (keryxflow/hermes/) ────────────────┐
@@ -64,8 +64,14 @@ KeryxFlow is an AI-powered cryptocurrency trading engine with a 9-layer architec
 ├─ AEGIS (keryxflow/aegis/) ──────────────────┤
 │  Risk Management - Position sizing, limits   │
 │  Immutable guardrails, circuit breaker       │
+├─ API (keryxflow/api/) ──────────────────────┤
+│  REST API & WebSocket - FastAPI server       │
+│  Status, positions, trades, agent endpoints  │
+├─ NOTIFICATIONS (keryxflow/notifications/) ──┤
+│  Webhook notifications - Discord & Telegram  │
+│  Trade alerts, position updates              │
 ├─ EXCHANGE (keryxflow/exchange/) ────────────┤
-│  Connectivity - CCXT/Binance wrapper         │
+│  Multi-exchange - Binance, Bybit adapters    │
 │  Paper trading engine, order execution       │
 └─ CORE (keryxflow/core/) ────────────────────┘
    Event bus, SQLite/SQLModel, logging, models
@@ -81,13 +87,13 @@ Price Update → OHLCV Buffer → Memory Context → Oracle (Signal) → Aegis (
 await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 ```
 
-**Key event types:** PRICE_UPDATE, SIGNAL_GENERATED, ORDER_APPROVED, ORDER_REJECTED, ORDER_FILLED, POSITION_OPENED, POSITION_CLOSED, CIRCUIT_BREAKER_TRIGGERED, PANIC_TRIGGERED
+**Key event types:** PRICE_UPDATE, SIGNAL_GENERATED, ORDER_APPROVED, ORDER_REJECTED, ORDER_FILLED, POSITION_OPENED, POSITION_CLOSED, CIRCUIT_BREAKER_TRIGGERED, PANIC_TRIGGERED, STOP_LOSS_TRAILED, STOP_LOSS_BREAKEVEN
 
 ## Code Patterns
 
 - **Async everywhere**: All I/O operations use async/await with tenacity retries
 - **Configuration**: Pydantic Settings (`config.py`) loads from `.env` and `settings.toml`. Access via `get_settings()` singleton. Nested settings use prefixes (e.g., `KERYXFLOW_RISK_`, `KERYXFLOW_ORACLE_`).
-- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()`, `get_cognitive_agent()`, `get_reflection_engine()`, `get_strategy_manager()`, `get_task_scheduler()`, `get_trading_session()` for shared instances
+- **Global singletons**: Use `get_event_bus()`, `get_settings()`, `get_risk_manager()`, `get_signal_generator()`, `get_memory_manager()`, `get_trading_toolkit()`, `get_tool_executor()`, `get_cognitive_agent()`, `get_reflection_engine()`, `get_strategy_manager()`, `get_task_scheduler()`, `get_trading_session()`, `get_trailing_stop_manager()`, `get_notification_manager()`, `get_exchange_adapter()`, `get_bybit_client()` for shared instances
 - **Type hints required**: All functions need complete type annotations
 - **Database**: SQLModel with aiosqlite (async SQLite)
 - **Event dispatch**: `publish()` queues async, `publish_sync()` dispatches immediately and waits
@@ -96,7 +102,7 @@ await event_bus.publish(Event(type=EventType.SIGNAL_GENERATED, data={...}))
 
 Tests use pytest-asyncio in auto mode. Important patterns:
 
-- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `cognitive._agent`, `reflection._reflection_engine`, `scheduler._scheduler`, `session._session`, `strategy._strategy_manager`, `risk._risk_manager`
+- **Global singleton reset**: The `conftest.py` fixture `setup_test_database` resets all global singletons before each test. If you add a new singleton, add its reset to this fixture. Current singletons reset: `config._settings`, `database._engine`, `database._async_session_factory`, `events._event_bus`, `paper._paper_engine`, `episodic._episodic_memory`, `semantic._semantic_memory`, `manager._memory_manager`, `tools._toolkit`, `executor._executor`, `cognitive._agent`, `reflection._reflection_engine`, `scheduler._scheduler`, `session._session`, `strategy._strategy_manager`, `risk._risk_manager`, `trailing._trailing_stop_manager`, `notifications.manager._notification_manager`, `exchange.client._exchange_adapter`, `exchange.bybit._bybit_client`
 - **Async fixtures**: Use `@pytest_asyncio.fixture` for async fixtures, regular `@pytest.fixture` for sync
 - **Database isolation**: Each test gets a fresh SQLite database in `tmp_path`
 
@@ -107,7 +113,7 @@ Tests use pytest-asyncio in auto mode. Important patterns:
 ```
 Types: feat, fix, refactor, test, docs, chore
 
-Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer, notifications, memory, agent
+Scopes: core, hermes, oracle, aegis, exchange, backtester, optimizer, notifications, memory, agent, api
 
 ## Memory System
 
@@ -342,6 +348,117 @@ The Hermes TUI (`keryxflow/hermes/app.py`) provides real-time agent control:
 - Shows cycles completed with success rate
 - Displays trades count, win rate, and PnL
 - Shows tool calls and tokens used
+
+## REST API & WebSocket
+
+The API module (`keryxflow/api/`) provides a FastAPI server for external access to the trading engine:
+
+**REST Endpoints:**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/status` | Engine status and uptime |
+| GET | `/api/positions` | Current open positions |
+| GET | `/api/trades` | Trade history |
+| GET | `/api/balance` | Account balance |
+| POST | `/api/panic` | Emergency stop all trading |
+| POST | `/api/pause` | Pause/resume trading |
+| GET | `/api/agent/status` | Cognitive agent session status |
+
+**WebSocket:**
+- `ws://host:port/ws/events` — Real-time event stream (prices, signals, orders, positions)
+
+**Configuration** (`config.py` → `ApiSettings`, prefix `KERYXFLOW_API_`):
+```python
+KERYXFLOW_API_HOST=0.0.0.0           # Bind address
+KERYXFLOW_API_PORT=8000              # Server port
+KERYXFLOW_API_TOKEN=your-secret      # Bearer token for authentication
+KERYXFLOW_API_CORS_ORIGINS=["*"]     # Allowed CORS origins
+```
+
+## Trailing Stop
+
+The Trailing Stop module (`keryxflow/aegis/trailing.py`) provides dynamic stop-loss management:
+
+- **TrailingStopManager**: Manages trailing stops for all active positions. Use `get_trailing_stop_manager()` singleton.
+- **TrailingStopState**: Tracks per-position state (highest price, current stop level, activated flag).
+
+**Methods:**
+- `start_tracking(symbol, entry_price, initial_stop)` — Begin tracking a new position
+- `update_price(symbol, current_price)` — Update with latest price, adjusts stop level
+- `get_stop_level(symbol)` — Get current trailing stop price
+- `should_trigger_stop(symbol, current_price)` — Check if stop should fire
+- `reset(symbol)` — Clear tracking for a position
+
+**Configuration** (`config.py` → `RiskSettings`):
+```python
+KERYXFLOW_RISK_TRAILING_STOP_ENABLED=true    # Enable trailing stops
+KERYXFLOW_RISK_TRAILING_STOP_PCT=2.0         # Trail distance percentage
+KERYXFLOW_RISK_TRAILING_ACTIVATION_PCT=1.0   # Activation threshold (profit %)
+```
+
+**Events:** `STOP_LOSS_TRAILED` (stop level moved up), `STOP_LOSS_BREAKEVEN` (stop moved to entry price)
+
+## Notifications
+
+The Notifications module (`keryxflow/notifications/`) provides webhook-based trade alerts:
+
+- **NotificationManager**: Routes notifications to configured channels. Use `get_notification_manager()` singleton.
+- **DiscordNotifier**: Sends formatted messages via Discord webhooks.
+- **TelegramNotifier**: Sends formatted messages via Telegram Bot API.
+
+**Event Subscriptions:** Automatically sends notifications on `POSITION_OPENED` and `POSITION_CLOSED` events.
+
+**Configuration** (`config.py` → `NotificationSettings`, prefix `KERYXFLOW_NOTIFY_`):
+```python
+KERYXFLOW_NOTIFY_DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
+KERYXFLOW_NOTIFY_TELEGRAM_BOT_TOKEN=your-bot-token
+KERYXFLOW_NOTIFY_TELEGRAM_CHAT_ID=your-chat-id
+```
+
+## Multi-Exchange
+
+The Exchange module (`keryxflow/exchange/`) supports multiple exchanges via a unified adapter interface:
+
+- **ExchangeAdapter** (ABC): Abstract base class defining the exchange interface (connect, fetch_ticker, fetch_ohlcv, create_order, etc.).
+- **ExchangeClient** (`client.py`): Binance implementation using CCXT. Use `get_exchange_adapter()` singleton.
+- **BybitClient** (`bybit.py`): Bybit implementation. Use `get_bybit_client()` singleton.
+- **Factory**: `get_exchange_adapter()` returns the configured exchange based on settings.
+
+**Configuration** (`config.py`):
+```python
+KERYXFLOW_EXCHANGE=binance            # Exchange to use: binance, bybit
+```
+
+## Backtester Enhancements
+
+The Backtester module (`keryxflow/backtester/`) includes advanced validation tools:
+
+### Walk-Forward Analysis (`walk_forward.py`)
+
+**WalkForwardEngine** splits historical data into rolling train/test windows to validate strategy robustness and detect overfitting:
+
+```python
+from keryxflow.backtester import WalkForwardEngine
+
+engine = WalkForwardEngine(train_ratio=0.7, num_folds=5)
+results = await engine.run(strategy, data)
+```
+
+### Monte Carlo Simulation (`monte_carlo.py`)
+
+**MonteCarloSimulator** runs randomized permutations of trade sequences to estimate risk metrics (drawdown distribution, probability of ruin):
+
+```python
+from keryxflow.backtester import MonteCarloSimulator
+
+simulator = MonteCarloSimulator(num_simulations=1000)
+results = simulator.run(trade_results)
+```
+
+### HTML Reports
+
+Backtester now generates interactive HTML reports with equity curves, drawdown charts, and trade tables via `ReportGenerator`.
 
 ## Safety Rules
 

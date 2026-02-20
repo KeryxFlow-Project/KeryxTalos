@@ -130,7 +130,7 @@ class SystemSettings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="KERYXFLOW_")
 
     exchange: str = "binance"
-    mode: Literal["paper", "live"] = "paper"
+    mode: Literal["paper", "live", "demo"] = "paper"
     ai_mode: Literal["disabled", "enhanced", "autonomous"] = "disabled"
     symbols: list[str] = ["BTC/USDT", "ETH/USDT"]
     base_currency: str = "USDT"

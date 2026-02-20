@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from keryxflow.core.logging import get_logger
+from keryxflow.exchange.adapter import ExchangeAdapter
 
 logger = get_logger(__name__)
 
@@ -18,7 +19,7 @@ _AMPLITUDE = _BASE_PRICE * 0.02  # 2% = 840
 _CYCLE_PERIOD = 24  # 24h sine wave cycle
 
 
-class DemoExchangeClient:
+class DemoExchangeClient(ExchangeAdapter):
     """Exchange client that returns fully synthetic data for demo/testing purposes.
 
     Provides hardcoded BTC/USDT ticker data, a fake USDT balance,
@@ -27,6 +28,7 @@ class DemoExchangeClient:
     """
 
     def __init__(self) -> None:
+        self._connected: bool = False
         self._ticker: dict[str, Any] = {
             "symbol": "BTC/USDT",
             "last": 42000.0,
@@ -40,6 +42,7 @@ class DemoExchangeClient:
             "datetime": datetime.fromtimestamp(_BASE_TIMESTAMP_MS / 1000, tz=UTC).isoformat(),
         }
         self._candles: list[list[float]] = self._generate_candles()
+        self._orders: dict[str, dict[str, Any]] = {}
         logger.info("demo_client_initialized", candles=len(self._candles))
 
     def _generate_candles(self) -> list[list[float]]:
@@ -60,12 +63,30 @@ class DemoExchangeClient:
 
         return candles
 
-    async def fetch_ticker(self, symbol: str = "BTC/USDT") -> dict[str, Any]:
+    # --- ExchangeAdapter interface ---
+
+    async def connect(self) -> bool:
+        """Simulate connection (always succeeds)."""
+        self._connected = True
+        logger.info("demo_client_connected")
+        return True
+
+    async def disconnect(self) -> None:
+        """Simulate disconnection."""
+        self._connected = False
+        logger.info("demo_client_disconnected")
+
+    @property
+    def is_connected(self) -> bool:
+        """Check if connected."""
+        return self._connected
+
+    async def get_ticker(self, symbol: str = "BTC/USDT") -> dict[str, Any]:
         """Return hardcoded ticker data."""
         logger.debug("demo_fetch_ticker", symbol=symbol)
         return {**self._ticker, "symbol": symbol}
 
-    async def fetch_balance(self) -> dict[str, Any]:
+    async def get_balance(self) -> dict[str, Any]:
         """Return a fake balance of 10000 USDT."""
         logger.debug("demo_fetch_balance")
         return {
@@ -74,55 +95,16 @@ class DemoExchangeClient:
             "used": {"USDT": 0.0},
         }
 
-    async def fetch_ohlcv(
+    async def get_ohlcv(
         self,
         symbol: str = "BTC/USDT",
         timeframe: str = "1h",
         limit: int = 100,
+        since: int | None = None,  # noqa: ARG002
     ) -> list[list[float]]:
         """Return pre-generated OHLCV candles."""
         logger.debug("demo_fetch_ohlcv", symbol=symbol, timeframe=timeframe, limit=limit)
         return self._candles[-limit:]
-
-    async def create_order(
-        self,
-        symbol: str,
-        side: str,
-        order_type: str,
-        amount: float,
-        price: float | None = None,
-    ) -> dict[str, Any]:
-        """Log the order and return a fake order dict."""
-        order_id = str(uuid.uuid4())
-        logger.info(
-            "demo_create_order",
-            order_id=order_id,
-            symbol=symbol,
-            side=side,
-            type=order_type,
-            amount=amount,
-            price=price,
-        )
-        return {
-            "id": order_id,
-            "symbol": symbol,
-            "side": side,
-            "type": order_type,
-            "amount": amount,
-            "price": price or _BASE_PRICE,
-            "status": "filled",
-            "timestamp": int(datetime.now(tz=UTC).timestamp() * 1000),
-        }
-
-    async def cancel_order(self, order_id: str, symbol: str = "BTC/USDT") -> dict[str, Any]:
-        """Return a success cancellation dict."""
-        logger.info("demo_cancel_order", order_id=order_id, symbol=symbol)
-        return {"id": order_id, "status": "canceled"}
-
-    async def fetch_open_orders(self, symbol: str = "BTC/USDT") -> list[dict[str, Any]]:
-        """Return an empty list of open orders."""
-        logger.debug("demo_fetch_open_orders", symbol=symbol)
-        return []
 
     async def get_order_book(self, symbol: str = "BTC/USDT", limit: int = 10) -> dict[str, Any]:
         """Return a synthetic order book with 10 levels and 0.1% spread."""
@@ -147,6 +129,109 @@ class DemoExchangeClient:
             "asks": asks,
             "timestamp": int(datetime.now(tz=UTC).timestamp() * 1000),
         }
+
+    async def create_market_order(
+        self,
+        symbol: str,
+        side: str,
+        amount: float,
+    ) -> dict[str, Any]:
+        """Create a simulated market order (immediately filled)."""
+        return await self._create_order(symbol, side, "market", amount, price=None)
+
+    async def create_limit_order(
+        self,
+        symbol: str,
+        side: str,
+        amount: float,
+        price: float,
+    ) -> dict[str, Any]:
+        """Create a simulated limit order (immediately filled)."""
+        return await self._create_order(symbol, side, "limit", amount, price=price)
+
+    async def place_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        amount: float,
+        price: float | None = None,
+    ) -> dict[str, Any]:
+        """Unified order placement."""
+        if order_type == "market":
+            return await self.create_market_order(symbol, side, amount)
+        elif order_type == "limit":
+            if price is None:
+                raise ValueError("Price is required for limit orders")
+            return await self.create_limit_order(symbol, side, amount, price)
+        else:
+            raise ValueError(f"Unsupported order type: {order_type}")
+
+    async def cancel_order(self, order_id: str, symbol: str = "BTC/USDT") -> dict[str, Any]:
+        """Return a success cancellation dict."""
+        logger.info("demo_cancel_order", order_id=order_id, symbol=symbol)
+        return {"id": order_id, "status": "canceled"}
+
+    async def get_order(self, order_id: str, symbol: str = "BTC/USDT") -> dict[str, Any]:
+        """Return stored order or a default filled order."""
+        if order_id in self._orders:
+            return self._orders[order_id]
+        return {
+            "id": order_id,
+            "symbol": symbol,
+            "status": "filled",
+        }
+
+    async def get_open_orders(self, symbol: str = "BTC/USDT") -> list[dict[str, Any]]:
+        """Return an empty list of open orders."""
+        logger.debug("demo_fetch_open_orders", symbol=symbol)
+        return []
+
+    async def start_price_feed(
+        self,
+        symbols: list[str] | None = None,
+        interval: float = 1.0,
+    ) -> None:
+        """No-op for demo client."""
+        logger.debug("demo_start_price_feed", symbols=symbols, interval=interval)
+
+    async def stop_price_feed(self) -> None:
+        """No-op for demo client."""
+        logger.debug("demo_stop_price_feed")
+
+    # --- Internal helpers ---
+
+    async def _create_order(
+        self,
+        symbol: str,
+        side: str,
+        order_type: str,
+        amount: float,
+        price: float | None = None,
+    ) -> dict[str, Any]:
+        """Log the order and return a fake order dict."""
+        order_id = str(uuid.uuid4())
+        logger.info(
+            "demo_create_order",
+            order_id=order_id,
+            symbol=symbol,
+            side=side,
+            type=order_type,
+            amount=amount,
+            price=price,
+        )
+        order = {
+            "id": order_id,
+            "symbol": symbol,
+            "side": side,
+            "type": order_type,
+            "amount": amount,
+            "price": price or _BASE_PRICE,
+            "status": "filled",
+            "timestamp": int(datetime.now(tz=UTC).timestamp() * 1000),
+        }
+        self._orders[order_id] = order
+        return order
 
 
 # Global singleton

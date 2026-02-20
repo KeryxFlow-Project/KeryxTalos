@@ -70,9 +70,15 @@ def initialize_sync() -> dict[str, Any]:
 
     # Create exchange client (but DON'T connect yet - that happens in TUI)
     print("\n  [3/3] Creating exchange client...")
+    is_demo = settings.system.mode == "demo"
     sandbox = settings.system.mode == "paper"
     client = get_exchange_adapter(sandbox=sandbox)
-    print(f"        ✓ {settings.system.exchange.capitalize()} client ready (will connect in TUI)")
+    if is_demo:
+        print("        ✓ Demo client ready (synthetic data)")
+    else:
+        print(
+            f"        ✓ {settings.system.exchange.capitalize()} client ready (will connect in TUI)"
+        )
 
     # Create trading engine (but DON'T start yet - that happens in TUI)
     trading_engine = TradingEngine(

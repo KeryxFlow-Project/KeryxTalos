@@ -293,7 +293,7 @@ class TestExchangeFactory:
 
         # Mock settings to return 'bybit' for exchange
         with patch("keryxflow.config.get_settings") as mock_settings:
-            mock_system = type("System", (), {"exchange": "bybit"})()
+            mock_system = type("System", (), {"exchange": "bybit", "mode": "paper"})()
             mock_settings.return_value = type("Settings", (), {"system": mock_system})()
             adapter = get_exchange_adapter(sandbox=True)
             assert isinstance(adapter, BybitClient)
@@ -303,7 +303,9 @@ class TestExchangeFactory:
         from keryxflow.exchange import get_exchange_adapter
 
         with patch("keryxflow.config.get_settings") as mock_settings:
-            mock_system = type("System", (), {"exchange": "kraken"})()
+            mock_system = type(
+                "System", (), {"exchange": "unsupported_exchange", "mode": "paper"}
+            )()
             mock_settings.return_value = type("Settings", (), {"system": mock_system})()
             with pytest.raises(ValueError, match="Unsupported exchange"):
                 get_exchange_adapter()

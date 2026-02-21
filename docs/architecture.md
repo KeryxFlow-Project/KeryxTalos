@@ -213,7 +213,7 @@ class ExchangeAdapter(ABC):
 
 **Trailing Stop:** `TrailingStopManager` ratchets stop-loss levels upward as price moves favorably. Integrates into the TradingEngine price loop.
 
-**Events emitted:** `ORDER_APPROVED`, `ORDER_REJECTED`, `CIRCUIT_BREAKER_TRIGGERED`, `RISK_ALERT`, `DRAWDOWN_WARNING`, `STOP_LOSS_TRAILED`, `STOP_LOSS_BREAKEVEN`
+**Events emitted:** `ORDER_APPROVED`, `ORDER_REJECTED`, `CIRCUIT_BREAKER_TRIGGERED`, `RISK_ALERT`, `DRAWDOWN_WARNING`
 
 **Singletons:** `get_risk_manager()`, `get_trailing_stop_manager()`
 
@@ -504,7 +504,7 @@ The event bus (`keryxflow/core/events.py`) is the backbone of inter-module commu
 | | `AGENT_EXECUTION_COMPLETED` | Executor agent finished |
 | **Tool** | `TOOL_EXECUTED` | Agent tool call completed |
 
-**Total: 33 event types across 10 categories.**
+**Total: 34 event types across 11 categories.**
 
 ---
 

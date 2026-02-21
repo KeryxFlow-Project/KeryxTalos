@@ -74,7 +74,7 @@ X-Webhook-Secret: my-webhook-secret
 
 ## REST Endpoints
 
-All REST endpoints are under the `/api` prefix and require bearer token auth (if configured).
+All REST endpoints are under the `/api` prefix. The data endpoints (`/api/status`, `/api/positions`, `/api/trades`, `/api/balance`) require bearer token auth (if configured). The action endpoints (`/api/panic`, `/api/pause`) and `/api/agent/status` do not require authentication.
 
 ### GET /api/status
 
@@ -198,11 +198,11 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/balance
 
 ### GET /api/agent/status
 
-Returns the cognitive agent session state and statistics.
+Returns the cognitive agent session state and statistics. This endpoint does not require authentication.
 
 **curl:**
 ```bash
-curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/agent/status
+curl http://localhost:8080/api/agent/status
 ```
 
 **Response:**
@@ -223,11 +223,11 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/agent/status
 
 ### POST /api/panic
 
-Triggers an emergency stop: closes all open positions and pauses trading. No request body required.
+Triggers an emergency stop: closes all open positions and pauses trading. No request body required. This endpoint does not require authentication.
 
 **curl:**
 ```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/panic
+curl -X POST http://localhost:8080/api/panic
 ```
 
 **Response:**
@@ -241,11 +241,11 @@ curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/panic
 
 ### POST /api/pause
 
-Toggles pause/resume for trading. If active, pauses. If paused, resumes. No request body required.
+Toggles pause/resume for trading. If active, pauses. If paused, resumes. No request body required. This endpoint does not require authentication.
 
 **curl:**
 ```bash
-curl -X POST -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/pause
+curl -X POST http://localhost:8080/api/pause
 ```
 
 **Response (paused):**

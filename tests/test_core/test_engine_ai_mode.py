@@ -1,17 +1,19 @@
 """Tests for ai_mode configuration and engine branching logic."""
 
-import os
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+import keryxflow.config as config_module
 from keryxflow.config import SystemSettings
 
 
 class TestAiModeConfig:
     """Tests for ai_mode field on SystemSettings."""
 
-    def test_default_ai_mode_is_disabled(self):
+    def test_default_ai_mode_is_disabled(self, monkeypatch):
+        monkeypatch.delenv("KERYXFLOW_AI_MODE", raising=False)
+        monkeypatch.delenv("KERYXFLOW_AGENT_ENABLED", raising=False)
         settings = SystemSettings()
         assert settings.ai_mode == "disabled"
 
@@ -33,31 +35,27 @@ class TestAiModeConfig:
         with pytest.raises(ValidationError):
             SystemSettings(ai_mode="turbo")
 
-    def test_ai_mode_from_env_var(self):
-        os.environ["KERYXFLOW_AI_MODE"] = "enhanced"
-        try:
-            settings = SystemSettings()
-            assert settings.ai_mode == "enhanced"
-        finally:
-            del os.environ["KERYXFLOW_AI_MODE"]
+    def test_ai_mode_from_env_var(self, monkeypatch):
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "enhanced")
+        settings = SystemSettings()
+        assert settings.ai_mode == "enhanced"
 
 
 class TestEngineAiMode:
     """Tests for TradingEngine ai_mode branching."""
 
-    def _make_engine(self, ai_mode: str = "disabled", agent_enabled: bool = False):
+    @staticmethod
+    def _make_engine(monkeypatch, ai_mode: str = "disabled", agent_enabled: bool = False):
         """Create a TradingEngine with mocked dependencies."""
         from keryxflow.core.engine import TradingEngine
 
-        os.environ["KERYXFLOW_AI_MODE"] = ai_mode
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", ai_mode)
         if agent_enabled:
-            os.environ["KERYXFLOW_AGENT_ENABLED"] = "true"
+            monkeypatch.setenv("KERYXFLOW_AGENT_ENABLED", "true")
         else:
-            os.environ.pop("KERYXFLOW_AGENT_ENABLED", None)
+            monkeypatch.delenv("KERYXFLOW_AGENT_ENABLED", raising=False)
 
         # Reset settings singleton so new env vars take effect
-        import keryxflow.config as config_module
-
         config_module._settings = None
 
         exchange = MagicMock()
@@ -76,36 +74,36 @@ class TestEngineAiMode:
         )
         return engine
 
-    def test_disabled_mode_sets_ai_mode(self):
-        engine = self._make_engine("disabled")
+    def test_disabled_mode_sets_ai_mode(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "disabled")
         assert engine._ai_mode == "disabled"
         assert engine._agent_mode is False
 
-    def test_enhanced_mode_sets_ai_mode(self):
-        engine = self._make_engine("enhanced")
+    def test_enhanced_mode_sets_ai_mode(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "enhanced")
         assert engine._ai_mode == "enhanced"
         assert engine._agent_mode is False
 
-    def test_autonomous_mode_sets_ai_mode(self):
-        engine = self._make_engine("autonomous")
+    def test_autonomous_mode_sets_ai_mode(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "autonomous")
         assert engine._ai_mode == "autonomous"
         assert engine._agent_mode is True
 
-    def test_backward_compat_agent_enabled_promotes_to_autonomous(self):
+    def test_backward_compat_agent_enabled_promotes_to_autonomous(self, monkeypatch):
         """When ai_mode=disabled but agent.enabled=True, promote to autonomous."""
-        engine = self._make_engine("disabled", agent_enabled=True)
+        engine = self._make_engine(monkeypatch, "disabled", agent_enabled=True)
         assert engine._ai_mode == "autonomous"
         assert engine._agent_mode is True
 
-    def test_explicit_ai_mode_overrides_agent_enabled(self):
+    def test_explicit_ai_mode_overrides_agent_enabled(self, monkeypatch):
         """When ai_mode=enhanced, agent.enabled=True should not promote to autonomous."""
-        engine = self._make_engine("enhanced", agent_enabled=True)
+        engine = self._make_engine(monkeypatch, "enhanced", agent_enabled=True)
         assert engine._ai_mode == "enhanced"
         assert engine._agent_mode is False
 
     @pytest.mark.asyncio
-    async def test_analyze_symbol_disabled_uses_no_llm(self):
-        engine = self._make_engine("disabled")
+    async def test_analyze_symbol_disabled_uses_no_llm(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "disabled")
         engine._ohlcv_buffer = MagicMock()
         engine._ohlcv_buffer.get_ohlcv.return_value = MagicMock(__len__=lambda _: 50)
         engine.signals.generate_signal = AsyncMock(
@@ -126,8 +124,8 @@ class TestEngineAiMode:
         assert call_kwargs["include_llm"] is False
 
     @pytest.mark.asyncio
-    async def test_analyze_symbol_enhanced_uses_llm(self):
-        engine = self._make_engine("enhanced")
+    async def test_analyze_symbol_enhanced_uses_llm(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "enhanced")
         engine._ohlcv_buffer = MagicMock()
         engine._ohlcv_buffer.get_ohlcv.return_value = MagicMock(__len__=lambda _: 50)
         engine.signals.generate_signal = AsyncMock(
@@ -148,8 +146,8 @@ class TestEngineAiMode:
         assert call_kwargs["include_llm"] is True
 
     @pytest.mark.asyncio
-    async def test_analyze_symbol_autonomous_runs_agent_cycle(self):
-        engine = self._make_engine("autonomous")
+    async def test_analyze_symbol_autonomous_runs_agent_cycle(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "autonomous")
         engine._cognitive_agent = MagicMock()
         engine._cognitive_agent._initialized = True
         engine._cognitive_agent.run_cycle = AsyncMock(
@@ -166,8 +164,8 @@ class TestEngineAiMode:
 
         engine._cognitive_agent.run_cycle.assert_awaited_once_with(["BTC/USDT"])
 
-    def test_get_status_includes_ai_mode(self):
-        engine = self._make_engine("enhanced")
+    def test_get_status_includes_ai_mode(self, monkeypatch):
+        engine = self._make_engine(monkeypatch, "enhanced")
         engine._ohlcv_buffer = MagicMock()
         engine._ohlcv_buffer._candles = {"BTC/USDT": []}
         status = engine.get_status()
@@ -178,10 +176,10 @@ class TestBrainAiMode:
     """Tests for OracleBrain respecting ai_mode."""
 
     @pytest.mark.asyncio
-    async def test_brain_returns_fallback_when_disabled(self):
-        os.environ["KERYXFLOW_AI_MODE"] = "disabled"
-        import keryxflow.config as config_module
-
+    async def test_brain_returns_fallback_when_disabled(self, monkeypatch):
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "disabled")
+        monkeypatch.delenv("KERYXFLOW_ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         config_module._settings = None
 
         from keryxflow.oracle.brain import OracleBrain

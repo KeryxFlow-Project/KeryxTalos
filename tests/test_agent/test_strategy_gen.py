@@ -1,11 +1,11 @@
 """Tests for the Strategy Generator."""
 
 import json
-import os
 from unittest.mock import MagicMock
 
 import pytest
 
+import keryxflow.config as config_module
 from keryxflow.agent.strategy import (
     MarketRegime,
     StrategyType,
@@ -56,10 +56,16 @@ def _make_mock_response(text: str) -> MagicMock:
 class TestStrategyGenerator:
     """Tests for StrategyGenerator."""
 
+    @pytest.fixture(autouse=True)
+    def _setup_env(self, monkeypatch):
+        """Set up env vars for all tests in this class."""
+        monkeypatch.setenv("KERYXFLOW_ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "enhanced")
+        config_module._settings = None
+
     def _make_generator(self) -> StrategyGenerator:
         """Create a StrategyGenerator with a mocked client."""
-        os.environ["KERYXFLOW_ANTHROPIC_API_KEY"] = "test-key"
-        os.environ["KERYXFLOW_AI_MODE"] = "enhanced"
+        config_module._settings = None
         gen = StrategyGenerator()
         gen._client = MagicMock()
         return gen
@@ -90,20 +96,22 @@ class TestStrategyGenerator:
         assert strategy is not None
         assert strategy.name == "RSI EMA Crossover"
 
-    async def test_generate_ai_mode_disabled(self):
+    async def test_generate_ai_mode_disabled(self, monkeypatch):
         """Test that generation fails when ai_mode is disabled."""
-        os.environ["KERYXFLOW_AI_MODE"] = "disabled"
-        os.environ["KERYXFLOW_ANTHROPIC_API_KEY"] = "test-key"
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "disabled")
+        config_module._settings = None
         gen = StrategyGenerator()
         gen._client = MagicMock()
 
         with pytest.raises(ValueError, match="ai_mode"):
             await gen.generate("Buy when RSI below 30")
 
-    async def test_generate_no_client(self):
+    async def test_generate_no_client(self, monkeypatch):
         """Test that generation fails when no client is available."""
-        os.environ["KERYXFLOW_AI_MODE"] = "enhanced"
-        os.environ["KERYXFLOW_ANTHROPIC_API_KEY"] = ""
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "enhanced")
+        monkeypatch.setenv("KERYXFLOW_ANTHROPIC_API_KEY", "")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        config_module._settings = None
         gen = StrategyGenerator()
         # Client will be None since API key is empty
 
@@ -256,22 +264,24 @@ class TestStrategyGenerator:
 class TestGetStrategyGenerator:
     """Tests for the singleton getter."""
 
-    def test_singleton(self):
+    def test_singleton(self, monkeypatch):
         """Test that get_strategy_generator returns the same instance."""
-        os.environ["KERYXFLOW_ANTHROPIC_API_KEY"] = "test-key"
-        os.environ["KERYXFLOW_AI_MODE"] = "enhanced"
+        monkeypatch.setenv("KERYXFLOW_ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "enhanced")
+        config_module._settings = None
 
         gen1 = get_strategy_generator()
         gen2 = get_strategy_generator()
         assert gen1 is gen2
 
-    def test_singleton_reset(self):
+    def test_singleton_reset(self, monkeypatch):
         """Test that singleton is properly reset between tests."""
         import keryxflow.agent.strategy_gen as mod
 
         mod._strategy_generator = None
-        os.environ["KERYXFLOW_ANTHROPIC_API_KEY"] = "test-key"
-        os.environ["KERYXFLOW_AI_MODE"] = "enhanced"
+        monkeypatch.setenv("KERYXFLOW_ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setenv("KERYXFLOW_AI_MODE", "enhanced")
+        config_module._settings = None
 
         gen = get_strategy_generator()
         assert gen is not None

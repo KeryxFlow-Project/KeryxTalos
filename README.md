@@ -18,109 +18,37 @@
 ![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Status](https://img.shields.io/badge/Status-MVP-orange)
-![Binance](https://img.shields.io/badge/Exchange-Binance-yellow?logo=binance)
-![Claude](https://img.shields.io/badge/AI-Claude-blueviolet)
 
 ---
 
-An AI-powered trading assistant that helps you accumulate Bitcoin.
+An AI-powered cryptocurrency trading engine that helps you accumulate Bitcoin.
 
-```
-┌─ KERYXFLOW v0.17.0 ─────────────────────────────────────── BTC: $67,234.50 ─┐
-│                                                                              │
-│  ┌─ BTC/USDT ─────────────────────────┐  ┌─ POSITIONS ────────────────────┐ │
-│  │     ▁▂▃▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█▇▆       │  │  BTC   0.052  +$234.50  +3.2%  │ │
-│  │  $67,500 ┤        ╭──╮             │  │  ETH   1.205  -$45.20   -1.1%  │ │
-│  │          │       ╭╯  ╰╮   ╭╮      │  │  SOL   15.00  +$89.00   +2.8%  │ │
-│  │  $67,000 ┤   ╭──╯     ╰──╯ ╰╮     │  ├────────────────────────────────┤ │
-│  │          │ ╭─╯               ╰─    │  │  TOTAL        +$278.30  +2.1%  │ │
-│  │  $66,500 ┼─╯                       │  └────────────────────────────────┘ │
-│  │          └─────────────────────────│                                     │
-│  │  RSI: 58 ████████░░  MACD: ▲ bull  │  ┌─ AEGIS ────────────────────────┐ │
-│  └────────────────────────────────────┘  │  Status:     ● ARMED           │ │
-│                                          │  Daily PnL:  +$278.30 (+2.1%)  │ │
-│  ┌─ ORACLE ───────────────────────────┐  │  Drawdown:   -0.8% of 5% max   │ │
-│  │  ▶ Context: BULLISH (0.72)         │  └────────────────────────────────┘ │
-│  │  ▶ News: ETF inflows continue...   │                                     │
-│  │  ▶ Signal: BTC LONG @ $67,200      │  ┌─ AGENT ────────────────────────┐ │
-│  │    Confidence: 0.78 | RR: 2.4      │  │  Mode:       ● RUNNING         │ │
-│  └────────────────────────────────────┘  │  Cycles:     42 (████░░ 85%)   │ │
-│                                          │  Trades:     5 (60% WR) +$150  │ │
-│  ┌─ LOGS ─────────────────────────────────│  Tokens:     12.5K             │
-│  │  14:32:01 [ORACLE] Signal: BTC LONG    └────────────────────────────────┘ │
-│  │  14:32:02 [AEGIS]  Approved: 0.05 BTC                                     │
-│  │  14:32:03 [EXEC]   Filled @ $67,234   ┌─ STATS ────────────────────────┐ │
-│  │  14:32:15 [AGENT]  Cycle complete      │  Win Rate:   62% (31/50)       │ │
-│  └────────────────────────────────────────│  Expectancy: +$42.30/trade     │
-│                                           └────────────────────────────────┘ │
-│  [P]anic  [A]gent  [Space]Pause  [L]ogs  [Q]uit              Stack sats. ₿   │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
+- Watches cryptocurrency prices in real-time
+- Uses AI (Claude) to analyze market context autonomously
+- Finds trading opportunities using technical analysis, not emotions
+- Protects your capital with immutable risk guardrails
+- Learns from every trade via episodic memory and reflections
 
----
-
-## What is KeryxFlow?
-
-**In simple terms:** KeryxFlow is like having a smart assistant that watches the crypto market 24/7 and trades for you, following strict rules to protect your money.
-
-**What it does:**
-- 📊 Watches cryptocurrency prices in real-time
-- 🤖 Uses AI (Claude) to understand market news and sentiment
-- 📈 Finds trading opportunities using math, not emotions
-- 🛡️ Protects your capital with strict risk rules
-- 💻 Shows everything in a beautiful terminal interface
-
-**What it doesn't do:**
-- ❌ Guarantee profits (no one can)
-- ❌ Require you to understand complex trading
-- ❌ Take custody of your funds (your keys stay yours)
-
----
-
-## Who is this for?
-
-### 🌱 Beginners
-
-Never traded before? That's fine.
-
-KeryxFlow has a **Simple Mode** that:
-- Asks a few questions about your goals
-- Configures everything automatically
-- Uses conservative settings to protect you while you learn
-- Explains what it's doing in plain language
-
-### 🎯 Experienced Traders
-
-Want full control? **Advanced Mode** gives you:
-- Custom technical indicators
-- Fine-tuned risk parameters
-- Strategy customization
-- Raw market data access
+**Open source because trust requires transparency.**
 
 ---
 
 ## Quick Start
 
-> **Want the full walkthrough?** See the [5-Minute Quickstart Guide](docs/quickstart.md) for a step-by-step tutorial covering installation, the TUI, backtesting, and trading modes.
+> Full walkthrough: [5-Minute Quickstart Guide](docs/quickstart.md)
 
-### What you'll need
+### Prerequisites
 
-1. **A computer** with Python 3.12+ installed
-2. **A Binance account** ([create one here](https://www.binance.com))
-3. **An Anthropic API key** for Claude AI ([get one here](https://console.anthropic.com))
-4. **15 minutes** to set everything up
+- Python 3.12+
+- A Binance account ([create one](https://www.binance.com))
+- An Anthropic API key ([get one](https://console.anthropic.com))
 
 ### Installation
 
 ```bash
-# Download KeryxFlow
 git clone https://github.com/KeryxFlow-Project/Kerykeion.git keryxflow
 cd keryxflow
-
-# Install it
 poetry install
-
-# Set up your configuration
 cp .env.example .env
 ```
 
@@ -130,559 +58,90 @@ cp .env.example .env
 poetry run keryxflow
 ```
 
-On first launch, KeryxFlow will guide you through setup:
-
-```
-┌─ Welcome to KeryxFlow ─────────────────────────────────────┐
-│                                                            │
-│  Let's set up your trading assistant.                      │
-│                                                            │
-│  How much trading experience do you have?                  │
-│                                                            │
-│  [1] 🌱 I'm completely new to trading                      │
-│  [2] 📊 I know the basics (buy low, sell high)             │
-│  [3] 🎯 I'm an experienced trader                          │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
-
-Based on your answers, KeryxFlow configures itself appropriately.
+KeryxFlow starts in **paper trading mode** by default — no real money is used until you explicitly enable live trading.
 
 ---
 
-## How it Works (Simple Explanation)
+## Architecture
+
+KeryxFlow uses a 12-layer event-driven architecture. Modules communicate through an async event bus, not direct calls. The AI agent operates autonomously within immutable safety guardrails.
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   PRICES    │────▶│   ORACLE    │────▶│    AEGIS    │────▶│   EXECUTE   │
-│ Real-time   │     │ "Should we  │     │ "Is it safe │     │  "Do the    │
-│   updates   │     │   trade?"   │     │  to trade?" │     │   trade"    │
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │                   │
-       ▼                   ▼                   ▼                   ▼
-  From Binance       Analyzes with       Checks your risk     Places order
-  via WebSocket      TA + AI context     limits and rules     (or simulates)
+HERMES (TUI) ─── ENGINE (Orchestrator) ─── API (REST/WS)
+                      │
+         AGENT ── ORACLE ── AEGIS
+           │
+        MEMORY     EXCHANGE     NOTIFICATIONS
+                      │
+     BACKTESTER ── OPTIMIZER
+                      │
+                    CORE (Events, DB, Logging)
 ```
 
-The **TradingEngine** orchestrates this entire flow automatically:
+**Trading flow:** Price Update -> OHLCV Buffer -> Oracle/Agent Signal -> Aegis Approval -> Exchange Execution -> Memory Record
 
-1. **Price updates arrive** — Real-time prices from Binance are collected into OHLCV candles
-2. **Oracle analyzes** — Every 60 seconds, Oracle generates signals using technical indicators
-3. **Aegis validates** — Before any trade, risk limits are checked (position size, drawdown, max positions)
-4. **Execute** — Approved orders execute via Paper Engine or Live Exchange
-
-**You're always in control.** Press `P` for panic mode to close everything instantly.
+For full details, see [Architecture Reference](docs/architecture.md).
 
 ---
 
-## Concepts Explained
+## Safety
 
-New to trading? Here are the terms you'll see:
+| Protection | Description |
+|------------|-------------|
+| **Paper Mode Default** | Starts with simulated money |
+| **Immutable Guardrails** | Hardcoded limits: 10% max position, 5% daily loss cap, 20% max drawdown |
+| **Circuit Breaker** | Automatic trading halt on drawdown limits |
+| **Panic Button** | Press `P` to close everything immediately |
+| **AI Guardrail Enforcement** | All agent execution tools pass through `GuardrailEnforcer` |
 
-| Term | What it means | Why it matters |
-|------|---------------|----------------|
-| **Paper Trading** | Simulated trading with fake money | Practice without risk |
-| **Position** | An open trade you currently have | Shows what you own |
-| **PnL** | Profit and Loss | Are you winning or losing? |
-| **Stop-Loss** | Automatic sell if price drops too much | Limits your losses |
-| **Drawdown** | How much you've lost from your peak | Measures bad periods |
-
-Press `?` on any term in the interface to see its explanation.
+**Start with paper trading. Never invest more than you can afford to lose.**
 
 ---
 
-## Why KeryxFlow Exists
-
-The fiat monetary system is broken by design. Inflation erodes your savings while you sleep. Banks can freeze your accounts. Governments print money endlessly.
-
-**Bitcoin fixes this.** But holding isn't enough for everyone. Some of us want to actively grow our stack.
-
-KeryxFlow is a tool for sovereign individuals who want to:
-
-- **Accumulate Bitcoin** using algorithmic trading
-- **Trade on their own terms** with code they can audit
-- **Leverage AI** to read market context humans might miss
-- **Manage risk mathematically** because emotions destroy traders
-
-This is not a get-rich-quick scheme. This is infrastructure for disciplined wealth building.
-
-**Open source because trust requires transparency.**
-
----
-
-## Safety First
-
-KeryxFlow is built with safety as the top priority:
-
-### 🛡️ Multiple Protection Layers
-
-| Protection | What it does |
-|------------|--------------|
-| **Paper Mode Default** | Starts with simulated money, not real |
-| **Daily Loss Limit** | Stops trading if you lose too much in a day |
-| **Position Limits** | Never puts too much in one trade |
-| **Panic Button** | One key to close everything immediately |
-| **AI Validation** | Claude checks if news makes trading risky |
-
-### ⚠️ Warnings
-
-- **Start with paper trading.** Practice until you're comfortable.
-- **Never invest more than you can afford to lose.**
-- **Understand the risks before going live.**
-
----
-
-## Configuration
-
-### Simple Mode
-
-Answer a few questions and KeryxFlow configures itself:
-
-```
-What's your goal?
-[1] 🐢 Safety first — slow and steady (Conservative)
-[2] ⚖️ Balanced — moderate risk and reward (Balanced)
-[3] 🚀 Growth focused — higher risk tolerance (Aggressive)
-```
-
-### Advanced Mode
-
-Full control via `settings.toml`:
-
-```toml
-[risk]
-risk_per_trade = 0.01       # Risk 1% per trade
-max_daily_drawdown = 0.05   # Stop if down 5% today
-max_open_positions = 3      # Max 3 trades at once
-
-[oracle]
-llm_enabled = true
-llm_model = "claude-sonnet-4-20250514"
-
-[system]
-mode = "paper"              # "paper" or "live"
-symbols = ["BTC/USDT", "ETH/USDT"]
-```
-
----
-
-## Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| `q` | Quit |
-| `p` | **Panic** — close all positions immediately |
-| `Space` | Pause/Resume trading |
-| `a` | **Toggle Agent** — start/pause AI trading session |
-| `l` | Toggle logs panel |
-| `s` | Cycle through symbols |
-| `?` | Help / explain highlighted term |
-
----
-
-## Live Trading
-
-When you're ready to trade with real money, KeryxFlow has multiple safety layers.
-
-### Enabling Live Mode
-
-1. **Complete at least 30 paper trades** — Practice makes perfect
-2. **Configure your API keys** in `.env`:
-   ```bash
-   BINANCE_API_KEY=your_api_key
-   BINANCE_API_SECRET=your_api_secret
-   ```
-3. **Set mode to live** in `settings.toml`:
-   ```toml
-   [system]
-   mode = "live"
-   ```
-
-### Safeguards
-
-Before enabling live trading, KeryxFlow verifies:
-
-| Check | Requirement |
-|-------|-------------|
-| API Credentials | Binance API key and secret configured |
-| Minimum Balance | At least 100 USDT on exchange |
-| Paper History | 30+ paper trades completed |
-| Risk Settings | Conservative parameters |
-| Circuit Breaker | Not currently tripped |
-
-If any check fails, live trading is blocked with a clear explanation.
-
-### Notifications
-
-Get alerts on your phone when trades execute:
-
-**Telegram** — Create a bot via [@BotFather](https://t.me/botfather):
-```toml
-[notifications]
-telegram_enabled = true
-telegram_token = "your_bot_token"
-telegram_chat_id = "your_chat_id"
-```
-
-**Discord** — Create a webhook in Server Settings > Integrations:
-```toml
-[notifications]
-discord_enabled = true
-discord_webhook = "https://discord.com/api/webhooks/..."
-```
-
-Notifications include: order fills, circuit breaker triggers, daily summaries, and system errors.
-
----
-
-## Backtesting
-
-Test your strategy with historical data before risking real money.
+## Backtesting & Optimization
 
 ```bash
-# Backtest BTC/USDT for 6 months
-poetry run keryxflow-backtest \
-    --symbol BTC/USDT \
-    --start 2024-01-01 \
-    --end 2024-06-30 \
-    --timeframe 1h \
-    --balance 10000 \
-    --profile balanced
+# Backtest a strategy
+poetry run keryxflow-backtest --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30
+
+# Optimize parameters
+poetry run keryxflow-optimize --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30 --grid quick
 ```
 
-**Output:**
-```
-==================================================
-             BACKTEST REPORT
-==================================================
-
-PERFORMANCE
---------------------------------------------------
-  Initial Balance:    $10,000.00
-  Final Balance:      $12,450.00
-  Total Return:       +24.50%
-
-TRADES
---------------------------------------------------
-  Total Trades:       45
-  Win Rate:           62.2% (28/45)
-  Avg Win:            $234.50
-  Avg Loss:           $98.20
-  Profit Factor:      2.15
-  Expectancy:         $54.44/trade
-
-RISK
---------------------------------------------------
-  Max Drawdown:       -8.3%
-  Sharpe Ratio:       1.84
-==================================================
-```
-
-**Options:**
-- `--chart` — Show ASCII equity curve
-- `--trades N` — Show last N trades
-- `--output ./reports` — Save CSV files (trades + equity)
-- `--data ./csv/` — Load from local CSV instead of Binance
-
----
-
-## Parameter Optimization
-
-Find the best parameter combinations for your strategy using grid search.
-
-```bash
-# Quick optimization (27 combinations)
-poetry run keryxflow-optimize \
-    --symbol BTC/USDT \
-    --start 2024-01-01 \
-    --end 2024-06-30 \
-    --grid quick
-
-# Full optimization (2187 combinations)
-poetry run keryxflow-optimize \
-    --symbol BTC/USDT \
-    --start 2024-01-01 \
-    --end 2024-06-30 \
-    --grid full \
-    --output ./results
-```
-
-**Output:**
-```
-==================================================
-         OPTIMIZATION REPORT
-==================================================
-
-GRID SUMMARY
---------------------------------------------------
-  Parameters:     3
-  Combinations:   27
-  Total Runtime:  4m 32s
-
-TOP 5 RESULTS (by Sharpe Ratio)
---------------------------------------------------
-  #1  Sharpe: 2.14  Return: +34.5%  Win: 65%
-      rsi=14, risk=0.01, rr=1.5
-
-  #2  Sharpe: 1.98  Return: +28.2%  Win: 62%
-      rsi=14, risk=0.02, rr=1.5
-
-PARAMETER SENSITIVITY
---------------------------------------------------
-  rsi_period:
-       7 -> Avg Sharpe: 1.230
-      14 -> Avg Sharpe: 1.850 (best)
-      21 -> Avg Sharpe: 1.540
-
-BEST PARAMETERS
---------------------------------------------------
-  rsi_period: 14
-  risk_per_trade: 0.01
-  min_risk_reward: 1.5
-==================================================
-```
-
-**Grid Types:**
-| Grid | Combinations | Parameters |
-|------|--------------|------------|
-| `quick` | 27 | rsi_period, risk_per_trade, min_risk_reward |
-| `oracle` | 81 | rsi, macd_fast, macd_slow, bbands_std |
-| `risk` | 27 | risk_per_trade, min_risk_reward, atr_multiplier |
-| `full` | 2187 | All oracle + risk parameters |
-
-**Custom Parameters:**
-```bash
-poetry run keryxflow-optimize \
-    --symbol BTC/USDT \
-    --start 2024-01-01 \
-    --end 2024-06-30 \
-    --param rsi_period:7,14,21:oracle \
-    --param risk_per_trade:0.005,0.01,0.02:risk
-```
-
-See [docs/optimization.md](docs/optimization.md) for detailed documentation.
-
----
-
-## Architecture (Technical)
-
-For developers and curious minds:
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      HERMES (Interface)                      │
-│    Terminal UI • Agent Widget • Real-time Charts • Status    │
-├─────────────────────────────────────────────────────────────┤
-│                   TRADING ENGINE (Orchestrator)              │
-│      OHLCV Buffer • Signal Flow • Order Execution Loop       │
-├─────────────────────────────────────────────────────────────┤
-│                    AGENT (AI-First Trading)                  │
-│  Cognitive Agent • Session • Tools • Strategy • Reflection   │
-├─────────────────────────────────────────────────────────────┤
-│                      MEMORY (Learning)                       │
-│     Episodic Memory • Semantic Memory • Trade Episodes       │
-├─────────────────────────────────────────────────────────────┤
-│                      ORACLE (Intelligence)                   │
-│    Technical Analysis • News Feeds • Claude LLM Brain        │
-├─────────────────────────────────────────────────────────────┤
-│                      AEGIS (Risk & Math)                     │
-│    Position Sizing • Risk Manager • Circuit Breaker          │
-├─────────────────────────────────────────────────────────────┤
-│                      EXCHANGE (Connectivity)                 │
-│     Binance API • Paper Trading • Live Safeguards            │
-├─────────────────────────────────────────────────────────────┤
-│                    NOTIFICATIONS (Alerts)                    │
-│           Telegram • Discord • Event Subscriptions           │
-├─────────────────────────────────────────────────────────────┤
-│                     BACKTESTER (Validation)                  │
-│     Historical Replay • Performance Metrics • Reports        │
-├─────────────────────────────────────────────────────────────┤
-│                     OPTIMIZER (Tuning)                       │
-│    Parameter Grid • Grid Search • Sensitivity Analysis       │
-├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤
-│              LOGGING (Cross-Cutting — structlog)              │
-│    Dual-Audience Messages • JSON/Console • LogMessages        │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Hermes — The Interface
-
-Terminal UI built with [Textual](https://textual.textualize.io/). Inspired by `btop` and `htop`.
-
-### Trading Engine — The Orchestrator
-
-Central coordinator connecting all modules in a continuous loop:
-
-- **OHLCV Buffer**: Aggregates price updates into 1-minute candles
-- **Signal Flow**: Triggers Oracle analysis at configurable intervals
-- **Order Loop**: Routes signals through Aegis approval to execution
-
-### Oracle — The Intelligence
-
-Hybrid signal generation: quantitative math + cognitive AI.
-
-- **Technical Engine**: RSI, MACD, Bollinger Bands, OBV, ATR
-- **News Aggregator**: RSS feeds + news APIs
-- **LLM Brain**: Claude validates trading signals against news context
-
-### Aegis — The Guardian
-
-Mathematical risk management. Every order requires Aegis approval.
-
-- **Position Sizing**: Kelly criterion + fixed fractional
-- **Volatility Adaptation**: ATR-based dynamic stops
-- **Circuit Breaker**: Automatic shutdown on drawdown limits
-
-### Structured Logging — Cross-Cutting
-
-All modules use [structlog](https://www.structlog.org/) for structured, contextual logging.
-
-- **Dual-audience messages**: Every log event has a `simple` version (for beginners) and a `technical` version (for advanced users), via the `LogMessages` factory
-- **Output formats**: Colored console for development, JSON for production (`json_format=True`)
-- **Third-party noise suppression**: httpx, httpcore, and ccxt loggers are silenced to WARNING level
-- **Usage**: `get_logger(__name__)` in any module, `setup_logging()` at startup
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Language | Python 3.12+ |
-| Package Manager | Poetry |
-| Exchange | ccxt (Binance) |
-| Database | SQLModel + aiosqlite |
-| Analysis | numpy, pandas, pandas-ta |
-| AI | LangChain + Anthropic Claude |
-| Logging | structlog |
-| Interface | Textual |
-
----
-
-## Project Structure
-
-```
-keryxflow/
-├── keryxflow/
-│   ├── main.py              # Entrypoint
-│   ├── config.py            # Configuration
-│   ├── core/
-│   │   ├── engine.py        # TradingEngine orchestrator
-│   │   ├── events.py        # Event bus (pub/sub)
-│   │   ├── database.py      # SQLite persistence
-│   │   ├── models.py        # Data models
-│   │   ├── repository.py    # Trade persistence
-│   │   └── safeguards.py    # Live trading safety checks
-│   ├── agent/               # AI-First Trading
-│   │   ├── cognitive.py     # Cognitive Agent (autonomous trading)
-│   │   ├── tools.py         # Tool framework
-│   │   ├── executor.py      # Safe tool executor
-│   │   ├── strategy.py      # Strategy selection
-│   │   ├── reflection.py    # Learning & reflection
-│   │   ├── scheduler.py     # Task scheduling
-│   │   └── session.py       # Trading session management
-│   ├── memory/              # Trade memory
-│   │   ├── episodic.py      # Trade episodes
-│   │   ├── semantic.py      # Rules & patterns
-│   │   └── manager.py       # Memory manager
-│   ├── hermes/              # Terminal UI (Textual)
-│   ├── oracle/              # Intelligence (TA + LLM)
-│   ├── aegis/               # Risk Management
-│   ├── exchange/            # Binance + Paper Trading
-│   ├── backtester/          # Historical testing
-│   ├── optimizer/           # Parameter optimization
-│   └── notifications/       # Telegram + Discord alerts
-├── tests/
-├── docs/
-├── settings.toml
-└── pyproject.toml
-```
+See [Optimization Guide](docs/optimization.md) for details.
 
 ---
 
 ## Development
 
 ```bash
-# Run tests
-poetry run pytest
-
-# Lint and format
-poetry run ruff check .
-poetry run ruff format .
+poetry run pytest                    # Run tests
+poetry run ruff check .              # Lint
+poetry run ruff format .             # Format
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [Development Guide](docs/development.md) and [Contributing](CONTRIBUTING.md).
 
 ---
 
-## Roadmap
+## Documentation
 
-- [x] Project structure and documentation
-- [x] Core infrastructure (database, events, logging)
-- [x] Exchange connectivity (Binance via CCXT)
-- [x] Paper trading engine
-- [x] Risk engine (Aegis) - position sizing, risk manager, circuit breaker
-- [x] **Runnable MVP** - `poetry run keryxflow`
-- [x] Technical analysis (Oracle) - RSI, MACD, Bollinger, OBV, ATR, EMA
-- [x] News feeds - RSS, CryptoPanic integration
-- [x] LLM integration (Claude) - market context analysis
-- [x] Terminal UI (Hermes) - Textual-based TUI
-- [x] Guided onboarding - experience & risk profile wizard
-- [x] Help modal with glossary integration
-- [x] Splash screen with Bitcoin orange branding
-- [x] TUI integrated with main entrypoint (`poetry run keryxflow`)
-- [x] **Full integration loop** - TradingEngine orchestrator (Price → Oracle → Aegis → Order)
-- [x] **Backtesting engine** - `poetry run keryxflow-backtest`
-- [x] **Live trading mode** - Real orders on Binance with safeguards
-- [x] **Notifications** - Telegram and Discord alerts
-- [x] **Parameter optimization** - `poetry run keryxflow-optimize` (grid search)
-- [x] **Multi-timeframe analysis** - Hierarchical trend filtering
-- [x] **Immutable guardrails** - Frozen safety limits
-- [x] **Memory system** - Trade episodes, rules, patterns
-- [x] **Agent tools** - 20 tools for Claude (perception, analysis, execution)
-- [x] **Cognitive Agent** - AI-first autonomous trading with Claude
-- [x] **Learning & Reflection** - Strategy selection, scheduled reflections
-- [x] **Trading session integration** - Full agent-driven trading loop
-- [x] **TUI Agent integration** - Agent widget and keybindings in Hermes
-- [x] **Structured logging** - structlog with dual-audience messages across all modules
-- [ ] Parallel optimization
-
----
-
-## FAQ
-
-### Is this safe to use?
-
-KeryxFlow starts in **paper trading mode** by default. No real money is used until you explicitly enable live trading.
-
-### Do I need trading experience?
-
-No. Simple Mode guides you through everything. But understanding what you're doing is always recommended.
-
-### How much money do I need?
-
-For paper trading: $0. For live trading: whatever you're comfortable potentially losing. Start small.
-
-### Can I lose money?
-
-**Yes.** Trading involves risk. KeryxFlow has safety features, but losses are always possible. Never trade with money you can't afford to lose.
-
-### Is this legal?
-
-Using trading bots is legal in most jurisdictions. Check your local laws and Binance's terms of service.
+| Document | Description |
+|----------|-------------|
+| [Quickstart](docs/quickstart.md) | 5-minute setup guide |
+| [Architecture](docs/architecture.md) | System design and module reference |
+| [Trading Guide](docs/trading-guide.md) | How the trading system works |
+| [Configuration](docs/configuration.md) | All configuration options |
+| [Strategy Guide](docs/strategy-guide.md) | Strategy creation and selection |
+| [API Reference](docs/api.md) | REST and WebSocket API |
+| [Optimization](docs/optimization.md) | Parameter optimization guide |
+| [Development](docs/development.md) | Developer setup and guidelines |
 
 ---
 
 ## Disclaimer
 
-This software is experimental. Cryptocurrency trading involves significant financial risk.
-
-- Past performance does not guarantee future results
-- Never trade with money you cannot afford to lose
-- Paper trade extensively before going live
-- The developers are not responsible for financial losses
-
-**Use at your own risk.**
+This software is experimental. Cryptocurrency trading involves significant financial risk. Past performance does not guarantee future results. Never trade with money you cannot afford to lose. **Use at your own risk.**
 
 ---
 

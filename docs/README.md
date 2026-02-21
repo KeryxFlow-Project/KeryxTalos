@@ -1,35 +1,43 @@
 # KeryxFlow Documentation
 
-This directory contains detailed documentation for the KeryxFlow project.
+Welcome to the KeryxFlow documentation. Use this index to find what you need.
 
-## Contents
+## Getting Started
 
 | Document | Description |
 |----------|-------------|
-| [Quickstart](quickstart.md) | 5-minute quickstart guide |
-| [Optimization](optimization.md) | Parameter optimization guide |
-| [Architecture](architecture.md) | System design and module interactions |
-| [API Reference](api.md) | Internal API documentation |
-| [Configuration](configuration.md) | Configuration options and examples |
-| [Trading Guide](trading-guide.md) | How the trading system works |
-| [Development](development.md) | Developer setup and guidelines |
+| [Quickstart](quickstart.md) | 5-minute guide to install, configure, and run KeryxFlow |
 
-## Quick Links
+## User Guide
 
-- [Main README](../README.md) - Project overview and quick start
-- [Contributing](../CONTRIBUTING.md) - How to contribute
-- [Changelog](../CHANGELOG.md) - Version history
+| Document | Description |
+|----------|-------------|
+| [Trading Guide](trading-guide.md) | How the trading system works: modes, signals, and safety |
+| [Configuration](configuration.md) | All configuration options, environment variables, and settings |
+| [Strategy Guide](strategy-guide.md) | Strategy types, market regime detection, and custom strategies |
 
-## Documentation Status
+## Architecture
 
-| Document | Status |
-|----------|--------|
-| Quickstart | Complete |
-| Optimization | Complete |
-| Architecture | Complete |
-| API Reference | Complete |
-| Configuration | Complete |
-| Trading Guide | Complete |
-| Development | Complete |
+| Document | Description |
+|----------|-------------|
+| [Architecture](architecture.md) | System design: 12-layer overview, event bus, all modules, database schema |
 
-All core documentation is now available.
+## Developer Guide
+
+| Document | Description |
+|----------|-------------|
+| [Development](development.md) | Developer setup, testing patterns, and contribution workflow |
+
+## Reference
+
+| Document | Description |
+|----------|-------------|
+| [API Reference](api.md) | REST endpoints, WebSocket events, and authentication |
+| [Optimization](optimization.md) | Parameter grid search, walk-forward analysis, and Monte Carlo |
+| [Strategic Analysis](strategic-analysis.md) | Market analysis methodology and competitive positioning |
+
+## Project Links
+
+- [Main README](../README.md) — Project overview and quick start
+- [Contributing](../CONTRIBUTING.md) — How to contribute
+- [Changelog](../CHANGELOG.md) — Version history

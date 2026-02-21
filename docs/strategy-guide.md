@@ -321,6 +321,22 @@ BacktestReporter.save_trades_csv(result, "output/trades.csv")
 BacktestReporter.save_equity_csv(result, "output/equity.csv")
 ```
 
+### HTML Reports
+
+The `HtmlReportGenerator` (`keryxflow/backtester/html_report.py`) produces self-contained HTML files with embedded matplotlib charts (equity curve, drawdown, trade distribution). It can include Monte Carlo and walk-forward results when available.
+
+```python
+from keryxflow.backtester.html_report import HtmlReportGenerator
+
+gen = HtmlReportGenerator()
+gen.generate(
+    backtest_result=result,
+    output_path="output/report.html",
+    monte_carlo_result=mc_result,       # optional
+    walk_forward_result=wf_result,      # optional
+)
+```
+
 ### CLI
 
 ```bash

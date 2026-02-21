@@ -1,26 +1,14 @@
 # KeryxFlow Development Guide
 
-This guide covers setting up a development environment and contributing to KeryxFlow.
+The definitive guide for developing KeryxFlow. Covers environment setup, project structure, code patterns, testing, and how to add new features.
 
 ## Prerequisites
 
-- **Python 3.12+** (required for pandas-ta)
-- **Poetry** for dependency management
-- **Git** for version control
+- **Python 3.12+** — Check with `python3 --version`
+- **Poetry** — Install with `curl -sSL https://install.python-poetry.org | python3 -`
+- **Git** — For version control
 
-### Installing Poetry
-
-```bash
-# macOS / Linux
-curl -sSL https://install.python-poetry.org | python3 -
-
-# Windows (PowerShell)
-(Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
-```
-
----
-
-## Setup
+## Development Environment Setup
 
 ### Clone and Install
 
@@ -41,39 +29,20 @@ cp .env.example .env
 For full functionality, add API keys to `.env`:
 
 ```bash
-# Binance (required for live data)
+# Exchange credentials (required for live data, not needed for paper trading)
 BINANCE_API_KEY=your_key
 BINANCE_API_SECRET=your_secret
 
-# Bybit (alternative exchange)
-BYBIT_API_KEY=your_key
-BYBIT_API_SECRET=your_secret
-
-# Anthropic (required for LLM features)
+# Anthropic (required for LLM/Agent features)
 ANTHROPIC_API_KEY=your_key
 ```
 
-### Additional Dependencies
-
-The following dependencies are used for the API server and testing:
-
-| Package | Purpose |
-|---------|---------|
-| `fastapi` | REST API for monitoring and control |
-| `uvicorn` | ASGI server to run the FastAPI app |
-| `httpx` | Async HTTP client (notifications, API testing) |
-| `websockets` | WebSocket support for real-time streaming |
-
-Install all dependencies (including these) with:
-
-```bash
-poetry install --with dev
-```
+Without API keys, KeryxFlow runs in **paper trading mode** with **technical-only analysis** (RSI, MACD, Bollinger Bands). This is fine for development.
 
 ### Verify Installation
 
 ```bash
-# Run the application
+# Run the application (paper trading mode)
 poetry run keryxflow
 
 # Run tests
@@ -83,126 +52,107 @@ poetry run pytest
 poetry run ruff check .
 ```
 
----
+## Running the Application
+
+### Paper Trading (Default)
+
+```bash
+poetry run keryxflow
+```
+
+Starts with $10,000 virtual USDT. On first launch, the onboarding wizard configures your risk profile.
+
+### Backtesting
+
+```bash
+poetry run keryxflow-backtest \
+    --symbol BTC/USDT \
+    --start 2024-01-01 \
+    --end 2024-06-30 \
+    --profile balanced
+```
+
+Useful flags: `--timeframe 1h`, `--balance 10000`, `--chart`, `--output ./reports`
+
+### Parameter Optimization
+
+```bash
+poetry run keryxflow-optimize \
+    --symbol BTC/USDT \
+    --start 2024-01-01 \
+    --end 2024-06-30 \
+    --grid quick
+```
+
+### API Server
+
+```bash
+# Development server with auto-reload
+poetry run uvicorn keryxflow.api:app --reload --port 8080
+
+# Test it
+curl http://localhost:8080/api/status
+```
+
+### TUI Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Q` | Quit |
+| `P` | Panic (emergency close all positions) |
+| `Space` | Pause / Resume trading |
+| `A` | Toggle AI Agent (start/pause/resume) |
+| `L` | Toggle logs panel |
+| `S` | Cycle through symbols |
+| `?` | Show help |
 
 ## Project Structure
 
 ```
 keryxflow/
-├── keryxflow/           # Main package
-│   ├── core/            # Foundation (events, database, logging)
-│   ├── hermes/          # Terminal UI
-│   ├── oracle/          # Intelligence (TA, LLM)
-│   ├── aegis/           # Risk management
-│   ├── exchange/        # Binance integration
-│   ├── backtester/      # Historical testing
-│   ├── optimizer/       # Parameter optimization
-│   └── notifications/   # Alerts (Telegram, Discord)
-├── tests/               # Tests (mirrors keryxflow structure)
+├── keryxflow/
+│   ├── core/            # Foundation: events, database, logging, models
+│   ├── hermes/          # Terminal UI (Textual framework)
+│   ├── oracle/          # Intelligence: technical analysis + LLM signals
+│   ├── aegis/           # Risk management: guardrails, position sizing, circuit breaker
+│   ├── exchange/        # Multi-exchange: Binance, Bybit, Kraken, OKX, paper trading
+│   ├── agent/           # AI framework: Cognitive Agent, tools, reflection, strategy
+│   ├── memory/          # Trade memory: episodic, semantic, patterns
+│   ├── backtester/      # Strategy backtesting: data loader, engine, reports
+│   ├── optimizer/       # Parameter optimization: grid search, comparator
+│   ├── notifications/   # Alert channels: Discord, Telegram webhooks
+│   ├── api/             # REST API & WebSocket (FastAPI)
+│   ├── strategies/      # Trading strategy definitions
+│   └── web/             # Web interface
+├── tests/               # Tests (mirrors keryxflow/ structure)
 ├── docs/                # Documentation
-├── scripts/             # Utility scripts
-├── settings.toml        # Configuration
-└── pyproject.toml       # Dependencies
+├── settings.toml        # Application configuration
+└── pyproject.toml       # Dependencies and project metadata
 ```
 
----
+### Module Responsibilities
 
-## Development Workflow
+| Module | Purpose | Key Principle |
+|--------|---------|---------------|
+| `core` | Events, database, models, logging | Stability over features |
+| `hermes` | Terminal UI (Textual) | Clarity over decoration |
+| `oracle` | Signal generation (indicators + LLM) | Accuracy over speed |
+| `aegis` | Risk management (guardrails, sizing) | Safety over opportunity |
+| `exchange` | Exchange connectivity (CCXT, paper) | Reliability over performance |
+| `agent` | AI tool framework (Cognitive Agent) | Autonomy with guardrails |
+| `memory` | Trade memory (episodic, semantic) | Learning over forgetting |
+| `backtester` | Strategy validation (historical data) | Accuracy over speed |
+| `optimizer` | Parameter optimization (grid search) | Thoroughness over shortcuts |
+| `notifications` | Alert channels (Discord, Telegram) | Delivery over silence |
+| `api` | REST API & WebSocket (FastAPI) | Simplicity over completeness |
 
-### 1. Create a Branch
+### Trading Loop
 
-```bash
-git checkout -b feature/your-feature-name
+```
+Price Update → OHLCV Buffer → Memory Context → Oracle (Signal) → Aegis (Approval) → Paper Engine (Order) → Memory Record
 ```
 
-Branch naming conventions:
-- `feature/` - New features
-- `fix/` - Bug fixes
-- `refactor/` - Code improvements
-- `docs/` - Documentation
-- `test/` - Test additions
-
-### 2. Make Changes
-
-Follow the coding standards below.
-
-### 3. Run Tests
-
-```bash
-# All tests
-poetry run pytest
-
-# Specific module
-poetry run pytest tests/test_aegis/
-
-# With coverage
-poetry run pytest --cov=keryxflow --cov-report=term-missing
-
-# Single test
-poetry run pytest tests/test_aegis/test_quant.py::test_position_size
-```
-
-### 4. Check Code Quality
-
-```bash
-# Lint
-poetry run ruff check .
-
-# Auto-fix issues
-poetry run ruff check --fix .
-
-# Format
-poetry run ruff format .
-```
-
-### 5. Commit
-
-```bash
-git add .
-git commit -m "feat(oracle): add RSI divergence detection"
-```
-
-Commit message format:
-```
-<type>(<scope>): <description>
-
-[optional body]
-```
-
-Types: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-
-Scopes: `core`, `hermes`, `oracle`, `aegis`, `exchange`, `backtester`, `optimizer`
-
-### 6. Push and Create PR
-
-```bash
-git push origin feature/your-feature-name
-```
-
-Then create a Pull Request on GitHub.
-
----
-
-## Coding Standards
-
-### Type Hints (Required)
-
-All functions must have complete type annotations:
-
-```python
-# Good
-def calculate_position_size(
-    balance: float,
-    risk_pct: float,
-    entry: float,
-    stop_loss: float,
-) -> float:
-    ...
-
-# Bad
-def calculate_position_size(balance, risk_pct, entry, stop_loss):
-    ...
-```
+## Code Patterns
 
 ### Async by Default
 
@@ -214,24 +164,78 @@ async def fetch_price(symbol: str) -> float:
     ticker = await self.exchange.fetch_ticker(symbol)
     return ticker["last"]
 
-# Bad
+# Bad - blocks event loop
 def fetch_price(symbol: str) -> float:
-    return requests.get(...)  # Blocks event loop
+    return requests.get(...)
 ```
 
 ### Event-Driven Communication
 
-Modules communicate via events, not direct calls:
+Modules communicate via the async event bus, not direct calls:
 
 ```python
+from keryxflow.core.events import get_event_bus, Event, EventType
+
 # Good
 await event_bus.publish(Event(
     type=EventType.SIGNAL_GENERATED,
     data={"symbol": "BTC/USDT", "signal_type": "long"}
 ))
 
-# Bad
-aegis.approve_order(order)  # Direct coupling
+# Bad - direct coupling
+aegis.approve_order(order)
+```
+
+Key event types: `PRICE_UPDATE`, `SIGNAL_GENERATED`, `ORDER_APPROVED`, `ORDER_REJECTED`, `ORDER_FILLED`, `POSITION_OPENED`, `POSITION_CLOSED`, `CIRCUIT_BREAKER_TRIGGERED`, `PANIC_TRIGGERED`, `STOP_LOSS_TRAILED`, `STOP_LOSS_BREAKEVEN`
+
+### Global Singletons
+
+Access shared instances via getter functions:
+
+```python
+from keryxflow.config import get_settings
+from keryxflow.core.events import get_event_bus
+from keryxflow.aegis.risk import get_risk_manager
+from keryxflow.agent.cognitive import get_cognitive_agent
+from keryxflow.memory.manager import get_memory_manager
+```
+
+Full list of singletons:
+
+| Module | Getter | Private Variable |
+|--------|--------|-----------------|
+| `config` | `get_settings()` | `_settings` |
+| `core.database` | — | `_engine`, `_async_session_factory` |
+| `core.events` | `get_event_bus()` | `_event_bus` |
+| `exchange.paper` | `get_paper_engine()` | `_paper_engine` |
+| `exchange.demo` | `get_demo_client()` | `_demo_client` |
+| `exchange.kraken` | `get_kraken_client()` | `_kraken_client` |
+| `exchange.okx` | `get_okx_client()` | `_okx_client` |
+| `memory.episodic` | `get_episodic_memory()` | `_episodic_memory` |
+| `memory.semantic` | `get_semantic_memory()` | `_semantic_memory` |
+| `memory.manager` | `get_memory_manager()` | `_memory_manager` |
+| `agent.tools` | `get_trading_toolkit()` | `_toolkit` |
+| `agent.executor` | `get_tool_executor()` | `_executor` |
+| `agent.cognitive` | `get_cognitive_agent()` | `_agent` |
+| `agent.reflection` | `get_reflection_engine()` | `_reflection_engine` |
+| `agent.scheduler` | `get_task_scheduler()` | `_scheduler` |
+| `agent.session` | `get_trading_session()` | `_session` |
+| `agent.strategy` | `get_strategy_manager()` | `_strategy_manager` |
+| `agent.strategy_gen` | `get_strategy_generator()` | `_strategy_generator` |
+| `aegis.risk` | `get_risk_manager()` | `_risk_manager` |
+
+### Type Hints (Required)
+
+All functions must have complete type annotations:
+
+```python
+def calculate_position_size(
+    balance: float,
+    risk_pct: float,
+    entry: float,
+    stop_loss: float,
+) -> float:
+    ...
 ```
 
 ### Configuration Over Hardcoding
@@ -244,36 +248,40 @@ risk_per_trade = settings.risk.risk_per_trade
 risk_per_trade = 0.01  # Magic number
 ```
 
-### Docstrings
+See [Configuration Reference](configuration.md) for all available settings.
 
-Use Google-style docstrings for public functions:
+### Structured Logging
 
 ```python
-def calculate_position_size(
-    balance: float,
-    risk_pct: float,
-    entry: float,
-    stop_loss: float,
-) -> float:
-    """Calculate position size based on risk percentage.
+from keryxflow.core.logging import get_logger
 
-    Args:
-        balance: Account balance in quote currency.
-        risk_pct: Risk percentage per trade (0.01 = 1%).
-        entry: Entry price.
-        stop_loss: Stop loss price.
+logger = get_logger(__name__)
 
-    Returns:
-        Position size in base currency.
-
-    Raises:
-        ValueError: If stop_loss equals entry price.
-    """
+logger.info("signal_generated", symbol="BTC/USDT", type="long")
+logger.warning("order_rejected", reason="Position too large")
+logger.error("connection_failed", error=str(e))
 ```
 
----
+## Testing
 
-## Testing Guidelines
+### Running Tests
+
+```bash
+# All tests
+poetry run pytest
+
+# With coverage
+poetry run pytest --cov=keryxflow --cov-report=term-missing
+
+# Specific module
+poetry run pytest tests/test_aegis/
+
+# Single test
+poetry run pytest tests/test_aegis/test_quant.py::test_position_size_returns_zero_when_stop_equals_entry
+
+# HTML coverage report
+poetry run pytest --cov=keryxflow --cov-report=html
+```
 
 ### Test Structure
 
@@ -281,71 +289,68 @@ Tests mirror the source structure:
 
 ```
 tests/
-├── conftest.py                    # Shared fixtures
-├── test_api/                      # REST API and WebSocket tests
-│   ├── test_routes.py
-│   └── test_websocket.py
-├── test_aegis/
-│   ├── test_circuit.py
-│   ├── test_guardrails.py
-│   ├── test_quant.py
-│   ├── test_risk.py
-│   └── test_trailing.py           # Trailing stop-loss tests
-├── test_agent/
-│   ├── test_analysis.py
-│   ├── test_cognitive.py
-│   ├── test_execution.py
-│   ├── test_executor.py
-│   ├── test_perception.py
-│   ├── test_reflection.py
-│   ├── test_scheduler.py
-│   ├── test_session.py
-│   ├── test_strategy.py
-│   └── test_tools.py
-├── test_backtester/
-│   ├── test_data.py
-│   ├── test_engine.py
-│   ├── test_html_report.py        # HTML report generation tests
-│   ├── test_monte_carlo.py        # Monte Carlo simulation tests
-│   └── test_walk_forward.py       # Walk-forward validation tests
-├── test_core/
-│   ├── test_engine.py
-│   ├── test_engine_trailing.py    # Engine trailing stop integration tests
-│   ├── test_mtf_buffer.py
-│   ├── test_repository.py
-│   └── test_safeguards.py
-├── test_exchange/
-│   ├── test_bybit.py              # Bybit adapter tests
-│   └── test_paper.py
-├── test_hermes/
-│   ├── test_app.py
-│   ├── test_help.py
-│   ├── test_onboarding.py
-│   └── test_widgets.py
-├── test_memory/
-│   ├── test_episodic.py
-│   ├── test_manager.py
-│   └── test_semantic.py
-├── test_notifications/
-│   ├── test_base.py
-│   ├── test_discord.py
-│   ├── test_manager.py
-│   └── test_telegram.py
-├── test_optimizer/
-│   ├── test_comparator.py
-│   ├── test_engine.py
-│   ├── test_grid.py
-│   └── test_report.py
-├── test_oracle/
-│   ├── test_brain.py
-│   ├── test_feeds.py
-│   ├── test_mtf_analyzer.py
-│   ├── test_mtf_signals.py
-│   ├── test_signals.py
-│   └── test_technical.py
-└── integration/
-    └── test_agent_session_e2e.py
+├── conftest.py              # Shared fixtures, singleton reset
+├── test_aegis/              # Risk management tests
+├── test_agent/              # AI agent and tools tests
+├── test_api/                # REST API and WebSocket tests
+├── test_backtester/         # Backtester engine and reports
+├── test_core/               # Engine, events, database tests
+├── test_exchange/           # Exchange adapters and paper trading
+├── test_hermes/             # TUI widget and app tests
+├── test_memory/             # Episodic, semantic, manager tests
+├── test_notifications/      # Discord, Telegram tests
+├── test_optimizer/          # Grid search and comparator tests
+├── test_oracle/             # Technical analysis and signals
+└── integration/             # End-to-end integration tests
 ```
+
+### Singleton Reset in conftest.py
+
+The `setup_test_database` fixture (autouse) resets all global singletons before each test for isolation. **If you add a new singleton, you must add its reset to `tests/conftest.py`.**
+
+Current singletons reset in `conftest.py`:
+
+```python
+config_module._settings = None
+db_module._engine = None
+db_module._async_session_factory = None
+events_module._event_bus = None
+demo_module._demo_client = None
+kraken_module._kraken_client = None
+okx_module._okx_client = None
+paper_module._paper_engine = None
+episodic_module._episodic_memory = None
+semantic_module._semantic_memory = None
+manager_module._memory_manager = None
+tools_module._toolkit = None
+executor_module._executor = None
+cognitive_module._agent = None
+reflection_module._reflection_engine = None
+scheduler_module._scheduler = None
+session_module._session = None
+strategy_module._strategy_manager = None
+strategy_gen_module._strategy_generator = None
+risk_module._risk_manager = None
+```
+
+Forgetting to reset a singleton causes test pollution and flaky failures.
+
+### Async Tests
+
+Use `pytest-asyncio` in auto mode (configured in `pyproject.toml`):
+
+```python
+import pytest
+
+@pytest.mark.asyncio
+async def test_fetch_price():
+    client = ExchangeClient(sandbox=True)
+    await client.connect()
+    price = await client.fetch_ticker("BTC/USDT")
+    assert price["last"] > 0
+```
+
+Use `@pytest_asyncio.fixture` for async fixtures, `@pytest.fixture` for sync.
 
 ### Test Naming
 
@@ -359,65 +364,55 @@ def test_circuit_breaker_triggers_on_max_drawdown():
     ...
 ```
 
-### Fixtures
-
-Use pytest fixtures for common setup:
-
-```python
-# conftest.py
-@pytest.fixture
-def settings():
-    return Settings(
-        risk=RiskSettings(risk_per_trade=0.01),
-    )
-
-@pytest.fixture
-def risk_manager(settings):
-    return RiskManager(settings.risk)
-```
-
-### Async Tests
-
-Use `pytest-asyncio` for async tests:
-
-```python
-import pytest
-
-@pytest.mark.asyncio
-async def test_fetch_price():
-    client = ExchangeClient(sandbox=True)
-    await client.connect()
-    price = await client.fetch_ticker("BTC/USDT")
-    assert price["last"] > 0
-```
-
 ### Coverage Requirements
 
 - **Overall**: 80%+ recommended
 - **Aegis module**: 100% required (risk management is critical)
 - **New code**: Must include tests
 
----
+## Adding New Features
+
+### Adding a New Indicator
+
+1. Add calculation to `keryxflow/oracle/technical.py`
+2. Add to the `INDICATORS` dict
+3. Add tests to `tests/test_oracle/test_technical.py`
+
+### Adding a New Event Type
+
+1. Add to `EventType` enum in `keryxflow/core/events.py`
+2. Subscribe in relevant modules
+3. Add tests
+
+### Adding a New Exchange Adapter
+
+1. Create a new client in `keryxflow/exchange/` (e.g., `newexchange.py`)
+2. Implement the `ExchangeAdapter` ABC or `OrderExecutor` protocol
+3. Add a singleton getter function
+4. Add API key fields to `Settings` in `keryxflow/config.py`
+5. Register in the exchange factory (`get_exchange_adapter()`)
+6. Add reset to `tests/conftest.py` singleton list
+7. Add tests in `tests/test_exchange/`
+
+### Adding a New Agent Tool
+
+1. Create the tool function in the appropriate file:
+   - `perception_tools.py` for read-only market data
+   - `analysis_tools.py` for computation
+   - `execution_tools.py` for order execution (guarded)
+2. Register it in the toolkit via `register_all_tools()`
+3. Add tests in `tests/test_agent/`
+
+### Adding a Configuration Option
+
+1. Add field to the appropriate settings class in `keryxflow/config.py`
+2. Use in code via `get_settings().section.field_name`
+3. Document in `settings.toml`
+4. Update [Configuration Reference](configuration.md)
 
 ## Debugging
 
-### Logging
-
-Use structured logging:
-
-```python
-from keryxflow.core.logging import get_logger
-
-logger = get_logger(__name__)
-
-logger.info("signal_generated", symbol="BTC/USDT", type="long")
-logger.warning("order_rejected", reason="Position too large")
-logger.error("connection_failed", error=str(e))
-```
-
 ### Debug Mode
-
-Set log level to DEBUG:
 
 ```bash
 export KERYXFLOW_LOG_LEVEL=DEBUG
@@ -431,264 +426,49 @@ Or in `settings.toml`:
 log_level = "DEBUG"
 ```
 
-### Interactive Debugging
+### Common Issues
 
-```python
-import pdb; pdb.set_trace()  # Python debugger
-```
-
-Or use VS Code / PyCharm debugger with breakpoints.
-
----
-
-## Common Tasks
-
-### Adding a New Indicator
-
-1. Add calculation to `keryxflow/oracle/technical.py`:
-
-```python
-def _calculate_new_indicator(self, df: pd.DataFrame) -> IndicatorResult:
-    # Calculate indicator
-    values = ...
-
-    return IndicatorResult(
-        name="new_indicator",
-        value=values,
-        signal=self._interpret_signal(values),
-        strength=self._calculate_strength(values),
-    )
-```
-
-2. Add to `INDICATORS` dict
-3. Add tests to `tests/test_oracle/test_technical.py`
-4. Update documentation
-
-### Adding a New Event Type
-
-1. Add to `EventType` enum in `keryxflow/core/events.py`:
-
-```python
-class EventType(str, Enum):
-    # ...existing...
-    NEW_EVENT = "new_event"
-```
-
-2. Create convenience function:
-
-```python
-def new_event(data: dict) -> Event:
-    return Event(type=EventType.NEW_EVENT, data=data)
-```
-
-3. Subscribe in relevant modules
-4. Add tests
-
-### Running the API Server
-
-KeryxFlow includes a REST API and WebSocket server for monitoring and controlling the trading engine programmatically.
-
-**Start the development server:**
-
+**Poetry issues:**
 ```bash
-# Default (port 8000)
-poetry run uvicorn keryxflow.api:app --reload
-
-# Custom host and port
-poetry run uvicorn keryxflow.api:app --host 0.0.0.0 --port 8080 --reload
-```
-
-The `--reload` flag enables auto-reload on code changes (development only).
-
-**Key endpoints:**
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/status` | Engine and session status |
-| `GET` | `/api/positions` | Open positions |
-| `GET` | `/api/balance` | Account balance |
-| `GET` | `/api/trades` | Trade history |
-| `POST` | `/api/panic` | Emergency close all positions |
-| `WS` | `/ws/events` | Real-time event stream |
-
-**Testing the API:**
-
-```bash
-# Health check
-curl http://localhost:8000/api/status
-
-# Run API tests
-poetry run pytest tests/test_api/
-```
-
-### Adding a New Exchange Adapter
-
-KeryxFlow uses the `OrderExecutor` protocol (`keryxflow/exchange/orders.py`) for exchange abstraction. To add a new exchange (e.g., Bybit, OKX):
-
-1. **Create a new client** in `keryxflow/exchange/`:
-
-```python
-# keryxflow/exchange/bybit_client.py
-import ccxt.async_support as ccxt
-
-class BybitClient:
-    """Bybit exchange client implementing the OrderExecutor protocol."""
-
-    async def execute_market_order(
-        self, symbol: str, side: str, amount: float, price: float | None = None
-    ) -> dict[str, Any]:
-        # Implement using ccxt.bybit
-        ...
-
-    def update_price(self, symbol: str, price: float) -> None:
-        ...
-
-    def get_price(self, symbol: str) -> float | None:
-        ...
-```
-
-2. **Implement all methods** from the `OrderExecutor` protocol:
-   - `execute_market_order()` - Submit market orders
-   - `update_price()` - Update cached price
-   - `get_price()` - Get cached price
-
-3. **Register in `OrderManager`** (`keryxflow/exchange/orders.py`):
-   - Add a condition to select the new client based on `settings.system.exchange`
-
-4. **Add configuration** to `config.py` for the new exchange's API keys
-
-5. **Add tests** in `tests/test_exchange/` (e.g., `test_bybit.py`)
-
-6. **Test against sandbox** - Most exchanges offer testnet/sandbox APIs via CCXT's `sandbox=True` option
-
-### Adding a Configuration Option
-
-1. Add to appropriate settings class in `keryxflow/config.py`:
-
-```python
-class NewSettings(BaseSettings):
-    new_option: str = "default"
-```
-
-2. Add to `settings.toml` with documentation
-3. Use in code via `settings.new.new_option`
-
----
-
-## Architecture Decisions
-
-### Why Event-Driven?
-
-- **Loose coupling**: Modules don't depend on each other
-- **Testability**: Easy to mock events
-- **Extensibility**: Add features without modifying existing code
-
-### Why Async?
-
-- **Non-blocking**: UI stays responsive during I/O
-- **Concurrency**: Handle multiple price feeds simultaneously
-- **Modern Python**: Native async/await support
-
-### Why SQLite?
-
-- **Simple**: No server to manage
-- **Portable**: Single file database
-- **Async**: aiosqlite for non-blocking queries
-- **Good enough**: Paper trading doesn't need scale
-
-### Why Textual for TUI?
-
-- **Modern**: CSS-like styling, reactive updates
-- **Python native**: No external dependencies
-- **Rich**: Beautiful output with minimal code
-
----
-
-## Troubleshooting
-
-### Poetry Issues
-
-```bash
-# Clear cache
 poetry cache clear . --all
-
-# Reinstall
 rm -rf .venv poetry.lock
-poetry install
+poetry install --with dev
 ```
 
-### Import Errors
-
-Ensure you're in the Poetry environment:
-
+**Import errors:** Ensure you're in the Poetry environment:
 ```bash
 poetry shell
-# or
+# or prefix commands with
 poetry run python ...
 ```
 
-### Test Database
+**Async event loop errors:** Ensure async tests use `@pytest.mark.asyncio`.
 
-Tests use isolated in-memory databases via fixtures in `conftest.py`.
+**Test database:** Tests use isolated SQLite databases via `tmp_path` in `conftest.py`. Each test gets a fresh database.
 
-### Async Event Loop Errors
+## Code Quality
 
-Ensure async tests are marked:
+Run before committing:
 
-```python
-@pytest.mark.asyncio
-async def test_something():
-    ...
+```bash
+# Lint
+poetry run ruff check .
+
+# Auto-fix lint issues
+poetry run ruff check --fix .
+
+# Format
+poetry run ruff format .
 ```
-
----
-
-## Getting Help
-
-- **GitHub Issues**: Report bugs or request features
-- **Pull Requests**: Discuss implementation details
-- **Code Comments**: Document complex logic
-
----
-
-## Before Submitting
-
-Checklist:
-
-- [ ] Tests pass: `poetry run pytest`
-- [ ] Lint passes: `poetry run ruff check .`
-- [ ] Format applied: `poetry run ruff format .`
-- [ ] Docstrings for public functions
-- [ ] Type hints complete
-- [ ] CHANGELOG updated (for features/fixes)
-- [ ] Documentation updated (if needed)
-
----
 
 ## Quick Reference
 
 ```bash
-# Run app
-poetry run keryxflow
-
-# Run tests
-poetry run pytest
-
-# Run specific test
-poetry run pytest tests/test_aegis/test_quant.py::test_position_size
-
-# Coverage report
-poetry run pytest --cov=keryxflow --cov-report=html
-
-# Lint
-poetry run ruff check .
-
-# Format
-poetry run ruff format .
-
-# Backtest
-poetry run keryxflow-backtest --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30
-
-# Optimize
-poetry run keryxflow-optimize --symbol BTC/USDT --start 2024-01-01 --end 2024-06-30 --grid quick
+poetry run keryxflow                    # Run paper trading
+poetry run keryxflow-backtest ...       # Run backtest
+poetry run keryxflow-optimize ...       # Run optimization
+poetry run pytest                       # Run all tests
+poetry run pytest --cov=keryxflow       # Tests with coverage
+poetry run ruff check .                 # Lint
+poetry run ruff format .                # Format
 ```

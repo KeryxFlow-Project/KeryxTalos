@@ -131,8 +131,13 @@ class TestSafeguardsAPICredentials:
     """Tests for API credentials check."""
 
     @pytest.fixture
-    def settings_no_creds(self):
+    def settings_no_creds(self, monkeypatch):
         """Settings without credentials."""
+        import keryxflow.config as config_module
+
+        monkeypatch.delenv("KERYXFLOW_BINANCE_API_KEY", raising=False)
+        monkeypatch.delenv("KERYXFLOW_BINANCE_API_SECRET", raising=False)
+        config_module._settings = None
         return Settings()
 
     @pytest.fixture
@@ -278,8 +283,13 @@ class TestSafeguardsVerifyReady:
         assert len(result.errors) == 0
 
     @pytest.mark.asyncio
-    async def test_missing_credentials_fails(self):
+    async def test_missing_credentials_fails(self, monkeypatch):
         """Test that missing credentials cause failure."""
+        import keryxflow.config as config_module
+
+        monkeypatch.delenv("KERYXFLOW_BINANCE_API_KEY", raising=False)
+        monkeypatch.delenv("KERYXFLOW_BINANCE_API_SECRET", raising=False)
+        config_module._settings = None
         settings = Settings()
         safeguards = LiveTradingSafeguards(settings)
 

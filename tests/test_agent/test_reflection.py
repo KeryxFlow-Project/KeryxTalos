@@ -184,8 +184,14 @@ class TestReflectionEngine:
         assert engine._client is None
 
     @pytest.mark.asyncio
-    async def test_initialize_without_api_key(self):
+    async def test_initialize_without_api_key(self, monkeypatch):
         """Test initializing without API key."""
+        import keryxflow.config as config_module
+
+        monkeypatch.delenv("KERYXFLOW_ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        config_module._settings = None
+
         engine = ReflectionEngine()
 
         await engine.initialize()

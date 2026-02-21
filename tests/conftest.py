@@ -24,6 +24,7 @@ def setup_test_database(tmp_path):
     import keryxflow.agent.scheduler as scheduler_module
     import keryxflow.agent.session as session_module
     import keryxflow.agent.strategy as strategy_module
+    import keryxflow.agent.strategy_gen as strategy_gen_module
     import keryxflow.agent.tools as tools_module
     import keryxflow.config as config_module
     import keryxflow.core.database as db_module
@@ -54,6 +55,7 @@ def setup_test_database(tmp_path):
     scheduler_module._scheduler = None
     session_module._session = None
     strategy_module._strategy_manager = None
+    strategy_gen_module._strategy_generator = None
     risk_module._risk_manager = None
 
     yield

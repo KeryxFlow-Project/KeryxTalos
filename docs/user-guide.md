@@ -348,9 +348,9 @@ Indicators are combined into an aggregate confidence score (0.0 to 1.0):
 | Confidence | Strength label | Action |
 |------------|---------------|--------|
 | Above 0.7 | Strong | Signal generated (LONG or SHORT) |
-| 0.4 to 0.7 | Moderate | Signal generated (LONG or SHORT) |
-| 0.2 to 0.4 | Weak | No trade signal |
-| Below 0.2 | None | No trade signal |
+| 0.5 to 0.7 | Moderate | Signal generated (LONG or SHORT) |
+| 0.3 to 0.5 | Weak | No trade signal |
+| Below 0.3 | None | No trade signal |
 
 Only **Strong** and **Moderate** signals trigger trade entries. Weak and None result in
 HOLD (no action).
@@ -579,11 +579,20 @@ poetry run keryxflow-backtest --symbol BTC/USDT --start 2024-01-01 --end 2024-06
 | `--balance` | `-b` | 10000 | Starting balance in USDT |
 | `--profile` | `-p` | `balanced` | Risk profile: `conservative`, `balanced`, `aggressive` |
 | `--timeframe` | `-t` | `1h` | Candle timeframe |
+| `--data` | `-d` | | Path to directory with local CSV files |
 | `--slippage` | | 0.001 | Simulated slippage (0.1%) |
 | `--commission` | | 0.001 | Simulated commission (0.1%) |
 | `--output` | `-o` | | Directory to save CSV reports |
 | `--chart` | | | Show ASCII equity chart in terminal |
 | `--trades` | | 0 | Show last N trades (0 = hide) |
+| `--mtf` | | | Enable multi-timeframe analysis |
+| `--timeframes` | | | Timeframes for MTF mode (e.g., `15m 1h 4h`) |
+| `--filter-tf` | | `4h` | Filter timeframe for trend direction |
+| `--walk-forward` | | | Enable walk-forward analysis |
+| `--wf-windows` | | 5 | Number of walk-forward windows |
+| `--wf-oos-pct` | | 0.3 | Out-of-sample fraction per window (30%) |
+| `--monte-carlo` | | | Enable Monte Carlo simulation |
+| `--simulations` | | 1000 | Number of Monte Carlo simulations |
 | `--html` | | | Path for interactive HTML report |
 
 ### Examples
@@ -672,10 +681,14 @@ poetry run keryxflow-optimize --symbol BTC/USDT --start 2024-01-01 --end 2024-06
 | `--start` | | (required) | Start date `YYYY-MM-DD` |
 | `--end` | | (required) | End date `YYYY-MM-DD` |
 | `--grid` | `-g` | `quick` | Grid search mode |
+| `--param` | `-P` | | Custom parameter: `name:val1,val2,val3[:category]` |
 | `--metric` | `-m` | `sharpe_ratio` | Optimization target |
 | `--balance` | `-b` | 10000 | Starting balance |
 | `--profile` | `-p` | `balanced` | Risk profile |
 | `--timeframe` | `-t` | `1h` | Candle timeframe |
+| `--data` | `-d` | | Path to directory with local CSV files |
+| `--slippage` | | 0.001 | Simulated slippage (0.1%) |
+| `--commission` | | 0.001 | Simulated commission (0.1%) |
 | `--output` | `-o` | | Directory for results |
 | `--top` | | 5 | Number of top results to show |
 | `--compact` | | | Use compact output format |

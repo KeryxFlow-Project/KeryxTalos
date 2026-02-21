@@ -32,6 +32,7 @@ ccxt = "^4.0"
 numpy = ">=2.0"
 pandas = "^2.0"
 pandas-ta = ">=0.3.14b0"
+matplotlib = "^3.8"
 
 # AI
 langchain = ">=0.1,<1.0"

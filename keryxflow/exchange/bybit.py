@@ -302,6 +302,20 @@ class BybitClient(ExchangeAdapter):
 
         return await self._exchange.fetch_order(order_id, symbol)
 
+    async def get_open_orders(self, symbol: str) -> list[dict[str, Any]]:
+        """Get open orders for a symbol.
+
+        Args:
+            symbol: Trading pair
+
+        Returns:
+            List of open orders
+        """
+        self._ensure_connected()
+        assert self._exchange is not None
+
+        return await self._exchange.fetch_open_orders(symbol)
+
     async def start_price_feed(
         self,
         symbols: list[str] | None = None,

@@ -10,7 +10,7 @@ from keryxflow.memory.episodic import EpisodeContext, EpisodicMemory, Similarity
 
 
 @pytest.fixture
-async def episodic_memory(_init_db):
+async def episodic_memory(init_db):  # noqa: ARG001
     """Create an episodic memory instance."""
     return EpisodicMemory(get_session_factory())
 
@@ -55,7 +55,7 @@ class TestEpisodeContext:
 class TestSimilarityMatch:
     """Tests for SimilarityMatch dataclass."""
 
-    def test_similarity_match_to_dict(self, _init_db):
+    def test_similarity_match_to_dict(self, init_db):  # noqa: ARG002
         """Test converting similarity match to dict."""
         from keryxflow.core.models import TradeEpisode
 

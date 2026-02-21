@@ -64,7 +64,7 @@ class TestPlaceOrderTool:
         assert side_param.enum == ["buy", "sell"]
 
     @pytest.mark.asyncio
-    async def test_execute_requires_guardrail_validation(self, _init_db):
+    async def test_execute_requires_guardrail_validation(self, init_db):  # noqa: ARG002
         """Test that execution validates against guardrails."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.exchange.paper import get_paper_engine
@@ -90,7 +90,7 @@ class TestPlaceOrderTool:
         assert result.data["symbol"] == "BTC/USDT"
 
     @pytest.mark.asyncio
-    async def test_execute_blocks_excessive_position(self, _init_db):
+    async def test_execute_blocks_excessive_position(self, init_db):  # noqa: ARG002
         """Test that excessive positions are blocked by guardrails."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.exchange.paper import get_paper_engine
@@ -142,7 +142,7 @@ class TestClosePositionTool:
         assert tool.is_guarded is True
 
     @pytest.mark.asyncio
-    async def test_execute_no_position(self, _init_db):
+    async def test_execute_no_position(self, init_db):  # noqa: ARG002
         """Test closing non-existent position."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -156,7 +156,7 @@ class TestClosePositionTool:
         assert "No open position" in result.error
 
     @pytest.mark.asyncio
-    async def test_execute_closes_position(self, _init_db):
+    async def test_execute_closes_position(self, init_db):  # noqa: ARG002
         """Test closing an existing position."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -195,7 +195,7 @@ class TestSetStopLossTool:
         assert tool.is_guarded is True
 
     @pytest.mark.asyncio
-    async def test_execute_no_position(self, _init_db):
+    async def test_execute_no_position(self, init_db):  # noqa: ARG002
         """Test setting stop loss on non-existent position."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -209,7 +209,7 @@ class TestSetStopLossTool:
         assert "No open position" in result.error
 
     @pytest.mark.asyncio
-    async def test_execute_invalid_stop_direction(self, _init_db):
+    async def test_execute_invalid_stop_direction(self, init_db):  # noqa: ARG002
         """Test setting invalid stop loss direction for long."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -244,7 +244,7 @@ class TestSetTakeProfitTool:
         assert tool.is_guarded is True
 
     @pytest.mark.asyncio
-    async def test_execute_invalid_tp_direction(self, _init_db):
+    async def test_execute_invalid_tp_direction(self, init_db):  # noqa: ARG002
         """Test setting invalid take profit direction for long."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -307,7 +307,7 @@ class TestCloseAllPositionsTool:
         assert confirm_param.type == "boolean"
 
     @pytest.mark.asyncio
-    async def test_execute_requires_confirmation(self, _init_db):
+    async def test_execute_requires_confirmation(self, init_db):  # noqa: ARG002
         """Test that execution requires confirm=true."""
         tool = CloseAllPositionsTool()
 
@@ -317,7 +317,7 @@ class TestCloseAllPositionsTool:
         assert "not confirmed" in result.error.lower()
 
     @pytest.mark.asyncio
-    async def test_execute_closes_all(self, _init_db):
+    async def test_execute_closes_all(self, init_db):  # noqa: ARG002
         """Test closing all positions."""
         from keryxflow.exchange.paper import get_paper_engine
 
@@ -356,7 +356,7 @@ class TestExecutionToolsGuardrailIntegration:
     """Integration tests for execution tools with guardrails."""
 
     @pytest.mark.asyncio
-    async def test_place_order_respects_max_position_size(self, _init_db):
+    async def test_place_order_respects_max_position_size(self, init_db):  # noqa: ARG002
         """Test that place_order respects MAX_POSITION_SIZE_PCT guardrail."""
         from keryxflow.aegis.guardrails import get_guardrails
         from keryxflow.aegis.risk import get_risk_manager
@@ -385,7 +385,7 @@ class TestExecutionToolsGuardrailIntegration:
         # Should be blocked by guardrails or risk manager
 
     @pytest.mark.asyncio
-    async def test_tools_through_toolkit_with_guardrails(self, _init_db):
+    async def test_tools_through_toolkit_with_guardrails(self, init_db):  # noqa: ARG002
         """Test execution tools work through toolkit with guardrails."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.exchange.paper import get_paper_engine

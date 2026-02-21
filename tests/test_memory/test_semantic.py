@@ -8,7 +8,7 @@ from keryxflow.memory.semantic import PatternMatch, RuleMatch, SemanticMemory
 
 
 @pytest.fixture
-async def semantic_memory(_init_db):
+async def semantic_memory(init_db):  # noqa: ARG001
     """Create a semantic memory instance."""
     return SemanticMemory(get_session_factory())
 
@@ -16,7 +16,7 @@ async def semantic_memory(_init_db):
 class TestRuleMatch:
     """Tests for RuleMatch dataclass."""
 
-    def test_rule_match_to_dict(self, _init_db):
+    def test_rule_match_to_dict(self, init_db):  # noqa: ARG002
         """Test converting rule match to dict."""
         from keryxflow.core.models import TradingRule
 
@@ -45,7 +45,7 @@ class TestRuleMatch:
 class TestPatternMatch:
     """Tests for PatternMatch dataclass."""
 
-    def test_pattern_match_to_dict(self, _init_db):
+    def test_pattern_match_to_dict(self, init_db):  # noqa: ARG002
         """Test converting pattern match to dict."""
         from keryxflow.core.models import MarketPattern
 

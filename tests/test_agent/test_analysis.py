@@ -231,7 +231,7 @@ class TestGetTradingRulesTool:
         assert tool.category == ToolCategory.INTROSPECTION
 
     @pytest.mark.asyncio
-    async def test_execute_returns_empty_list(self, _init_db):
+    async def test_execute_returns_empty_list(self, init_db):  # noqa: ARG002
         """Test returns empty list when no rules."""
         tool = GetTradingRulesTool()
         result = await tool.execute()
@@ -261,7 +261,7 @@ class TestRecallSimilarTradesTool:
         assert "trend" in param_names
 
     @pytest.mark.asyncio
-    async def test_execute_returns_empty_list(self, _init_db):
+    async def test_execute_returns_empty_list(self, init_db):  # noqa: ARG002
         """Test returns empty list when no similar trades."""
         tool = RecallSimilarTradesTool()
         result = await tool.execute(symbol="BTC/USDT")
@@ -282,7 +282,7 @@ class TestGetMarketPatternsTool:
         assert tool.category == ToolCategory.INTROSPECTION
 
     @pytest.mark.asyncio
-    async def test_execute_returns_empty_list(self, _init_db):
+    async def test_execute_returns_empty_list(self, init_db):  # noqa: ARG002
         """Test returns empty list when no patterns."""
         tool = GetMarketPatternsTool()
         result = await tool.execute()
@@ -296,7 +296,7 @@ class TestAnalysisToolsIntegration:
     """Integration tests for analysis tools."""
 
     @pytest.mark.asyncio
-    async def test_tools_can_be_executed_through_toolkit(self, _init_db):
+    async def test_tools_can_be_executed_through_toolkit(self, init_db):  # noqa: ARG002
         """Test that analysis tools can be executed through toolkit."""
         toolkit = TradingToolkit()
         register_analysis_tools(toolkit)

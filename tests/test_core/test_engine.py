@@ -414,7 +414,11 @@ class TestTradingEngineLiveMode:
 
     @pytest.mark.asyncio
     async def test_verify_live_mode_with_credentials(
-        self, mock_exchange, mock_paper, event_bus, _init_db
+        self,
+        mock_exchange,
+        mock_paper,
+        event_bus,
+        init_db,  # noqa: ARG002
     ):
         """Test live mode verification with valid credentials."""
         engine = TradingEngine(

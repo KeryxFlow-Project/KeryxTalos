@@ -254,7 +254,7 @@ class TestToolExecutorWithGuardrails:
     """Tests for executor with guardrail integration."""
 
     @pytest.mark.asyncio
-    async def test_execute_guarded_tool_with_guardrails(self, _init_db):
+    async def test_execute_guarded_tool_with_guardrails(self, init_db):  # noqa: ARG002
         """Test executing guarded tool validates against guardrails."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.agent.execution_tools import register_execution_tools
@@ -283,7 +283,7 @@ class TestToolExecutorWithGuardrails:
         assert result.success is True
 
     @pytest.mark.asyncio
-    async def test_execute_guarded_blocks_invalid_order(self, _init_db):
+    async def test_execute_guarded_blocks_invalid_order(self, init_db):  # noqa: ARG002
         """Test that guarded execution blocks invalid orders."""
         from keryxflow.aegis.risk import get_risk_manager
         from keryxflow.agent.execution_tools import register_execution_tools

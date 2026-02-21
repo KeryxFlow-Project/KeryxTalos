@@ -108,7 +108,7 @@ async def test_balance_returns_dict(client):
     assert "used" in data
 
 
-async def test_trades_with_data(client, _init_db):
+async def test_trades_with_data(client, init_db):  # noqa: ARG001
     """GET /api/trades returns trade data when trades exist."""
     from keryxflow.core.repository import get_trade_repository
 

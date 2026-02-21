@@ -10,7 +10,7 @@ from keryxflow.memory.semantic import SemanticMemory
 
 
 @pytest.fixture
-async def memory_manager(_init_db):
+async def memory_manager(init_db):  # noqa: ARG001
     """Create a memory manager instance."""
     session_factory = get_session_factory()
     episodic = EpisodicMemory(session_factory)

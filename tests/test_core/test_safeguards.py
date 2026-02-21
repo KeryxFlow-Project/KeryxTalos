@@ -135,8 +135,10 @@ class TestSafeguardsAPICredentials:
         """Settings without credentials."""
         import keryxflow.config as config_module
 
-        monkeypatch.delenv("KERYXFLOW_BINANCE_API_KEY", raising=False)
-        monkeypatch.delenv("KERYXFLOW_BINANCE_API_SECRET", raising=False)
+        monkeypatch.setenv("BINANCE_API_KEY", "")
+        monkeypatch.setenv("BINANCE_API_SECRET", "")
+        monkeypatch.setenv("KERYXFLOW_BINANCE_API_KEY", "")
+        monkeypatch.setenv("KERYXFLOW_BINANCE_API_SECRET", "")
         config_module._settings = None
         return Settings()
 
@@ -287,8 +289,10 @@ class TestSafeguardsVerifyReady:
         """Test that missing credentials cause failure."""
         import keryxflow.config as config_module
 
-        monkeypatch.delenv("KERYXFLOW_BINANCE_API_KEY", raising=False)
-        monkeypatch.delenv("KERYXFLOW_BINANCE_API_SECRET", raising=False)
+        monkeypatch.setenv("BINANCE_API_KEY", "")
+        monkeypatch.setenv("BINANCE_API_SECRET", "")
+        monkeypatch.setenv("KERYXFLOW_BINANCE_API_KEY", "")
+        monkeypatch.setenv("KERYXFLOW_BINANCE_API_SECRET", "")
         config_module._settings = None
         settings = Settings()
         safeguards = LiveTradingSafeguards(settings)

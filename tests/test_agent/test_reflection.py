@@ -190,6 +190,8 @@ class TestReflectionEngine:
 
         monkeypatch.delenv("KERYXFLOW_ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        # Force empty key so .env file doesn't override
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
         config_module._settings = None
 
         engine = ReflectionEngine()

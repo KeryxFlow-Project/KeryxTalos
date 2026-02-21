@@ -110,7 +110,7 @@ class TestStrategyGenerator:
         """Test that generation fails when no client is available."""
         monkeypatch.setenv("KERYXFLOW_AI_MODE", "enhanced")
         monkeypatch.setenv("KERYXFLOW_ANTHROPIC_API_KEY", "")
-        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "")
         config_module._settings = None
         gen = StrategyGenerator()
         # Client will be None since API key is empty

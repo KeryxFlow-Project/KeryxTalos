@@ -1288,7 +1288,7 @@ poetry run keryxflow
 ## RFC & Architecture
 
 ### RFC #11: AI-First Trading Architecture
-**Status**: Phase 5 Complete | **Document**: `docs/ai-trading-architecture.md`
+**Status**: Phase 5 Complete | **Document**: `docs/architecture.md`
 
 Proposes evolution from "AI validates" to "AI operates":
 - Previous: Technical indicators (60%) + Claude validates (40%)
